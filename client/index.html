@@ -81,8 +81,10 @@ async function boot() {
   const started = performance.now();
   worker = await createDbWorker(
     // The worker resolves relative URLs against its own script location, not
-    // the page's - so this has to already be absolute.
-    [{ from: "inline", config: { serverMode: "full", url: new URL("./prices.db", location.href).toString(), requestChunkSize: 1024 } }],
+    // the page's - so this has to already be absolute. Served as .mp3 because
+    // GitHub Pages gzips application/octet-stream (breaking Range length
+    // detection) but leaves media types uncompressed - see build.yml.
+    [{ from: "inline", config: { serverMode: "full", url: new URL("./prices.mp3", location.href).toString(), requestChunkSize: 1024 } }],
     new URL("./vendor/sqlite.worker.js", import.meta.url).toString(),
     new URL("./vendor/sql-wasm.wasm", import.meta.url).toString(),
   );
