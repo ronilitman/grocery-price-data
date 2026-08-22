@@ -13,11 +13,16 @@ on:
         description: 'Max files per chain (leave blank for all; use e.g. 20 for a smoke test)'
         required: false
         default: ''
+      reuse_run_id:
+        description: 'Run ID to reuse chain databases from, skipping scraping entirely (publish-only rebuild, e.g. after a client-only change)'
+        required: false
+        default: ''
 
 permissions:
   contents: write
   pages: write
   id-token: write
+  actions: read      # to download artifacts from a previous run (reuse_run_id)
 
 concurrency:
   group: build-price-db
@@ -26,6 +31,7 @@ concurrency:
 jobs:
   fetch:
     name: ${{ matrix.chain }}
+    if: ${{ github.event.inputs.reuse_run_id == '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     strategy:
@@ -105,6 +111,11 @@ jobs:
           pattern: db-*
           merge-multiple: true
           path: chain_dbs
+          # Defaults to this run's own artifacts; reuse_run_id points it at an
+          # older run's instead, so a client-only change can redeploy without
+          # rescraping every chain.
+          run-id: ${{ github.event.inputs.reuse_run_id || github.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Show what arrived
         run: ls -lh chain_dbs/
