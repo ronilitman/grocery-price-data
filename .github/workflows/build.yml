@@ -29,9 +29,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     strategy:
-      fail-fast: false          # one broken chain must not sink the other 17
+      fail-fast: false          # one broken chain must not sink the other 16
       max-parallel: 6
       matrix:
+        # NETIV_HASED omitted: upstream site is down (HTTP 500), excluded from
+        # ScraperFactory.all_scrapers_name() by the library itself - not a typo.
         chain:
           - RAMI_LEVY
           - SHUFERSAL
@@ -45,7 +47,6 @@ jobs:
           - KING_STORE
           - STOP_MARKET
           - ZOL_VEBEGADOL
-          - NETIV_HASED
           - KESHET
           - DOR_ALON
           - FRESH_MARKET_AND_SUPER_DOSH
