@@ -84,7 +84,10 @@ async function boot() {
     // the page's - so this has to already be absolute. Served as .mp3 because
     // GitHub Pages gzips application/octet-stream (breaking Range length
     // detection) but leaves media types uncompressed - see build.yml.
-    [{ from: "inline", config: { serverMode: "full", url: new URL("./prices.mp3", location.href).toString(), requestChunkSize: 1024 } }],
+    // 64KiB, not 1KiB: over a real network every chunk is its own
+    // round-trip, and ORDER BY ... LIMIT queries touch many pages before
+    // they can return - fewer, bigger fetches beats many tiny ones.
+    [{ from: "inline", config: { serverMode: "full", url: new URL("./prices.mp3", location.href).toString(), requestChunkSize: 65536 } }],
     new URL("./vendor/sqlite.worker.js", import.meta.url).toString(),
     new URL("./vendor/sql-wasm.wasm", import.meta.url).toString(),
   );
