@@ -137,6 +137,7 @@ jobs:
              node_modules/sql.js-httpvfs/dist/sql-wasm.wasm \
              dist/vendor/
           cp client/index.html dist/index.html
+          cp client/test_media.mp3 client/test_media.zip dist/  # TEMP: gzip/Range CDN probe, remove after
           ls -lh dist/vendor/
 
       - uses: actions/configure-pages@v5
