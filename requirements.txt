@@ -1,0 +1,5 @@
+# Installed from git rather than PyPI on purpose: the supermarket portals change
+# their formats often and fixes land on main well before a release is cut.
+# Pin to a commit here if you ever need a reproducible build.
+git+https://github.com/OpenIsraeliSupermarkets/israeli-supermarket-scarpers.git
+git+https://github.com/OpenIsraeliSupermarkets/israeli-supermarket-parsers.git

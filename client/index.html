@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>מחירי סופרמרקטים — בדיקה</title>
+<style>
+  :root{--bg:#f6f7f4;--fg:#151a17;--muted:#5d6a64;--rule:#d9e0da;--card:#fff;--accent:#0e6e5c}
+  @media (prefers-color-scheme:dark){
+    :root{--bg:#101312;--fg:#e6ece8;--muted:#9aa7a1;--rule:#282f2c;--card:#171b19;--accent:#4cc5a8}
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+  main{max-width:900px;margin:0 auto;padding:24px 18px 64px}
+  h1{font-size:22px;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:14px;margin:0 0 20px}
+  fieldset{border:1px solid var(--rule);border-radius:6px;background:var(--card);padding:14px;margin:0 0 14px}
+  legend{font-size:13px;color:var(--accent);padding:0 6px;font-weight:600}
+  .row{display:flex;gap:8px;flex-wrap:wrap}
+  input,select,button{font:inherit;padding:8px 10px;border:1px solid var(--rule);border-radius:5px;
+    background:var(--bg);color:var(--fg)}
+  input{flex:1;min-width:150px}
+  button{background:var(--accent);color:#fff;border-color:transparent;cursor:pointer;font-weight:600}
+  button:disabled{opacity:.5;cursor:default}
+  table{width:100%;border-collapse:collapse;font-size:14px;margin-top:12px}
+  th,td{text-align:right;padding:7px 8px;border-bottom:1px solid var(--rule)}
+  th{font-size:12px;color:var(--muted);font-weight:600}
+  td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
+  #status{font-size:13px;color:var(--muted);margin-top:14px;white-space:pre-wrap}
+  .scroll{overflow-x:auto}
+</style>
+</head>
+<body>
+<main>
+  <h1>מחירי סופרמרקטים</h1>
+  <p class="sub">שאילתות SQL אמיתיות מול קובץ SQLite סטטי, דרך HTTP Range. אין שרת.</p>
+
+  <fieldset>
+    <legend>חיפוש לפי שם</legend>
+    <div class="row">
+      <input id="q" placeholder="חלב, קוטג׳, לחם…" value="קוטג">
+      <select id="city"><option value="">כל הערים</option></select>
+      <button id="go" disabled>חפש</button>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>חיפוש לפי ברקוד</legend>
+    <div class="row">
+      <input id="bc" placeholder="7290000042733" inputmode="numeric">
+      <button id="goBc" disabled>בדוק</button>
+    </div>
+  </fieldset>
+
+  <div class="scroll"><table id="out"></table></div>
+  <div id="status">טוען…</div>
+</main>
+
+<script type="module">
+import { createDbWorker } from "./vendor/index.js";
+
+const statusEl = document.getElementById("status");
+const outEl = document.getElementById("out");
+let worker = null;
+
+function render(rows, columns) {
+  if (!rows.length) { outEl.innerHTML = "<tr><td>לא נמצאו תוצאות</td></tr>"; return; }
+  const head = "<tr>" + columns.map(c => `<th>${c}</th>`).join("") + "</tr>";
+  const body = rows.map(r => "<tr>" + columns.map(c => {
+    const v = r[c];
+    const numeric = typeof v === "number";
+    return `<td class="${numeric ? "n" : ""}">${numeric ? v.toFixed(2) : (v ?? "")}</td>`;
+  }).join("") + "</tr>").join("");
+  outEl.innerHTML = head + body;
+}
+
+async function boot() {
+  const started = performance.now();
+  worker = await createDbWorker(
+    [{ from: "inline", config: { serverMode: "full", url: "./prices.db", requestChunkSize: 1024 } }],
+    new URL("./vendor/sqlite.worker.js", import.meta.url).toString(),
+    new URL("./vendor/sql-wasm.wasm", import.meta.url).toString(),
+  );
+
+  const meta = await worker.db.query("SELECT key, value FROM meta");
+  const counts = JSON.parse(meta.find(m => m.key === "counts")?.value ?? "{}");
+  const builtAt = meta.find(m => m.key === "built_at")?.value ?? "?";
+
+  const cities = await worker.db.query(
+    "SELECT city, COUNT(*) n FROM stores WHERE city <> '' GROUP BY city ORDER BY n DESC LIMIT 60");
+  const select = document.getElementById("city");
+  for (const { city } of cities) select.add(new Option(city, city));
+
+  statusEl.textContent =
+    `נבנה ב-${builtAt} · ${(counts.products ?? 0).toLocaleString()} ברקודים · ` +
+    `${(counts.stores ?? 0).toLocaleString()} סניפים · ` +
+    `נטען ב-${Math.round(performance.now() - started)}ms`;
+  document.getElementById("go").disabled = false;
+  document.getElementById("goBc").disabled = false;
+}
+
+// Word index, then price, then store. Every step is an index seek, so the
+// browser pulls a few KiB rather than the whole file.
+const BY_NAME = `
+  SELECT p.name AS מוצר, c.name AS רשת, s.store_name AS סניף, s.city AS עיר,
+         COALESCE(e.price, cp.price) AS מחיר
+  FROM product_tokens t
+  JOIN products p      ON p.barcode  = t.barcode
+  JOIN chain_prices cp ON cp.barcode = p.barcode
+  JOIN chains c        ON c.chain_id = cp.chain_id
+  JOIN stores s        ON s.chain_id = cp.chain_id
+  LEFT JOIN price_exceptions e
+         ON e.chain_id = cp.chain_id AND e.store_id = s.store_id AND e.barcode = p.barcode
+  WHERE t.token = ?2 AND (?1 = '' OR s.city = ?1)
+  ORDER BY מחיר LIMIT 50`;
+
+const BY_BARCODE = `
+  SELECT p.name AS מוצר, c.name AS רשת, cp.price AS מחיר, cp.store_count AS סניפים
+  FROM chain_prices cp
+  JOIN products p ON p.barcode = cp.barcode
+  JOIN chains c   ON c.chain_id = cp.chain_id
+  WHERE cp.barcode = ? ORDER BY מחיר`;
+
+async function run(sql, params, columns) {
+  const started = performance.now();
+  const rows = await worker.db.query(sql, params);
+  render(rows, columns);
+  statusEl.textContent = `${rows.length} שורות ב-${Math.round(performance.now() - started)}ms`;
+}
+
+document.getElementById("go").onclick = () => {
+  const city = document.getElementById("city").value;
+  const token = document.getElementById("q").value.trim().toLowerCase();
+  // ?1 is the city, ? is the token - keep the order the SQL expects.
+  run(BY_NAME, [city, token], ["מוצר", "רשת", "סניף", "עיר", "מחיר"]);
+};
+
+document.getElementById("goBc").onclick = () =>
+  run(BY_BARCODE, [document.getElementById("bc").value.replace(/\D/g, "")],
+      ["מוצר", "רשת", "מחיר", "סניפים"]);
+
+boot().catch(err => { statusEl.textContent = "שגיאה: " + err.message; console.error(err); });
+</script>
+</body>
+</html>
