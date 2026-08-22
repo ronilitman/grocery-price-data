@@ -97,6 +97,18 @@ async function boot() {
     `נטען ב-${Math.round(performance.now() - started)}ms`;
   document.getElementById("go").disabled = false;
   document.getElementById("goBc").disabled = false;
+
+  // Shareable links: ?q=חלב&city=חיפה runs the name search, ?bc=7290... runs
+  // the barcode lookup, both on load.
+  const params = new URLSearchParams(location.search);
+  if (params.has("bc")) {
+    document.getElementById("bc").value = params.get("bc");
+    document.getElementById("goBc").click();
+  } else if (params.has("q")) {
+    document.getElementById("q").value = params.get("q");
+    if (params.has("city")) document.getElementById("city").value = params.get("city");
+    document.getElementById("go").click();
+  }
 }
 
 // Word index, then price, then store. Every step is an index seek, so the
