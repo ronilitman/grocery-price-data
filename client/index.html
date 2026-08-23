@@ -29,6 +29,15 @@
   th{font-size:12px;color:var(--muted);font-weight:600}
   td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
   tr.best td{font-weight:700;color:var(--accent)}
+  tr[data-chain]{cursor:pointer}
+  tr[data-chain]:hover td{background:rgba(128,128,128,.07)}
+  .more{font-size:11px;color:var(--muted);font-weight:400}
+  tr.detail{display:none}
+  tr.detail.open{display:table-row}
+  tr.detail td{background:rgba(128,128,128,.05);padding:10px 12px}
+  .tier{margin:0 0 8px}
+  .tier b{font-variant-numeric:tabular-nums;color:var(--accent)}
+  .branches{font-size:12.5px;color:var(--muted);margin-top:2px}
   #status{font-size:13px;color:var(--muted);margin-top:14px;white-space:pre-wrap}
   .scroll{overflow-x:auto}
 </style>
@@ -81,25 +90,97 @@ async function loadShard(prefix) {
   return shardCache.get(prefix);
 }
 
+// --- per-store drill-down, all fetched lazily on the first tap ------------
+let stores = null, detailIndex = null;
+const detailCache = new Map();
+
+async function loadDetail(barcode) {
+  if (!stores) stores = await (await fetch(new URL("stores.json", base))).json();
+  if (!detailIndex) {
+    detailIndex = await (await fetch(new URL("detail/index.json", base))).json();
+  }
+  let prefix = null;
+  for (const depth of detailIndex.levels) {
+    const p = barcode.slice(0, depth).padEnd(depth, "0");
+    if (detailIndex.shards.includes(p)) prefix = p;
+  }
+  if (!prefix) return null;
+  if (!detailCache.has(prefix)) {
+    const res = await fetch(new URL(`detail/${prefix}.json`, base));
+    detailCache.set(prefix, res.ok ? await res.json() : {});
+  }
+  return detailCache.get(prefix)[barcode] ?? null;
+}
+
+// city is a CBS locality code in the source data, not a name - only show it
+// when a chain actually publishes something readable.
+const label = (chainId, storeId) => {
+  const s = stores?.[chainId]?.[storeId];
+  if (!s || !s[0]) return `סניף ${storeId}`;
+  return /^\d+$/.test(s[1]) || !s[1] ? s[0] : `${s[0]} · ${s[1]}`;
+};
+
+const branchCount = n => (n === 1 ? "סניף אחד" : `${n} סניפים`);
+
+function tiers(chainId, baseline, count, overrides) {
+  const byPrice = new Map();
+  for (const [storeId, price] of overrides ?? []) {
+    if (!byPrice.has(price)) byPrice.set(price, []);
+    byPrice.get(price).push(storeId);
+  }
+  const out = [...byPrice.entries()]
+    .map(([price, ids]) => ({ price, ids, branches: ids.length }));
+  if (count > 0) out.push({ price: baseline, ids: null, branches: count });
+  return out.sort((a, b) => a.price - b.price);
+}
+
+async function expand(chainId, barcode, cell) {
+  cell.innerHTML = `<span class="sub">טוען סניפים…</span>`;
+  const detail = await loadDetail(barcode);
+  const [baseline, count] = currentEntry.p[chainId];
+  const list = tiers(chainId, baseline, count, detail?.[chainId]);
+  if (list.length <= 1) { cell.innerHTML = `<span class="sub">מחיר אחיד בכל הסניפים.</span>`; return; }
+  cell.innerHTML = list.map(t =>
+    `<div class="tier"><b>${t.price.toFixed(2)}</b> · ${branchCount(t.branches)}` +
+    (t.ids ? `<div class="branches">${t.ids.map(id => label(chainId, id)).join(" · ")}</div>`
+           : `<div class="branches">שאר הסניפים</div>`) + `</div>`).join("");
+}
+
+let currentEntry = null;
+
 function render(barcode, entry) {
-  const rows = Object.entries(entry.p).sort((a, b) => a[1] - b[1]);
+  currentEntry = entry;
+  const rows = Object.entries(entry.p).sort((a, b) => a[1][0] - b[1][0]);
   if (!rows.length) {
     resultEl.innerHTML = `<h2>${entry.n}</h2><p class="bc">${barcode}</p>
       <p class="sub">אין מחירים למוצר הזה.</p>`;
     return;
   }
-  const cheapest = rows[0][1];
+  const cheapest = rows[0][1][0];
   resultEl.innerHTML =
     `<h2>${entry.n}</h2><p class="bc">ברקוד ${barcode}</p>` +
     `<div class="scroll"><table><tr><th>רשת</th><th>מחיר</th><th>הפרש</th></tr>` +
-    rows.map(([id, price]) => {
+    rows.map(([id, [price]]) => {
       const diff = price - cheapest;
-      return `<tr class="${diff === 0 ? "best" : ""}">` +
-             `<td>${index.chains[id] ?? id}</td>` +
+      return `<tr class="${diff === 0 ? "best" : ""}" data-chain="${id}">` +
+             `<td>${index.chains[id] ?? id} <span class="more">סניפים ▾</span></td>` +
              `<td class="n">${price.toFixed(2)}</td>` +
-             `<td class="n">${diff === 0 ? "—" : "+" + diff.toFixed(2)}</td></tr>`;
+             `<td class="n">${diff === 0 ? "—" : "+" + diff.toFixed(2)}</td></tr>` +
+             `<tr class="detail" id="d-${id}"><td colspan="3"></td></tr>`;
     }).join("") +
     `</table></div>`;
+
+  resultEl.querySelectorAll("tr[data-chain]").forEach(tr => {
+    tr.onclick = () => {
+      const id = tr.dataset.chain;
+      const row = resultEl.querySelector(`#d-${CSS.escape(id)}`);
+      const open = row.classList.toggle("open");
+      if (open && !row.dataset.loaded) {
+        row.dataset.loaded = "1";
+        expand(id, barcode, row.firstElementChild);
+      }
+    };
+  });
 }
 
 async function search() {
