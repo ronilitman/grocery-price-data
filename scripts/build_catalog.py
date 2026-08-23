@@ -26,6 +26,10 @@ MAX_FILES = 20000       # the tightest limit among static hosts
 DETAIL_LEVELS = (3, 6, 8, 10, 13)
 DETAIL_MAX_BYTES = 120_000
 
+# What the chains publish when they have no unit; carrying it forward would
+# only let a client print "unknown" where it could print nothing.
+UNKNOWN_UNIT = "\u05dc\u05d0 \u05d9\u05d3\u05d5\u05e2"
+
 
 def dump(obj):
     return json.dumps(obj, ensure_ascii=False, separators=(",", ":"))
@@ -118,17 +122,21 @@ def main():
     entries = {}
     # "w" marks a weighed product, whose price is per unit_qty (a kilo, almost
     # always) rather than per item - a cart cannot sum those without asking the
-    # user for a weight. "u" carries that unit for display. Both are omitted
-    # when empty: 88% of products are not weighed, and with 109k entries every
-    # key that is always present is paid for 109k times.
+    # user for a weight - and "u" names that unit.
+    #
+    # Both are omitted when they say nothing. Only 12% of products are weighed,
+    # and with 109k entries a key that is always present is paid for 109k
+    # times. "u" rides along only on weighed entries for the same reason: on a
+    # packaged product unit_qty is a bare "gram" with the count in a column the
+    # shards do not carry, which costs ~9% of shard bytes to say nothing.
     for barcode, name, unit_qty, is_weighted in conn.execute(
             "SELECT barcode, name, unit_qty, is_weighted FROM products"):
         entry = {"n": name, "p": {}}
         if is_weighted:
             entry["w"] = 1
-        unit = (unit_qty or "").strip()
-        if unit:
-            entry["u"] = unit
+            unit = (unit_qty or "").strip()
+            if unit and unit != UNKNOWN_UNIT:
+                entry["u"] = unit
         entries[barcode] = entry
     # [price, how many branches sell at that baseline] - the count lets the
     # drill-down say "and 29 other branches" without naming stores we only

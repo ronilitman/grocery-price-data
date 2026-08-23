@@ -27,7 +27,7 @@ BASE = https://ronilitman.github.io/grocery-price-data/catalog/
 | endpoint | returns |
 |---|---|
 | `index.json` | `{levels, shards[], chains{id→name}, built_at, products}` — fetch once, cache |
-| `{prefix}.json` | `{barcode: {n: name, p: {chain_id: [price, branches_at_baseline]}, w?: 1, u?: unit}}` |
+| `{prefix}.json` | `{barcode: {n: name, p: {chain_id: [price, branches_at_baseline]}, w?: 1, u?: unit}}` — `w`/`u` only on weighed goods |
 | `detail/index.json` | `{levels, shards[]}` for the per-store files |
 | `detail/{prefix}.json` | `{barcode: {chain_id: [[store_id, price], …]}}` — **only branches that differ** |
 | `stores.json` | `{chain_id: {store_id: [name, city_code]}}` (~55 KB) |
@@ -171,14 +171,19 @@ name and writes them as `w` / `u`, omitting either when it would be empty:
 
 ```python
 entry = {"n": name, "p": {}}
-if is_weighted:      entry["w"] = 1
-if (unit_qty or "").strip():  entry["u"] = unit_qty.strip()
+if is_weighted:
+    entry["w"] = 1
+    if unit_qty and unit_qty.strip() != "לא ידוע":
+        entry["u"] = unit_qty.strip()
 ```
 
-Omission is deliberate: 88% of products are not weighed, and with 109k entries
-an always-present key is paid for 109k times. Published with `reuse_run_id`, no
-scrape. `.github/workflows/build.yml` artifact retention went 1 day → 7, so
-`reuse_run_id` still works a few days later.
+Omission is deliberate: only 12% of products are weighed, and with 109k entries
+an always-present key is paid for 109k times. `u` rides only on weighed entries
+for the same reason — on a packaged product `unit_qty` is a bare "gram" whose
+count is in a column the shards do not carry, so it cost ~9% of shard bytes to
+say nothing. Published with `reuse_run_id`, no scrape.
+`.github/workflows/build.yml` artifact retention went 1 day → 7, so
+`reuse_run_id` still has artifacts to reuse a few days later.
 
 ### 4.2 Feature 1 — Add a product by barcode
 

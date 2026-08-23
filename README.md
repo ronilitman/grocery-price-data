@@ -70,10 +70,12 @@ catalogue in one file. `catalog/index.json` lists the shard prefixes; take the
 longest one your barcode starts with.
 
 Each shard entry is `{n: name, p: {chain_id: [price, branches_at_baseline]}}`,
-plus two optional keys. `w: 1` marks a weighed product, whose price is per
-`unit_qty` rather than per item — a cart cannot sum those without a weight from
-the user. `u` carries that unit for display. Both are omitted when they would
-be empty, so absent `w` means "not weighed", never "unknown".
+plus two optional keys. `w: 1` marks a weighed product, whose price is per unit
+rather than per item — a cart cannot sum those without a weight from the user —
+and `u` names that unit. Both are omitted when they would say nothing, so
+absent `w` means "not weighed", never "unknown"; `u` appears only alongside `w`,
+because on a packaged product `unit_qty` is a bare "gram" whose count lives in a
+column the shards do not carry.
 
 `product_tokens` exists because `LIKE '%milk%'` cannot use an index. Over range
 requests an unindexed scan means fetching the entire products table on every

@@ -151,8 +151,7 @@ let currentEntry = null;
 // Weighed goods are priced per unit_qty - a kilo, almost always - so the
 // number in the table is not what one item costs. Say so.
 function unitNote(entry) {
-  if (entry.w) return ` · מחיר ל${entry.u || 'ק"ג'}`;
-  return entry.u ? ` · ${entry.u}` : "";
+  return entry.w ? ` · מחיר ל${entry.u || 'ק"ג'}` : "";
 }
 
 function render(barcode, entry) {
