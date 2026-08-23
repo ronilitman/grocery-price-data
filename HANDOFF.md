@@ -27,7 +27,7 @@ BASE = https://ronilitman.github.io/grocery-price-data/catalog/
 | endpoint | returns |
 |---|---|
 | `index.json` | `{levels, shards[], chains{id→name}, built_at, products}` — fetch once, cache |
-| `{prefix}.json` | `{barcode: {n: name, p: {chain_id: [price, branches_at_baseline]}}}` |
+| `{prefix}.json` | `{barcode: {n: name, p: {chain_id: [price, branches_at_baseline]}, w?: 1, u?: unit}}` |
 | `detail/index.json` | `{levels, shards[]}` for the per-store files |
 | `detail/{prefix}.json` | `{barcode: {chain_id: [[store_id, price], …]}}` — **only branches that differ** |
 | `stores.json` | `{chain_id: {store_id: [name, city_code]}}` (~55 KB) |
@@ -59,7 +59,7 @@ Worked example — tomatoes at Tiv Taam:
 
 ```bash
 curl -s .../catalog/441.json        | jq '."4412784"'
-# {"n":"עגבניות","p":{"7290873255550":[6.9,29]}}      ← ₪6.90 at 29 branches
+# {"n":"עגבניות","p":{"7290873255550":[6.9,29]},"w":1,"u":"קילוגרם"}   ← ₪6.90/kg at 29 branches
 curl -s .../catalog/detail/441.json | jq '."4412784"'
 # {"7290873255550":[["63",10.9],["21",8.9], …]}       ← 24 branches differ
 curl -s .../catalog/stores.json     | jq '."7290873255550"."21"'
@@ -100,8 +100,9 @@ These cost real time to discover. Trust them.
 
 2. **Weighed prices are per kilogram.** ₪6.90 for tomatoes means ₪6.90/kg. Cart
    totals **cannot** just sum prices for these — you need a weight from the
-   user. The database has `is_weighted` and `unit_qty`, but **the API does not
-   expose them yet.** See §4.1 — this is a prerequisite for the cart feature.
+   user. The shard entry now carries `w: 1` for weighed goods and `u` for the
+   unit. Both are **omitted when empty**, so a missing `w` means "not weighed",
+   never "unknown".
 
 3. **`city` is unusable.** All 1,225 stores store a *number* — the Israeli CBS
    locality code (`3000` Jerusalem, `5000` Tel Aviv, `2600` Eilat), because
@@ -163,17 +164,21 @@ the live site can't drift from the repo.
 
 ## Part 4 — The plan
 
-### 4.1 Prerequisite: expose weight info in the API
+### 4.1 Prerequisite: expose weight info in the API — **done**
 
-In `grocery-price-data/scripts/build_catalog.py`, add `is_weighted` and
-`unit_qty` to each shard entry (both columns already exist in `products`):
+`scripts/build_catalog.py` now reads `unit_qty` and `is_weighted` alongside the
+name and writes them as `w` / `u`, omitting either when it would be empty:
 
 ```python
-entries[barcode] = {"n": name, "p": {}, "w": is_weighted, "u": unit_qty}
+entry = {"n": name, "p": {}}
+if is_weighted:      entry["w"] = 1
+if (unit_qty or "").strip():  entry["u"] = unit_qty.strip()
 ```
 
-Deploy with `reuse_run_id` — no scrape needed. Without this the cart cannot tell
-"₪6.90 for one item" from "₪6.90 per kilo".
+Omission is deliberate: 88% of products are not weighed, and with 109k entries
+an always-present key is paid for 109k times. Published with `reuse_run_id`, no
+scrape. `.github/workflows/build.yml` artifact retention went 1 day → 7, so
+`reuse_run_id` still works a few days later.
 
 ### 4.2 Feature 1 — Add a product by barcode
 

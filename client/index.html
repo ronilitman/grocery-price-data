@@ -148,6 +148,13 @@ async function expand(chainId, barcode, cell) {
 
 let currentEntry = null;
 
+// Weighed goods are priced per unit_qty - a kilo, almost always - so the
+// number in the table is not what one item costs. Say so.
+function unitNote(entry) {
+  if (entry.w) return ` · מחיר ל${entry.u || 'ק"ג'}`;
+  return entry.u ? ` · ${entry.u}` : "";
+}
+
 function render(barcode, entry) {
   currentEntry = entry;
   const rows = Object.entries(entry.p).sort((a, b) => a[1][0] - b[1][0]);
@@ -158,7 +165,7 @@ function render(barcode, entry) {
   }
   const cheapest = rows[0][1][0];
   resultEl.innerHTML =
-    `<h2>${entry.n}</h2><p class="bc">ברקוד ${barcode}</p>` +
+    `<h2>${entry.n}</h2><p class="bc">ברקוד ${barcode}${unitNote(entry)}</p>` +
     `<div class="scroll"><table><tr><th>רשת</th><th>מחיר</th><th>הפרש</th></tr>` +
     rows.map(([id, [price]]) => {
       const diff = price - cheapest;

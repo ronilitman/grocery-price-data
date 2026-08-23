@@ -88,8 +88,10 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: db-${{ matrix.chain }}
+          # 7 days, not 1: reuse_run_id republishes from a prior run's
+          # artifacts, and a one-day window makes that unusable by Tuesday.
           path: chain_dbs/*.db
-          retention-days: 1
+          retention-days: 7
           if-no-files-found: error
 
   publish:

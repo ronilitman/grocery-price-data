@@ -116,8 +116,20 @@ def main():
 
     conn = sqlite3.connect(f"file:{args.db}?mode=ro", uri=True)
     entries = {}
-    for barcode, name in conn.execute("SELECT barcode, name FROM products"):
-        entries[barcode] = {"n": name, "p": {}}
+    # "w" marks a weighed product, whose price is per unit_qty (a kilo, almost
+    # always) rather than per item - a cart cannot sum those without asking the
+    # user for a weight. "u" carries that unit for display. Both are omitted
+    # when empty: 88% of products are not weighed, and with 109k entries every
+    # key that is always present is paid for 109k times.
+    for barcode, name, unit_qty, is_weighted in conn.execute(
+            "SELECT barcode, name, unit_qty, is_weighted FROM products"):
+        entry = {"n": name, "p": {}}
+        if is_weighted:
+            entry["w"] = 1
+        unit = (unit_qty or "").strip()
+        if unit:
+            entry["u"] = unit
+        entries[barcode] = entry
     # [price, how many branches sell at that baseline] - the count lets the
     # drill-down say "and 29 other branches" without naming stores we only
     # know by absence from price_exceptions.
