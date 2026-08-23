@@ -1,7 +1,9 @@
 # Handoff: grocery price API → grocery list app
 
-Written for an agent picking this up cold. Two repos are involved. The price
-side is **done and live**; the app side is where the work goes next.
+Written for an agent picking this up cold. Two repos are involved. Both are now
+live, and most of the plan below is **built** — the sections are kept as the
+record of why each thing works the way it does. What is still open is collected
+in Part 6.
 
 | repo | role | status |
 |---|---|---|
@@ -134,31 +136,43 @@ These cost real time to discover. Trust them.
 
 ---
 
-## Part 3 — Blockers to clear first
+## Part 3 — Blockers
 
-**3.1 Firestore is wide open.** `firestore.rules` is:
+**3.1 Firestore is wide open — STILL OPEN, deliberately deferred.**
+`firestore.rules` is:
 
 ```
 match /{document=**} { allow read, write: if true; }
 ```
 
 The app is **publicly live**, so this is not theoretical: anyone who views source
-gets the project id and can read, modify, or wipe every list. Lock it down before
-adding favourite stores (more personal data) — at minimum scope writes to
-`groceries_*` and add App Check or anonymous auth. The Firebase web `apiKey` in
-`src/firebase.js` is *not* a secret and is fine to commit; the open rules are the
-problem.
+gets the project id and can read, modify, or wipe every list — now including the
+`settings_*` docs holding favourite stores. The fix is to scope the rules to
+`groceries_*` and `settings_*` and add anonymous auth or App Check, but the
+anonymous provider has to be enabled in the Firebase console **first**, or
+stricter rules break the live app the moment they ship. The Firebase web
+`apiKey` in `src/firebase.js` is *not* a secret and is fine to commit; the open
+rules are the problem.
 
-**3.2 Delete the duplicate price pipeline.** `scripts/process_prices.py` and
-`.github/workflows/daily_prices.yml` are an earlier, weaker attempt at the same
-job — they produced 3 shard files versus the 4,516 now live. Remove both, plus
-the vestigial `gh-pages` branch that still serves those 3 stale shards, and
-consume the API instead. (History also shows `sa-key.json` was once committed;
-confirm that credential was rotated.)
+`sa-key.json` was once committed (removed from tracking in `12c4f15`, still
+reachable in history). Confirm that credential was rotated.
 
-**3.3 No deploy automation.** Hosting works, but every release is a manual
-`npm run build && firebase deploy`. Add a GitHub Action on push to `master` so
-the live site can't drift from the repo.
+**3.2 Duplicate price pipeline — removed.** `scripts/process_prices.py` and
+`.github/workflows/daily_prices.yml` were an earlier, weaker attempt at the same
+job: 3 shard files against the 4,516 now live. Both are gone, along with the
+now-unused `requirements.txt`. The vestigial `gh-pages` branch still exists and
+should go too — GitHub Pages is not enabled on that repo and the URL 404s, so it
+serves nothing:
+
+```bash
+git push origin --delete gh-pages     # branch tip 077b09e, if it needs restoring
+```
+
+**3.3 Deploy automation — added.** `.github/workflows/deploy.yml` runs lint and
+build on every push and PR, and deploys to Firebase Hosting on `master`. The
+deploy step is gated on a `FIREBASE_SERVICE_ACCOUNT` secret that does not exist
+yet; until someone adds it (`firebase init hosting:github` generates one) the
+workflow is a build gate and deploys stay manual.
 
 ---
 
@@ -185,7 +199,7 @@ say nothing. Published with `reuse_run_id`, no scrape.
 `.github/workflows/build.yml` artifact retention went 1 day → 7, so
 `reuse_run_id` still has artifacts to reuse a few days later.
 
-### 4.2 Feature 1 — Add a product by barcode
+### 4.2 Feature 1 — Add a product by barcode — **built**
 
 **Data.** Add to each Firestore item:
 ```js
@@ -213,7 +227,7 @@ raw scan misses, retry after stripping a leading `729000` (§2.1).
 but **absent on iOS Safari** — ship `@zxing/browser` as the fallback, or start
 with manual entry only.
 
-### 4.3 Feature 2 — Favourite stores
+### 4.3 Feature 2 — Favourite stores — **built**
 
 **Data.** A settings doc per room, e.g. `settings_{room}/prefs`:
 ```js
@@ -225,7 +239,7 @@ Cap at ~5; comparison output gets unreadable beyond that.
 over `store_name` — **not** city, which is a numeric code (§2.3). Show as
 "chain — branch".
 
-### 4.4 Feature 3 — Compare the cart across stores
+### 4.4 Feature 3 — Compare the cart across stores — **built**
 
 **Input:** pending items that have a barcode. **Output:** one row per favourite
 store.
@@ -256,16 +270,71 @@ see per-item prices and which items were missing.
 **Network cost:** ~2 fetches per distinct shard, heavily shared across a cart,
 all cached. A 15-item cart is a handful of requests totalling well under 100 KB.
 
-### 4.5 Suggested order
+### 4.5 Where each step landed
 
-1. §3.1 Firestore rules — the app is live and world-writable
-2. §4.1 API weight fields (unblocks the cart)
-3. §4.2 barcode on items, manual entry
-4. §4.3 favourite stores
-5. §4.4 comparison view
-6. §4.2 camera scanning
-7. §3.2 delete the duplicate pipeline and `gh-pages`
-8. §3.3 deploy automation
+| # | step | status |
+|---|---|---|
+| 1 | §3.1 Firestore rules | **open** — deferred by choice, see Part 6 |
+| 2 | §4.1 API weight fields | done, live |
+| 3 | §4.2 barcode on items, manual entry | done |
+| 4 | §4.3 favourite stores | done |
+| 5 | §4.4 comparison view | done |
+| 6 | §4.2 camera scanning | done |
+| 7 | §3.2 delete the duplicate pipeline | pipeline done, `gh-pages` still to delete |
+| 8 | §3.3 deploy automation | workflow added, needs a secret |
+
+---
+
+## Part 5 — How it actually got built
+
+`src/prices.js` is the whole API client. Beyond `shardFor` and `lookup` it holds
+the cart pricing, because the two rules in §1.1 and the traps in Part 2 are
+easier to keep honest in one file than spread across components.
+
+Caching is keyed by the build's `built_at` stamp — `s:{built_at}:{prefix}` for
+search shards, `d:` for detail. A nightly rebuild changes the stamp, which
+orphans every stale key at once with no expiry logic. `localStorage` writes that
+hit quota drop the whole cache and retry once rather than maintaining an LRU;
+the cost of being wrong is one cold fetch.
+
+`lookup()` tries a short list of barcode forms, not just the scanned one: the
+raw digits, the same minus a leading `729000` (§2.1), that minus leading zeros,
+and a 13-digit form minus a leading zero (UPC-A read as EAN-13).
+
+`compareCart()` returns `covered` and `considered` per store and sorts on
+coverage **before** total, so a branch that stocks more of your basket outranks
+one that is cheap by absence. Weighed items with no `weightKg` produce a line
+with a `null` total, counted in `unpriceable` and shown as "needs a weight" —
+they are never silently charged as one kilo.
+
+Scanning prefers `BarcodeDetector` and falls back to `@zxing/browser` behind a
+dynamic `import()`, keeping its 477 KB out of the main bundle until someone taps
+scan. On iOS Safari the fallback is not an edge case, it is the only path.
+
+**Verified end to end** against the live API: `7290004412784` resolves to
+`4412784` via the strip, prefills עגבניות, exposes the per-kilo weight field,
+and a two-item cart prices correctly across five branches — ₪31.90 × 2 + ₪6.90 ×
+1.5 = ₪74.15 at Tiv Taam Netanya (2/2 items), ranked above two ₪51.80 stores
+showing 1/2.
+
+---
+
+## Part 6 — What is still open
+
+1. **Firestore rules (§3.1).** The one real risk left. Needs the anonymous
+   provider enabled in the Firebase console before stricter rules can ship.
+2. **Delete the `gh-pages` branch** in `grocery-list-app` (§3.2). Serves nothing;
+   one command.
+3. **Add the `FIREBASE_SERVICE_ACCOUNT` secret** (§3.3) to turn CI into a real
+   deploy.
+4. **Confirm `sa-key.json` was rotated** (§3.1).
+5. **Shard size.** The largest search shard is ~330 KB, well over the ~150 KB the
+   `MAX_ITEMS = 2000` comment in `build_catalog.py` claims. This predates the
+   `w`/`u` fields. The detail shards already split on a byte budget
+   (`split_by_size`); the search shards should too.
+6. **Category detection skips catalogue hits.** `AUTO_CATEGORY_MAP` is keyed on
+   English words and only runs on typing, so a barcode-filled Hebrew name always
+   lands in "Other".
 
 ---
 
