@@ -6,7 +6,7 @@ side is **done and live**; the app side is where the work goes next.
 | repo | role | status |
 |---|---|---|
 | [`grocery-price-data`](https://github.com/ronilitman/grocery-price-data) | scrapes Israeli supermarket prices, publishes them as a static JSON API | **live**, updates nightly |
-| [`grocery-list-app`](https://github.com/ronilitman/grocery-list-app) | React + Firebase shared shopping list | works locally, **not deployed** |
+| [`grocery-list-app`](https://github.com/ronilitman/grocery-list-app) | React + Firebase shared shopping list | **live** on Firebase Hosting |
 
 Goal: teach the app to hold barcodes, remember favourite stores, and price a
 shopping cart across them.
@@ -74,6 +74,11 @@ Verified against competitor chp.co.il — identical prices and tiers.
 React 19 + Vite + Firebase Firestore. One file does everything:
 `src/App.jsx`, ~480 lines.
 
+- **Live at** <https://gen-lang-client-0902689301.web.app> — Firebase Hosting,
+  same GCloud project as Firestore. Served from the **domain root**, so
+  `vite.config.js` must keep its default `base` (`/`); setting a subpath base
+  would 404 every asset. Deploys are manual: `npm run build && firebase deploy`.
+  There is no CI for it — worth adding.
 - **Storage:** Firestore collection `groceries_{room}`; `room` comes from the
   `?room=` query param, default `our-groceries`. No auth, no user accounts —
   the URL *is* the credential.
@@ -136,21 +141,23 @@ These cost real time to discover. Trust them.
 match /{document=**} { allow read, write: if true; }
 ```
 
-Anyone who finds the project id can read, modify, or wipe every list. Before
-adding favourite stores (more personal data), lock this down — at minimum scope
-writes to `groceries_*` and add App Check or anonymous auth. The Firebase web
-`apiKey` in `src/firebase.js` is *not* a secret and is fine to commit; the open
-rules are the problem.
+The app is **publicly live**, so this is not theoretical: anyone who views source
+gets the project id and can read, modify, or wipe every list. Lock it down before
+adding favourite stores (more personal data) — at minimum scope writes to
+`groceries_*` and add App Check or anonymous auth. The Firebase web `apiKey` in
+`src/firebase.js` is *not* a secret and is fine to commit; the open rules are the
+problem.
 
-**3.2 The app is not deployed.** `gh-pages` holds only 3 stale price shards; the
-app itself 404s. `vite.config.js` has no `base`, which will break asset paths on
-a project subpath. Set `base: '/grocery-list-app/'` and add a deploy workflow.
-
-**3.3 Delete the duplicate price pipeline.** `scripts/process_prices.py` and
+**3.2 Delete the duplicate price pipeline.** `scripts/process_prices.py` and
 `.github/workflows/daily_prices.yml` are an earlier, weaker attempt at the same
-job — they produced 3 shard files versus the 4,516 now live. Remove both and
+job — they produced 3 shard files versus the 4,516 now live. Remove both, plus
+the vestigial `gh-pages` branch that still serves those 3 stale shards, and
 consume the API instead. (History also shows `sa-key.json` was once committed;
 confirm that credential was rotated.)
+
+**3.3 No deploy automation.** Hosting works, but every release is a manual
+`npm run build && firebase deploy`. Add a GitHub Action on push to `master` so
+the live site can't drift from the repo.
 
 ---
 
@@ -241,14 +248,14 @@ all cached. A 15-item cart is a handful of requests totalling well under 100 KB.
 
 ### 4.5 Suggested order
 
-1. §3.1 Firestore rules (before storing anything more)
+1. §3.1 Firestore rules — the app is live and world-writable
 2. §4.1 API weight fields (unblocks the cart)
 3. §4.2 barcode on items, manual entry
-4. §3.2 deploy the app
-5. §4.3 favourite stores
-6. §4.4 comparison view
-7. §4.2 camera scanning
-8. §3.3 delete the duplicate pipeline
+4. §4.3 favourite stores
+5. §4.4 comparison view
+6. §4.2 camera scanning
+7. §3.2 delete the duplicate pipeline and `gh-pages`
+8. §3.3 deploy automation
 
 ---
 
