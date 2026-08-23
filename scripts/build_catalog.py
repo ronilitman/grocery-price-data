@@ -57,6 +57,10 @@ def main():
         entry = entries.get(barcode)
         if entry is not None:
             entry["p"][chain_id] = price
+    # Shards store chain ids, not names - the names ride along in index.json
+    # so the client can label a result without a second lookup.
+    chain_names = dict(conn.execute("SELECT chain_id, name FROM chains"))
+    built_at = dict(conn.execute("SELECT key, value FROM meta")).get("built_at", "")
     conn.close()
 
     shards = split(list(entries), 0)
@@ -72,7 +76,9 @@ def main():
     # The client takes the longest prefix in this list that its barcode starts
     # with, and requests that shard.
     with open(os.path.join(args.out_dir, "index.json"), "w", encoding="utf-8") as handle:
-        json.dump({"levels": list(LEVELS), "shards": sorted(shards)}, handle)
+        json.dump({"levels": list(LEVELS), "shards": sorted(shards),
+                   "chains": chain_names, "built_at": built_at,
+                   "products": len(entries)}, handle, ensure_ascii=False)
 
     depths = defaultdict(int)
     for prefix in shards:

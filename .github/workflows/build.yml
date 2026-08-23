@@ -126,22 +126,16 @@ jobs:
           python scripts/build_catalog.py --db dist/prices.db --out-dir dist/catalog
           python scripts/verify.py --db dist/prices.db
 
-      - name: Vendor the SQLite-over-HTTP client
+      - name: Assemble the site
         run: |
-          # Bundled into the site rather than loaded from a CDN: browsers refuse
-          # to construct a Worker from a cross-origin script.
-          npm install --no-save sql.js-httpvfs@0.8.12
-          mkdir -p dist/vendor
-          cp node_modules/sql.js-httpvfs/dist/index.js \
-             node_modules/sql.js-httpvfs/dist/sqlite.worker.js \
-             node_modules/sql.js-httpvfs/dist/sql-wasm.wasm \
-             dist/vendor/
+          # The page reads the JSON shards directly - no SQLite, no WASM, and
+          # no 407 MB download. prices.db stays on the Release for anyone who
+          # wants to run arbitrary SQL against it.
           cp client/index.html dist/index.html
-          # Served under a media extension: GitHub Pages gzips
-          # application/octet-stream, which breaks sql.js-httpvfs's Range
-          # length detection, but leaves audio/video/archive types alone.
-          cp dist/prices.db dist/prices.mp3
-          ls -lh dist/vendor/
+          mkdir -p release && mv dist/prices.db release/prices.db
+          cp dist/metadata.json release/metadata.json
+          du -sh dist dist/catalog
+          ls -1 dist
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
@@ -158,7 +152,7 @@ jobs:
           body: |
             Rebuilt automatically. See metadata.json for row counts and build time.
           files: |
-            dist/prices.db
-            dist/metadata.json
+            release/prices.db
+            release/metadata.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

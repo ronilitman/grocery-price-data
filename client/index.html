@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>מחירי סופרמרקטים — בדיקה</title>
+<title>מחירי סופרמרקטים</title>
 <style>
   :root{--bg:#f6f7f4;--fg:#151a17;--muted:#5d6a64;--rule:#d9e0da;--card:#fff;--accent:#0e6e5c}
   @media (prefers-color-scheme:dark){
@@ -11,21 +11,24 @@
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
-  main{max-width:900px;margin:0 auto;padding:24px 18px 64px}
+  main{max-width:760px;margin:0 auto;padding:24px 18px 64px}
   h1{font-size:22px;margin:0 0 4px}
   .sub{color:var(--muted);font-size:14px;margin:0 0 20px}
   fieldset{border:1px solid var(--rule);border-radius:6px;background:var(--card);padding:14px;margin:0 0 14px}
   legend{font-size:13px;color:var(--accent);padding:0 6px;font-weight:600}
   .row{display:flex;gap:8px;flex-wrap:wrap}
-  input,select,button{font:inherit;padding:8px 10px;border:1px solid var(--rule);border-radius:5px;
+  input,button{font:inherit;padding:8px 10px;border:1px solid var(--rule);border-radius:5px;
     background:var(--bg);color:var(--fg)}
-  input{flex:1;min-width:150px}
+  input{flex:1;min-width:150px;font-variant-numeric:tabular-nums}
   button{background:var(--accent);color:#fff;border-color:transparent;cursor:pointer;font-weight:600}
   button:disabled{opacity:.5;cursor:default}
-  table{width:100%;border-collapse:collapse;font-size:14px;margin-top:12px}
+  h2{font-size:17px;margin:18px 0 2px}
+  .bc{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums;margin:0 0 10px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
   th,td{text-align:right;padding:7px 8px;border-bottom:1px solid var(--rule)}
   th{font-size:12px;color:var(--muted);font-weight:600}
   td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
+  tr.best td{font-weight:700;color:var(--accent)}
   #status{font-size:13px;color:var(--muted);margin-top:14px;white-space:pre-wrap}
   .scroll{overflow-x:auto}
 </style>
@@ -33,135 +36,105 @@
 <body>
 <main>
   <h1>מחירי סופרמרקטים</h1>
-  <p class="sub">שאילתות SQL אמיתיות מול קובץ SQLite סטטי, דרך HTTP Range. אין שרת.</p>
-
-  <fieldset>
-    <legend>חיפוש לפי שם</legend>
-    <div class="row">
-      <input id="q" placeholder="חלב, קוטג׳, לחם…" value="קוטג">
-      <select id="city"><option value="">כל הערים</option></select>
-      <button id="go" disabled>חפש</button>
-    </div>
-  </fieldset>
+  <p class="sub">חיפוש לפי ברקוד. קבצים סטטיים בלבד — אין שרת ואין מסד נתונים בדפדפן.</p>
 
   <fieldset>
     <legend>חיפוש לפי ברקוד</legend>
     <div class="row">
-      <input id="bc" placeholder="7290000042733" inputmode="numeric">
-      <button id="goBc" disabled>בדוק</button>
+      <input id="bc" placeholder="7290004127329" inputmode="numeric" autocomplete="off">
+      <button id="go">בדוק</button>
     </div>
   </fieldset>
 
-  <div class="scroll"><table id="out"></table></div>
+  <div id="result"></div>
   <div id="status">טוען…</div>
 </main>
 
-<script src="./vendor/index.js"></script>
 <script type="module">
-// vendor/index.js is a UMD bundle, not an ES module - it attaches
-// createDbWorker to window, so we read it from there instead of importing it.
-const { createDbWorker } = window;
-
 const statusEl = document.getElementById("status");
-const outEl = document.getElementById("out");
-let worker = null;
+const resultEl = document.getElementById("result");
+const input = document.getElementById("bc");
+const button = document.getElementById("go");
 
-function render(rows, columns) {
-  if (!rows.length) { outEl.innerHTML = "<tr><td>לא נמצאו תוצאות</td></tr>"; return; }
-  const head = "<tr>" + columns.map(c => `<th>${c}</th>`).join("") + "</tr>";
-  const body = rows.map(r => "<tr>" + columns.map(c => {
-    const v = r[c];
-    const numeric = typeof v === "number";
-    return `<td class="${numeric ? "n" : ""}">${numeric ? v.toFixed(2) : (v ?? "")}</td>`;
-  }).join("") + "</tr>").join("");
-  outEl.innerHTML = head + body;
+const base = new URL("./catalog/", location.href);
+let index = null;               // {levels, shards:[...], chains:{id:name}}
+const shardCache = new Map();   // prefix -> parsed shard
+
+// Longest prefix in the index that this barcode falls under. The build splits
+// crowded buckets deeper (729 is Israel's GS1 prefix, so nearly everything
+// starts with it), and index.json records which prefixes went deep.
+function shardFor(barcode) {
+  let best = null;
+  for (const depth of index.levels) {
+    const prefix = barcode.slice(0, depth).padEnd(depth, "0");
+    if (index.shards.includes(prefix)) best = prefix;
+  }
+  return best;
 }
 
-async function boot() {
+async function loadShard(prefix) {
+  if (!shardCache.has(prefix)) {
+    const res = await fetch(new URL(`${prefix}.json`, base));
+    if (!res.ok) throw new Error(`shard ${prefix}: ${res.status}`);
+    shardCache.set(prefix, await res.json());
+  }
+  return shardCache.get(prefix);
+}
+
+function render(barcode, entry) {
+  const rows = Object.entries(entry.p).sort((a, b) => a[1] - b[1]);
+  if (!rows.length) {
+    resultEl.innerHTML = `<h2>${entry.n}</h2><p class="bc">${barcode}</p>
+      <p class="sub">אין מחירים למוצר הזה.</p>`;
+    return;
+  }
+  const cheapest = rows[0][1];
+  resultEl.innerHTML =
+    `<h2>${entry.n}</h2><p class="bc">ברקוד ${barcode}</p>` +
+    `<div class="scroll"><table><tr><th>רשת</th><th>מחיר</th><th>הפרש</th></tr>` +
+    rows.map(([id, price]) => {
+      const diff = price - cheapest;
+      return `<tr class="${diff === 0 ? "best" : ""}">` +
+             `<td>${index.chains[id] ?? id}</td>` +
+             `<td class="n">${price.toFixed(2)}</td>` +
+             `<td class="n">${diff === 0 ? "—" : "+" + diff.toFixed(2)}</td></tr>`;
+    }).join("") +
+    `</table></div>`;
+}
+
+async function search() {
+  const barcode = input.value.replace(/\D/g, "");
+  if (!barcode) return;
+  history.replaceState(null, "", `?bc=${barcode}`);
+  resultEl.innerHTML = "";
+  statusEl.textContent = "מחפש…";
   const started = performance.now();
-  worker = await createDbWorker(
-    // The worker resolves relative URLs against its own script location, not
-    // the page's - so this has to already be absolute. Served as .mp3 because
-    // GitHub Pages gzips application/octet-stream (breaking Range length
-    // detection) but leaves media types uncompressed - see build.yml.
-    // 64KiB, not 1KiB: over a real network every chunk is its own
-    // round-trip, and ORDER BY ... LIMIT queries touch many pages before
-    // they can return - fewer, bigger fetches beats many tiny ones.
-    [{ from: "inline", config: { serverMode: "full", url: new URL("./prices.mp3", location.href).toString(), requestChunkSize: 65536 } }],
-    new URL("./vendor/sqlite.worker.js", import.meta.url).toString(),
-    new URL("./vendor/sql-wasm.wasm", import.meta.url).toString(),
-  );
-
-  const meta = await worker.db.query("SELECT key, value FROM meta");
-  const counts = JSON.parse(meta.find(m => m.key === "counts")?.value ?? "{}");
-  const builtAt = meta.find(m => m.key === "built_at")?.value ?? "?";
-
-  const cities = await worker.db.query(
-    "SELECT city, COUNT(*) n FROM stores WHERE city <> '' GROUP BY city ORDER BY n DESC LIMIT 60");
-  const select = document.getElementById("city");
-  for (const { city } of cities) select.add(new Option(city, city));
-
-  statusEl.textContent =
-    `נבנה ב-${builtAt} · ${(counts.products ?? 0).toLocaleString()} ברקודים · ` +
-    `${(counts.stores ?? 0).toLocaleString()} סניפים · ` +
-    `נטען ב-${Math.round(performance.now() - started)}ms`;
-  document.getElementById("go").disabled = false;
-  document.getElementById("goBc").disabled = false;
-
-  // Shareable links: ?q=חלב&city=חיפה runs the name search, ?bc=7290... runs
-  // the barcode lookup, both on load.
-  const params = new URLSearchParams(location.search);
-  if (params.has("bc")) {
-    document.getElementById("bc").value = params.get("bc");
-    document.getElementById("goBc").click();
-  } else if (params.has("q")) {
-    document.getElementById("q").value = params.get("q");
-    if (params.has("city")) document.getElementById("city").value = params.get("city");
-    document.getElementById("go").click();
+  try {
+    const prefix = shardFor(barcode);
+    if (!prefix) { statusEl.textContent = "ברקוד לא נמצא."; return; }
+    const shard = await loadShard(prefix);
+    const entry = shard[barcode];
+    if (!entry) { statusEl.textContent = "ברקוד לא נמצא."; return; }
+    render(barcode, entry);
+    const n = Object.keys(entry.p).length;
+    statusEl.textContent =
+      `${n === 1 ? "רשת אחת" : n + " רשתות"} · ${Math.round(performance.now() - started)}ms`;
+  } catch (err) {
+    statusEl.textContent = "שגיאה: " + err.message;
   }
 }
 
-// Word index, then price, then store. Every step is an index seek, so the
-// browser pulls a few KiB rather than the whole file.
-const BY_NAME = `
-  SELECT p.name AS מוצר, c.name AS רשת, s.store_name AS סניף, s.city AS עיר,
-         COALESCE(e.price, cp.price) AS מחיר
-  FROM product_tokens t
-  JOIN products p      ON p.barcode  = t.barcode
-  JOIN chain_prices cp ON cp.barcode = p.barcode
-  JOIN chains c        ON c.chain_id = cp.chain_id
-  JOIN stores s        ON s.chain_id = cp.chain_id
-  LEFT JOIN price_exceptions e
-         ON e.chain_id = cp.chain_id AND e.store_id = s.store_id AND e.barcode = p.barcode
-  WHERE t.token = ?2 AND (?1 = '' OR s.city = ?1)
-  ORDER BY מחיר LIMIT 50`;
+button.onclick = search;
+input.onkeydown = e => { if (e.key === "Enter") search(); };
 
-const BY_BARCODE = `
-  SELECT p.name AS מוצר, c.name AS רשת, cp.price AS מחיר, cp.store_count AS סניפים
-  FROM chain_prices cp
-  JOIN products p ON p.barcode = cp.barcode
-  JOIN chains c   ON c.chain_id = cp.chain_id
-  WHERE cp.barcode = ? ORDER BY מחיר`;
-
-async function run(sql, params, columns) {
-  const started = performance.now();
-  const rows = await worker.db.query(sql, params);
-  render(rows, columns);
-  statusEl.textContent = `${rows.length} שורות ב-${Math.round(performance.now() - started)}ms`;
-}
-
-document.getElementById("go").onclick = () => {
-  const city = document.getElementById("city").value;
-  const token = document.getElementById("q").value.trim().toLowerCase();
-  // ?1 is the city, ? is the token - keep the order the SQL expects.
-  run(BY_NAME, [city, token], ["מוצר", "רשת", "סניף", "עיר", "מחיר"]);
-};
-
-document.getElementById("goBc").onclick = () =>
-  run(BY_BARCODE, [document.getElementById("bc").value.replace(/\D/g, "")],
-      ["מוצר", "רשת", "מחיר", "סניפים"]);
-
-boot().catch(err => { statusEl.textContent = "שגיאה: " + err.message; console.error(err); });
+(async () => {
+  index = await (await fetch(new URL("index.json", base))).json();
+  statusEl.textContent =
+    `${index.products.toLocaleString()} מוצרים · ${Object.keys(index.chains).length} רשתות` +
+    (index.built_at ? ` · עודכן ${index.built_at.slice(0, 10)}` : "");
+  const fromUrl = new URLSearchParams(location.search).get("bc");
+  if (fromUrl) { input.value = fromUrl; search(); }
+})().catch(err => { statusEl.textContent = "שגיאה בטעינה: " + err.message; });
 </script>
 </body>
 </html>
