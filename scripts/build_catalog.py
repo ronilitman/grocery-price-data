@@ -79,10 +79,14 @@ def write_detail(conn, out_dir):
     detail_dir = os.path.join(out_dir, "detail")
     os.makedirs(detail_dir, exist_ok=True)
 
+    # [name, city_code, priced_items]. The third element is what lets a client
+    # tell "this branch charges the baseline" from "this branch published
+    # nothing" - absence from the detail shards means the first, never the
+    # second, and without a count the two are indistinguishable.
     stores = defaultdict(dict)
-    for chain_id, store_id, name, city in conn.execute(
-            "SELECT chain_id, store_id, store_name, city FROM stores"):
-        stores[chain_id][store_id] = [name or "", city or ""]
+    for chain_id, store_id, name, city, priced in conn.execute(
+            "SELECT chain_id, store_id, store_name, city, priced_items FROM stores"):
+        stores[chain_id][store_id] = [name or "", city or "", priced or 0]
     with open(os.path.join(out_dir, "stores.json"), "w", encoding="utf-8") as handle:
         handle.write(dump(stores))
 

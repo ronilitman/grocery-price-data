@@ -34,6 +34,12 @@ CREATE TABLE IF NOT EXISTS stores(
     store_name   TEXT,
     city         TEXT,
     address      TEXT,
+    -- How many distinct products this branch actually published a price for.
+    -- Nothing downstream can work this out: a branch that charges the chain
+    -- baseline for everything is absent from price_exceptions, so "no rows in
+    -- the exceptions table" and "published nothing at all" look identical
+    -- once _raw is gone. Counted here while _raw still exists.
+    priced_items INTEGER DEFAULT 0,
     PRIMARY KEY (chain_id, store_id)
 );
 CREATE TABLE IF NOT EXISTS products(
@@ -100,7 +106,10 @@ def load_stores(conn, outputs):
             chain_name = pick(row, "chainname", "chain_name")
             if chain_name:
                 conn.execute("INSERT OR REPLACE INTO chains VALUES (?,?)", (chain_id, chain_name))
-    conn.executemany("INSERT OR REPLACE INTO stores VALUES (?,?,?,?,?,?)", rows)
+    conn.executemany(
+        "INSERT OR REPLACE INTO stores "
+        "(chain_id, store_id, subchain_id, store_name, city, address) "
+        "VALUES (?,?,?,?,?,?)", rows)
     return len(rows)
 
 
@@ -183,6 +192,16 @@ def collapse(conn):
         FROM _raw r
         JOIN chain_prices c ON c.chain_id = r.chain_id AND c.barcode = r.barcode
         WHERE ABS(r.price - c.price) > 0.001
+    """)
+    # Must run before the DROP: _raw is the only place per-store coverage
+    # exists. A branch with no row here published no prices at all, and a cart
+    # priced against it would be pure chain baseline - a plausible-looking
+    # total invented from nothing.
+    conn.execute("""
+        UPDATE stores SET priced_items = COALESCE((
+            SELECT COUNT(*) FROM _raw r
+            WHERE r.chain_id = stores.chain_id AND r.store_id = stores.store_id
+        ), 0)
     """)
     conn.execute("DROP TABLE _raw")
     conn.commit()

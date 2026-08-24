@@ -18,7 +18,7 @@ SCHEMA = """
 CREATE TABLE chains(chain_id TEXT PRIMARY KEY, name TEXT);
 CREATE TABLE stores(
     chain_id TEXT NOT NULL, store_id TEXT NOT NULL, subchain_id TEXT,
-    store_name TEXT, city TEXT, address TEXT,
+    store_name TEXT, city TEXT, address TEXT, priced_items INTEGER DEFAULT 0,
     PRIMARY KEY (chain_id, store_id));
 CREATE TABLE products(
     barcode TEXT PRIMARY KEY, name TEXT, manufacturer TEXT, unit_qty TEXT,
