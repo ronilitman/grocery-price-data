@@ -16,6 +16,7 @@ from il_supermarket_scarper import ScarpingTask, ScraperFactory
 from il_supermarket_parsers import ConvertingTask
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import superpharm  # noqa: E402
 from csvutil import find_csvs  # noqa: E402
 
 # Full snapshots only. PRICE_FILE / PROMO_FILE are hourly *deltas* - fetching
@@ -73,16 +74,22 @@ def main():
         return 1
 
     print(f"[fetch] parsing {args.chain}")
-    converter = ConvertingTask(
-        enabled_parsers=[args.chain],
-        files_types=FILE_TYPES,
-        source_configuration={"folder": args.dumps},
-        output_configuration=[{"output_mode": "csv", "output_folder": args.outputs}],
-        status_configuration={"database_type": "json",
-                              "base_path": os.path.join(args.outputs, "status")},
-    )
-    converter.start()
-    converter.join()
+    if args.chain == "SUPER_PHARM":
+        # Not the library's parser: it looks for a <Details> element Super-Pharm
+        # no longer publishes and writes an empty result without erroring.
+        # scripts/superpharm.py explains why overriding it is not workable.
+        superpharm.convert(args.dumps, args.outputs, FILE_TYPES)
+    else:
+        converter = ConvertingTask(
+            enabled_parsers=[args.chain],
+            files_types=FILE_TYPES,
+            source_configuration={"folder": args.dumps},
+            output_configuration=[{"output_mode": "csv", "output_folder": args.outputs}],
+            status_configuration={"database_type": "json",
+                                  "base_path": os.path.join(args.outputs, "status")},
+        )
+        converter.start()
+        converter.join()
 
     prices = find_csvs(args.outputs, "PRICE_FULL_FILE")
     if not prices:

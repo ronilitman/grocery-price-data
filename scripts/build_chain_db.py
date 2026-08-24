@@ -254,8 +254,9 @@ def load_promos(conn, outputs):
                 None,
                 pick(row, "promotiondescription", "description"),
                 to_float(pick(row, "discountedprice", "discountedpricepermeasureunit")),
-                pick(row, "promotionstartdate", "promostartdate"),
-                pick(row, "promotionenddate", "promoenddate"),
+                # Super-Pharm spells these ...DateTime; other chains ...Date.
+                pick(row, "promotionstartdate", "promostartdate", "promotionstartdatetime"),
+                pick(row, "promotionenddate", "promoenddate", "promotionenddatetime"),
             )
             for barcode in barcodes:
                 batch.append(record[:3] + (barcode,) + record[4:])
