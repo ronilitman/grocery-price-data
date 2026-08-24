@@ -1,0 +1,150 @@
+name: Super-Pharm probe
+
+# Throwaway diagnostic, not part of the build. Answers one question: why does
+# prices.super-pharm.co.il answer a GitHub runner with a Reblaze challenge
+# (HTTP 247) when the identical request from a laptop returns 200?
+#
+# Every step is best-effort and reports into the job summary - a blocked
+# request is a result, not a failure, so nothing here uses a non-zero exit to
+# mean "blocked".
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_browser:
+        description: 'Also try a real headless browser (adds ~2 min)'
+        type: boolean
+        default: true
+      proxy_url:
+        description: 'Optional proxy to test, e.g. http://user:pass@host:port (leave blank to use the SUPERPHARM_PROXY_URL secret, if set)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      LISTING: 'http://prices.super-pharm.co.il/?Category-equals=PriceFull'
+      LISTING_HTTPS: 'https://prices.super-pharm.co.il/?Category-equals=PriceFull'
+      BROWSER_UA: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Who does the runner look like
+        run: |
+          echo "### Runner egress" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          # ASN matters more than the address: Reblaze scores networks, and
+          # every GitHub-hosted runner sits in Azure.
+          curl -s --max-time 20 https://ipinfo.io/json \
+            | tee -a "$GITHUB_STEP_SUMMARY" || echo "ipinfo unreachable"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Plain requests, four ways
+        run: |
+          echo "### curl" >> "$GITHUB_STEP_SUMMARY"
+          echo "| request | status | body starts with |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|---|" >> "$GITHUB_STEP_SUMMARY"
+
+          probe() {
+            label="$1"; shift
+            code=$(curl -s -o body.html -w '%{http_code}' --max-time 30 "$@" || echo "curl-failed")
+            snippet=$(head -c 90 body.html | tr -d '\n' | sed 's/|/\\|/g')
+            echo "| $label | $code | \`$snippet\` |" >> "$GITHUB_STEP_SUMMARY"
+            echo "[$label] $code"
+          }
+
+          # If these differ, the trigger is the request. If they all get 247,
+          # it is the network the request comes from.
+          probe "http, default UA"   "$LISTING"
+          probe "http, browser UA"   -A "$BROWSER_UA" "$LISTING"
+          probe "https, browser UA"  -A "$BROWSER_UA" "$LISTING_HTTPS"
+          probe "https, IL language" -A "$BROWSER_UA" -H 'Accept-Language: he-IL,he;q=0.9' "$LISTING_HTTPS"
+
+      - name: The library's own request
+        run: |
+          pip install --quiet requests
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import requests
+          print("### python-requests (what the scraper does)\n")
+          print("```")
+          try:
+              r = requests.get("http://prices.super-pharm.co.il/?Category-equals=PriceFull", timeout=30)
+              print("status:", r.status_code, "| final url:", r.url)
+              print("challenge:", "rbzns" in r.text)
+              print("rows on page:", r.text.count("/Download/"))
+          except Exception as exc:
+              print("failed:", type(exc).__name__, exc)
+          print("```")
+          PY
+
+      - name: Does a real browser get through
+        if: ${{ inputs.run_browser }}
+        run: |
+          pip install --quiet playwright
+          playwright install --with-deps chromium
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          # The distinction that decides the fix: a JS challenge a browser can
+          # solve is cheap to work around (solve once, reuse the cookie for
+          # every download). A hard block on the address stays blocked no
+          # matter what runs it.
+          import re, requests
+          from playwright.sync_api import sync_playwright
+
+          print("### headless chromium\n")
+          print("```")
+          try:
+              with sync_playwright() as p:
+                  browser = p.chromium.launch()
+                  page = browser.new_page()
+                  resp = page.goto("https://prices.super-pharm.co.il/?Category-equals=PriceFull",
+                                   wait_until="networkidle", timeout=60000)
+                  html = page.content()
+                  print("status:", resp.status if resp else "none")
+                  print("challenge still showing:", "rbzns" in html)
+                  print("download links on page:", html.count("/Download/"))
+                  cookies = {c["name"]: c["value"] for c in page.context.cookies()}
+                  print("cookies:", sorted(cookies))
+                  link = re.search(r'/Download/PriceFull[^"]+', html)
+                  browser.close()
+
+              # Can a plain HTTP client reuse that cookie? If yes, one browser
+              # visit per run is enough and the other 300 files are cheap.
+              if link:
+                  r = requests.get("https://prices.super-pharm.co.il" + link.group(0).replace("&amp;", "&"),
+                                   cookies=cookies, timeout=60)
+                  print("download with browser cookie:", r.status_code, len(r.content), "bytes")
+              else:
+                  print("no download link found to test the cookie with")
+          except Exception as exc:
+              print("failed:", type(exc).__name__, exc)
+          print("```")
+          PY
+
+      - name: Through a proxy
+        env:
+          PROXY: ${{ inputs.proxy_url || secrets.SUPERPHARM_PROXY_URL }}
+        run: |
+          if [ -z "$PROXY" ]; then
+            echo "### proxy: not configured, skipped" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          # Only the result is printed - never $PROXY itself, it carries
+          # credentials.
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 40 \
+                   --proxy "$PROXY" -A "$BROWSER_UA" "$LISTING_HTTPS" || echo "curl-failed")
+          echo "### proxy: HTTP $code" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: End to end, if anything got through
+        continue-on-error: true
+        run: |
+          pip install --quiet -r requirements.txt
+          python scripts/fetch.py SUPER_PHARM --limit 2 --timeout 300
