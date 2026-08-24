@@ -86,7 +86,7 @@ def write_detail(conn, out_dir):
     stores = defaultdict(dict)
     for chain_id, store_id, name, city, priced in conn.execute(
             "SELECT chain_id, store_id, store_name, city, priced_items FROM stores"):
-        stores[chain_id][store_id] = [name or "", city or "", priced or 0]
+        stores[chain_id][store_id] = [name or "", city or "", priced]
     with open(os.path.join(out_dir, "stores.json"), "w", encoding="utf-8") as handle:
         handle.write(dump(stores))
 

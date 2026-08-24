@@ -60,7 +60,13 @@ INDEXES = [
 
 COPY = [
     ("chains", "INSERT OR REPLACE INTO chains SELECT * FROM src.chains"),
-    ("stores", "INSERT OR REPLACE INTO stores SELECT * FROM src.stores"),
+    # Named, not SELECT *: a chain database built before priced_items existed
+    # has one column fewer, and the positional form would silently skip the
+    # whole stores table for that chain - losing every branch it holds.
+    ("stores", "INSERT OR REPLACE INTO stores "
+               "(chain_id, store_id, subchain_id, store_name, city, address, priced_items) "
+               "SELECT chain_id, store_id, subchain_id, store_name, city, address, "
+               "{priced} FROM src.stores"),
     ("products", "INSERT OR REPLACE INTO products SELECT * FROM src.products"),
     ("chain_prices", "INSERT OR REPLACE INTO chain_prices SELECT * FROM src.chain_prices"),
     ("price_exceptions", "INSERT OR REPLACE INTO price_exceptions SELECT * FROM src.price_exceptions"),
@@ -115,9 +121,13 @@ def main():
     merged = []
     for part in parts:
         conn.execute("ATTACH DATABASE ? AS src", (part,))
+        # NULL, not 0, when the source predates the column: "we did not measure"
+        # and "this branch published nothing" must not look the same downstream.
+        src_columns = {row[1] for row in conn.execute("PRAGMA src.table_info(stores)")}
+        priced = "priced_items" if "priced_items" in src_columns else "NULL"
         for table, statement in COPY:
             try:
-                conn.execute(statement)
+                conn.execute(statement.format(priced=priced))
             except sqlite3.Error as err:
                 print(f"[merge] {os.path.basename(part)}:{table}: {err}", file=sys.stderr)
         conn.commit()
