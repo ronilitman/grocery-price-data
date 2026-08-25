@@ -10,6 +10,7 @@ GitHub runner's disk; the workflow fans this out over a job matrix.
 
 import argparse
 import os
+import shutil
 import sys
 
 from il_supermarket_scarper import ScarpingTask, ScraperFactory
@@ -35,6 +36,49 @@ def parse_args():
     parser.add_argument("--timeout", type=int, default=1800,
                         help="Per-chain scrape timeout in seconds.")
     return parser.parse_args()
+
+
+def quarantine_unparsable_names(dumps_dir):
+    """Move aside dumps whose *filename* the library cannot parse.
+
+    Yohananof's listing carries four junk PromoFull files - chain id
+    0000000000000, and a four-field name where every other file has five:
+
+        PromoFull0000000000000-00-1-202411010501.xml
+
+    The library reads the third field as the timestamp, gets "1", and raises.
+    That happens while it is still *enumerating* files, so four stale promo
+    files take down the entire chain's parse, prices included - which is how a
+    120-file chain produced nothing at all.
+
+    Skipping them here costs four junk files and saves the other 116. The
+    quarantine folder is a sibling of dumps/, never inside it, or the parser
+    would walk straight back into them.
+    """
+    from il_supermarket_parsers.utils.loading_utils import file_name_to_components
+
+    doomed = []
+    for root, _dirs, files in os.walk(dumps_dir):
+        if os.path.basename(root) == "status":
+            continue
+        for name in files:
+            if not name.endswith(".xml"):
+                continue
+            try:
+                file_name_to_components(root, name)
+            except Exception as exc:      # noqa: BLE001 - any failure disqualifies the file
+                doomed.append((os.path.join(root, name), name, exc))
+
+    if not doomed:
+        return
+
+    quarantine = dumps_dir.rstrip("/") + "_unparsable"
+    os.makedirs(quarantine, exist_ok=True)
+    for path, name, exc in doomed:
+        shutil.move(path, os.path.join(quarantine, name))
+        print(f"[fetch] skipping {name}: {exc}", file=sys.stderr)
+    print(f"[fetch] quarantined {len(doomed)} file(s) the parser cannot name",
+          file=sys.stderr)
 
 
 def main():
@@ -72,6 +116,8 @@ def main():
     if not downloaded:
         print(f"[fetch] {args.chain} produced no XML - failing loudly.", file=sys.stderr)
         return 1
+
+    quarantine_unparsable_names(args.dumps)
 
     print(f"[fetch] parsing {args.chain}")
     if args.chain == "SUPER_PHARM":

@@ -58,6 +58,14 @@ jobs:
           - FRESH_MARKET_AND_SUPER_DOSH
           - SUPER_PHARM
           - YELLOW
+    env:
+      # These four refuse datacenter addresses outright - Reblaze answers 247,
+      # Cloudflare answers 403, and laibcatalog just never answers. Nothing
+      # about the request is wrong; a runner is simply not allowed to ask.
+      # Their traffic leaves through a machine at home instead. OSHER_AD is in
+      # on suspicion: it downloads price files locally and only store files on
+      # a runner, which is the same shape.
+      HOME_EGRESS: '["SUPER_PHARM","HAZI_HINAM","VICTORY_NEW_SOURCE","MAHSANI_ASHUK_NEW_SOURCE","OSHER_AD"]'
     steps:
       - uses: actions/checkout@v4
 
@@ -76,11 +84,37 @@ jobs:
           sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost
           df -h /
 
+      # Placed after pip on purpose: package downloads should not travel
+      # through a home connection, only the chain's own files.
+      - name: Join the tailnet
+        if: contains(fromJSON(env.HOME_EGRESS), matrix.chain)
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
+      - name: Leave from home
+        if: contains(fromJSON(env.HOME_EGRESS), matrix.chain)
+        # TS_EXIT_NODE is a repository *variable*, not a secret - point it at
+        # whichever machine is currently acting as the exit node and nothing
+        # here needs editing.
+        run: |
+          sudo tailscale set --exit-node='${{ vars.TS_EXIT_NODE }}'
+          echo "egress now: $(curl -s --max-time 20 https://ipinfo.io/org)"
+
       - name: Scrape and parse
         run: |
           python scripts/fetch.py "${{ matrix.chain }}" \
             --timeout 2400 \
             ${{ github.event.inputs.limit && format('--limit {0}', github.event.inputs.limit) || '' }}
+
+      # Back to the runner's own connection before the artifact upload, so a
+      # home line carries the chain's files and nothing else. always(), because
+      # a failed scrape should not leave the route pinned either.
+      - name: Stop leaving from home
+        if: always() && contains(fromJSON(env.HOME_EGRESS), matrix.chain)
+        run: sudo tailscale set --exit-node=
 
       - name: Build chain database
         run: python scripts/build_chain_db.py --chain "${{ matrix.chain }}"
