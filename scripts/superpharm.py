@@ -149,13 +149,45 @@ READERS = {
 }
 
 
+def _newest_per_store(paths):
+    """Keep only the most recent file for each store.
+
+    The portal lists three days at once - today, yesterday, and the day before
+    - so a full scrape brings back three near-identical copies of every
+    branch's catalogue. build_chain_db survives that (collapse() keeps the last
+    row it reads, and the newest file happens to sort last), but only by
+    accident of filename ordering, and it pays three times over in rows.
+
+    Names carry the date and time as their last two dash-separated fields:
+
+        PriceFull7290172900007-000-016-20260824-184047.xml
+        Stores7290172900007-000-20260824-070016.xml
+
+    so everything before those two identifies the store, and the pair itself
+    sorts chronologically as text. A name that does not fit that shape is kept
+    rather than guessed at.
+    """
+    newest = {}
+    keep_always = []
+    for path in paths:
+        parts = os.path.basename(path).rsplit(".", 1)[0].split("-")
+        if len(parts) < 3 or not (parts[-1].isdigit() and parts[-2].isdigit()):
+            keep_always.append(path)
+            continue
+        store = tuple(parts[:-2])
+        stamp = (parts[-2], parts[-1])
+        if store not in newest or stamp > newest[store][0]:
+            newest[store] = (stamp, path)
+    return sorted(keep_always + [path for _stamp, path in newest.values()])
+
+
 def _xml_files(dumps_dir, prefix):
     hits = []
     for root, _dirs, files in os.walk(dumps_dir):
         for name in files:
             if name.startswith(prefix) and name.endswith(".xml"):
                 hits.append(os.path.join(root, name))
-    return sorted(hits)
+    return _newest_per_store(hits)
 
 
 def convert(dumps_dir, outputs_dir, file_types):
