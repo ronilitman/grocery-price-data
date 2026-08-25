@@ -168,8 +168,10 @@ jobs:
           # no 407 MB download. prices.db stays on the Release for anyone who
           # wants to run arbitrary SQL against it.
           cp client/index.html dist/index.html
-          mkdir -p release && mv dist/prices.db release/prices.db
-          cp dist/metadata.json release/metadata.json
+          # prices.db is built and verified but no longer published: it has
+          # outgrown GitHub's 2 GB release-asset limit, and the site reads the
+          # JSON shards regardless. Nothing consumed the release copy.
+          rm -f dist/prices.db
           du -sh dist dist/catalog
           ls -1 dist
 
@@ -180,15 +182,3 @@ jobs:
       - id: pages
         uses: actions/deploy-pages@v4
 
-      - name: Attach the database to a release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: latest
-          name: Latest price database
-          body: |
-            Rebuilt automatically. See metadata.json for row counts and build time.
-          files: |
-            release/prices.db
-            release/metadata.json
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
