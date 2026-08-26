@@ -153,7 +153,13 @@ def main():
     # Shards store chain ids, not names - the names ride along in index.json
     # so the client can label a result without a second lookup.
     chain_names = dict(conn.execute("SELECT chain_id, name FROM chains"))
-    built_at = dict(conn.execute("SELECT key, value FROM meta")).get("built_at", "")
+    meta = dict(conn.execute("SELECT key, value FROM meta"))
+    built_at = meta.get("built_at", "")
+    # When a chain could not be scraped, its data is carried forward from an
+    # earlier run rather than dropped. Publishing when each chain was actually
+    # built is what lets the client label those prices as old instead of
+    # presenting them as today's.
+    chain_as_of = json.loads(meta.get("chain_as_of") or "{}")
     detail_count = write_detail(conn, args.out_dir)
     conn.close()
 
@@ -172,11 +178,16 @@ def main():
     with open(os.path.join(args.out_dir, "index.json"), "w", encoding="utf-8") as handle:
         json.dump({"levels": list(LEVELS), "shards": sorted(shards),
                    "chains": chain_names, "built_at": built_at,
+                   "chain_as_of": chain_as_of,
                    "products": len(entries)}, handle, ensure_ascii=False)
 
     depths = defaultdict(int)
     for prefix in shards:
         depths[len(prefix)] += 1
+    stale = [chain_names.get(cid, cid) for cid, at in chain_as_of.items()
+             if built_at and at[:10] < built_at[:10]]
+    if stale:
+        print(f"[catalog] carried forward from an earlier build: {', '.join(sorted(stale))}")
     print(f"[catalog] {len(shards)} shards, {len(entries):,} barcodes, "
           f"largest {largest / 1e3:.0f} KB -> {args.out_dir}")
     print("[catalog] shards by prefix length: "

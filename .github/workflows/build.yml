@@ -156,6 +156,14 @@ jobs:
       - name: Show what arrived
         run: ls -lh chain_dbs/
 
+      # A chain that failed tonight still has yesterday's artifact. Rebuilding
+      # without it would delete that chain from the site - which is what a
+      # sleeping exit node did on 26 Aug, taking five chains down with it.
+      - name: Carry forward any chain that failed tonight
+        run: python scripts/backfill_chains.py --repo "${{ github.repository }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Merge, shard, verify
         run: |
           python scripts/merge_db.py --in-dir chain_dbs --out dist/prices.db

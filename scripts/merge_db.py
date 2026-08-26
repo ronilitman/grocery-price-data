@@ -118,7 +118,17 @@ def main():
     conn.executescript("PRAGMA journal_mode=OFF; PRAGMA synchronous=OFF;")
     conn.executescript(SCHEMA)
 
+    # backfill_chains.py records when each chain's data was actually built. A
+    # chain carried forward from an earlier run is real data, just older, and
+    # the client has to be able to tell the difference.
+    freshness = {}
+    fresh_path = os.path.join(args.in_dir, "_freshness.json")
+    if os.path.exists(fresh_path):
+        with open(fresh_path, encoding="utf-8") as handle:
+            freshness = json.load(handle)
+
     merged = []
+    chain_as_of = {}
     for part in parts:
         conn.execute("ATTACH DATABASE ? AS src", (part,))
         # NULL, not 0, when the source predates the column: "we did not measure"
@@ -131,6 +141,12 @@ def main():
             except sqlite3.Error as err:
                 print(f"[merge] {os.path.basename(part)}:{table}: {err}", file=sys.stderr)
         conn.commit()
+        # Chain ids live in the source, the timestamp is keyed by file name, so
+        # the two are married here while src is still attached.
+        as_of = freshness.get(os.path.basename(part)[:-3].upper())
+        if as_of:
+            for (chain_id,) in conn.execute("SELECT chain_id FROM src.chains"):
+                chain_as_of[chain_id] = as_of
         conn.execute("DETACH DATABASE src")
         merged.append(os.path.basename(part))
         print(f"[merge] merged {os.path.basename(part)}")
@@ -150,6 +166,7 @@ def main():
         ("built_at", built_at),
         ("sources", json.dumps(merged)),
         ("counts", json.dumps(counts)),
+        ("chain_as_of", json.dumps(chain_as_of)),
     ])
     conn.commit()
     conn.execute("ANALYZE")
@@ -164,8 +181,8 @@ def main():
 
     with open(os.path.join(os.path.dirname(args.out) or ".", "metadata.json"), "w",
               encoding="utf-8") as handle:
-        json.dump({"built_at": built_at, "bytes": size,
-                   "counts": counts, "sources": merged}, handle,
+        json.dump({"built_at": built_at, "bytes": size, "counts": counts,
+                   "sources": merged, "chain_as_of": chain_as_of}, handle,
                   ensure_ascii=False, indent=2)
     return 0
 
