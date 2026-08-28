@@ -9,6 +9,7 @@ GitHub runner's disk; the workflow fans this out over a job matrix.
 """
 
 import argparse
+import gzip
 import os
 import shutil
 import sys
@@ -36,6 +37,53 @@ def parse_args():
     parser.add_argument("--timeout", type=int, default=1800,
                         help="Per-chain scrape timeout in seconds.")
     return parser.parse_args()
+
+
+def normalize_dump_extensions(dumps_dir):
+    """Give every dump a .xml name, whatever the chain called the file.
+
+    King Store's listing names its files ".GZ", and the library decides
+    whether to add an extension with a case-sensitive test:
+
+        if file_link.endswith((".gz", ".xml")) and ...
+
+    ".GZ" fails it, so the download is written with no extension at all and
+    never decompressed. Every file arrives intact and the chain still looks
+    completely dead, because the count below only counts .xml.
+
+    Sniffing the bytes rather than trusting the name fixes that chain and any
+    other that spells its extension differently. Files the library already
+    unpacked are left alone.
+    """
+    renamed = 0
+    for root, _dirs, files in os.walk(dumps_dir):
+        if os.path.basename(root) == "status":
+            continue
+        for name in files:
+            if name.endswith((".xml", ".json")):
+                continue
+            path = os.path.join(root, name)
+            target = os.path.join(root, name.rsplit(".", 1)[0] + ".xml")
+            if os.path.exists(target):
+                continue            # already unpacked under its proper name
+            try:
+                with open(path, "rb") as handle:
+                    magic = handle.read(2)
+                if magic == b"\x1f\x8b":
+                    with gzip.open(path, "rb") as src, open(target, "wb") as dst:
+                        shutil.copyfileobj(src, dst)
+                    os.remove(path)
+                elif magic.lstrip(b"\xef\xbb\xbf").startswith(b"<"):
+                    os.rename(path, target)
+                else:
+                    continue
+            except (OSError, EOFError, gzip.BadGzipFile) as exc:
+                print(f"[fetch] could not unpack {name}: {exc}", file=sys.stderr)
+                continue
+            renamed += 1
+
+    if renamed:
+        print(f"[fetch] recovered {renamed} dump(s) saved without a .xml name")
 
 
 def quarantine_unparsable_names(dumps_dir):
@@ -108,6 +156,8 @@ def main():
     scraper.start(limit=args.limit)
     scraper.join()          # start() returns immediately - without this the
                             # parser below runs against an empty folder.
+
+    normalize_dump_extensions(args.dumps)
 
     downloaded = []
     for root, _dirs, files in os.walk(args.dumps):

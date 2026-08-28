@@ -58,6 +58,25 @@ jobs:
           - FRESH_MARKET_AND_SUPER_DOSH
           - SUPER_PHARM
           - YELLOW
+          # The library ships 31 scrapers and we ran 17 of them. These are the
+          # rest, minus NETIV_HASED, which the library disables itself. None is
+          # routed through the home exit node: a runner's own connection is
+          # tried first, and only a chain that actually refuses it earns a
+          # place in HOME_EGRESS.
+          - BAREKET
+          - CITY_MARKET_SHOPS
+          - GOOD_PHARM
+          - HET_COHEN_NEW_SOURCE
+          - MAAYAN_2000
+          - MESHMAT_YOSEF_1
+          - MESHMAT_YOSEF_2
+          - POLIZER
+          - SALACH_DABACH
+          - SHEFA_BARCART_ASHEM
+          - SHUK_AHIR
+          - SUPER_SAPIR
+          - SUPER_YUDA
+          - WOLT
     env:
       # These four refuse datacenter addresses outright - Reblaze answers 247,
       # Cloudflare answers 403, and laibcatalog just never answers. Nothing
