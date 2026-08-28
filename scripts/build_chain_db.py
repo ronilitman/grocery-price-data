@@ -22,6 +22,14 @@ from csvutil import find_csvs, read_rows, pick, digits, to_float  # noqa: E402
 
 BATCH = 20000
 
+# Chains whose store file carries no <ChainName>. Without this the fallback is
+# the scraper's enum name, and the app - which prints whatever it is given -
+# shows "HAZI_HINAM" in a list of Hebrew chain names.
+DISPLAY_NAMES = {
+    "HAZI_HINAM": "חצי חינם",
+    "CITY_MARKET_SHOPS": "סיטי מרקט",
+}
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS chains(
     chain_id TEXT PRIMARY KEY,
@@ -288,8 +296,10 @@ def main():
     collapse(conn)
     promo_rows = load_promos(conn, args.outputs)
 
+    # OR IGNORE: only chains the store file did not name reach this.
+    fallback_name = DISPLAY_NAMES.get(args.chain, args.chain)
     for chain_id in chain_ids:
-        conn.execute("INSERT OR IGNORE INTO chains VALUES (?,?)", (chain_id, args.chain))
+        conn.execute("INSERT OR IGNORE INTO chains VALUES (?,?)", (chain_id, fallback_name))
     conn.commit()
 
     stats = {
