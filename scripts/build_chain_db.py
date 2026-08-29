@@ -29,11 +29,17 @@ BATCH = 20000
 # branded chain.
 DISPLAY_NAMES = {
     "7290700100008": "חצי חינם",
-    # 51k prices arrive under an all-zeros chain id in City Market's own feed,
-    # with no store file to attribute them to. Real prices, unusable branches -
-    # so it is named for what it is rather than merged into the branded chain,
-    # which would claim these prices apply at those 72 shops.
-    "0000000000000": "סיטי מרקט (ללא שיוך לסניף)",
+}
+
+# Chain ids a chain publishes by mistake, and the id the rows belong to.
+# City Market zeroes the ChainID in some of its price files - 51,372 products
+# worth - while the StoreIDs in them stay its own: all four store ids in those
+# files resolve to named branches under 7290000000003. Left alone they surface
+# as a second, branchless chain; re-attributed they are simply that chain's
+# prices. Keyed by scraper as well as id, because an all-zeros ChainID is a
+# generic mistake and another chain's would not belong here.
+CHAIN_ID_ALIASES = {
+    ("CITY_MARKET_SHOPS", "0000000000000"): "7290000000003",
 }
 
 SCHEMA = """
@@ -283,6 +289,30 @@ def load_promos(conn, outputs):
     return conn.execute("SELECT COUNT(*) FROM promos").fetchone()[0]
 
 
+def apply_chain_aliases(conn, scraper, chain_ids, tables=("_raw",)):
+    """Re-attribute rows a chain published under a mistaken chain id.
+
+    Runs against ``_raw`` before collapse() so the baseline is the modal price
+    across every branch, including the ones that arrived mislabelled - fixing
+    it afterwards would leave two half-populated chains to reconcile.
+    """
+    updated = set(chain_ids)
+    for (alias_scraper, wrong_id), right_id in CHAIN_ID_ALIASES.items():
+        if alias_scraper != scraper:
+            continue
+        for table in tables:
+            conn.execute(f"UPDATE {table} SET chain_id = ? WHERE chain_id = ?",
+                         (right_id, wrong_id))
+        if conn.total_changes:
+            print(f"[build] re-attributed {wrong_id} -> {right_id}")
+        conn.execute("DELETE FROM chains WHERE chain_id = ?", (wrong_id,))
+        conn.execute("DELETE FROM stores WHERE chain_id = ?", (wrong_id,))
+        updated.discard(wrong_id)
+        updated.add(right_id)
+    conn.commit()
+    return updated
+
+
 def drop_priceless_chains(conn):
     """Remove chain ids that have branches but no prices behind them.
 
@@ -327,8 +357,10 @@ def main():
     if not price_rows:
         print(f"[build] {args.chain}: no usable price rows.", file=sys.stderr)
         return 1
+    chain_ids = apply_chain_aliases(conn, args.chain, chain_ids)
     collapse(conn)
     promo_rows = load_promos(conn, args.outputs)
+    apply_chain_aliases(conn, args.chain, chain_ids, tables=("promos",))
 
     # OR IGNORE: only chains the store file did not name reach this.
     for chain_id in chain_ids:
