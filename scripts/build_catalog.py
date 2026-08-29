@@ -112,7 +112,7 @@ def write_detail(conn, out_dir):
     return len(shards)
 
 
-def write_promos(conn, out_dir):
+def write_promos(conn, out_dir, today):
     """Promotions: barcode -> chain -> [offer, ...], sharded like detail/.
 
     An offer is the deal as published, not a price: ``u`` is what one unit
@@ -123,6 +123,11 @@ def write_promos(conn, out_dir):
     ``s`` lists the branches honouring the offer, and is omitted when that is
     every branch of the chain that publishes promotions at all - the common
     case, and the reason this is a fraction of the size of the per-branch form.
+
+    Chains publish tomorrow's campaigns alongside today's - 14,714 of 65,788
+    offers in the first build had not started yet - so ``b`` carries the start
+    date whenever it is still in the future and a client must not show the
+    offer until then. Offers that have already ended are dropped here.
     """
     offers = defaultdict(lambda: defaultdict(list))
     stores_of = defaultdict(list)
@@ -132,16 +137,20 @@ def write_promos(conn, out_dir):
     everywhere = defaultdict(set)
     rows = list(conn.execute(
         "SELECT offer_id, chain_id, barcode, club, min_qty, price, unit_price, "
-        "description, ends FROM promo_offers"))
+        "description, starts, ends FROM promo_offers"))
     for offer_id, chain_id, *_ in rows:
         everywhere[chain_id].update(stores_of.get(offer_id, ()))
 
     for (offer_id, chain_id, barcode, club, min_qty, price,
-         unit_price, description, ends) in rows:
+         unit_price, description, starts, ends) in rows:
         branches = stores_of.get(offer_id, [])
         if not branches:
             continue                      # no branch honours it; nothing to show
+        if ends and ends < today:
+            continue                      # finished; nobody can still get it
         entry = {"u": unit_price, "d": description or "", "e": ends or ""}
+        if starts and starts > today:
+            entry["b"] = starts           # announced, not yet live
         if min_qty and min_qty != 1:
             entry["q"] = min_qty
             entry["t"] = price            # the headline "2 for 34"
@@ -163,8 +172,9 @@ def write_promos(conn, out_dir):
     with open(os.path.join(promo_dir, "index.json"), "w", encoding="utf-8") as handle:
         handle.write(dump({"levels": list(DETAIL_LEVELS), "shards": sorted(shards)}))
 
+    live = sum(len(v) for chains in offers.values() for v in chains.values())
     print(f"[catalog] {len(shards)} promo shards, {len(offers):,} products on offer, "
-          f"{len(rows):,} offers, largest {largest / 1e3:.0f} KB")
+          f"{live:,} of {len(rows):,} offers still current, largest {largest / 1e3:.0f} KB")
     return len(shards), len(offers)
 
 
@@ -217,7 +227,8 @@ def main():
     # presenting them as today's.
     chain_as_of = json.loads(meta.get("chain_as_of") or "{}")
     detail_count = write_detail(conn, args.out_dir)
-    promo_count, promo_products = write_promos(conn, args.out_dir)
+    promo_count, promo_products = write_promos(
+        conn, args.out_dir, (built_at or "")[:10] or "0000-00-00")
     conn.close()
 
     shards = split(list(entries), 0)

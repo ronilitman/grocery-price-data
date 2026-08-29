@@ -254,12 +254,18 @@ def collapse(conn):
     conn.commit()
 
 
-def load_promos(conn, dumps):
+def load_promos(conn, dumps, scraper):
     """Collapse every branch's PromoFull into distinct offers plus a branch list.
 
     Read from the XML dumps, not from ``outputs/``: see scripts/promos.py for
     why the parser package's CSV cannot represent a promotion and why building
     it cost 1,970 MB for a chain whose prices take 76 MB.
+
+    A mistaken chain id is corrected *here*, before the collapse, rather than
+    by apply_chain_aliases() afterwards. City Market publishes the same
+    promotion under both its own id and an all-zeros one, so rewriting the id
+    after insertion collides with the offer's unique index; rewriting it first
+    lets the two copies merge into the one offer they always were.
     """
     files = promos.find_promo_files(dumps)
     if not files:
@@ -270,6 +276,9 @@ def load_promos(conn, dumps):
     branches = defaultdict(set)             # offer -> {store_id}
     seen_rows = 0
     for store_id, offer in promos.read_offers(dumps):
+        right = CHAIN_ID_ALIASES.get((scraper, offer[0]))
+        if right:
+            offer = (right,) + offer[1:]
         branches[offer].add(store_id)
         seen_rows += 1
 
@@ -371,8 +380,7 @@ def main():
         return 1
     chain_ids = apply_chain_aliases(conn, args.chain, chain_ids)
     collapse(conn)
-    offer_count, link_count = load_promos(conn, args.dumps)
-    apply_chain_aliases(conn, args.chain, chain_ids, tables=("promo_offers",))
+    offer_count, link_count = load_promos(conn, args.dumps, args.chain)
 
     # OR IGNORE: only chains the store file did not name reach this.
     for chain_id in chain_ids:
