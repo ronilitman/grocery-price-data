@@ -1,4 +1,9 @@
-"""outputs/*.csv  ->  one small SQLite file for a single chain.
+"""outputs/*.csv (+ the promo XML dumps)  ->  one small SQLite file per chain.
+
+Prices and stores come from the CSVs the parser package writes. Promotions do
+not: they are read straight from dumps/**/PromoFull*.xml, because the CSV form
+cannot represent a promotion's nested item list and costs gigabytes to build.
+See scripts/promos.py.
 
 The collapse that happens here is what keeps the whole thing free to host.
 Raw per-store prices are roughly 80 million rows nationally, which is a
@@ -12,7 +17,6 @@ which is ~50x smaller and answers the same questions exactly.
 """
 
 import argparse
-import json
 import os
 import sqlite3
 import sys
