@@ -30,12 +30,18 @@ parser reports `errors: False` with zero rows — that is how Super-Pharm shippe
 nothing for months, and how Fresh Market's branches vanished. Never trust the
 status field. Check row counts and whether a CSV was actually written.
 
-**Five chains cannot be scraped from a datacenter.** Super-Pharm (Reblaze, HTTP
-247), Hazi Hinam (Cloudflare 403), Victory and Mahsani Ashuk (laibcatalog never
-answers at all), Osher Ad. Their jobs route egress through a Tailscale exit
-node named `pricebox` — currently Roni's Mac, eventually a Pi. If *exactly*
-those five fail, suspect the exit node being asleep before you suspect the
-chains. A headless browser does not help; only the egress does.
+**Six chains cannot be scraped from a datacenter.** Super-Pharm (Reblaze, HTTP
+247), Hazi Hinam (Cloudflare 403), Victory, Mahsani Ashuk and Het Cohen
+(laibcatalog never answers at all), Osher Ad. Their jobs route egress through a
+Tailscale exit node named `pricebox` — currently Roni's Mac, eventually a Pi. If
+*exactly* those six fail, suspect the exit node being asleep before you suspect
+the chains. A headless browser does not help; only the egress does.
+
+Het Cohen was the last one found, on 29 Aug 2026: it is a laibcatalog chain that
+had been left on runner egress, so it failed every night on a 30s `getbranches`
+timeout while the same URL answered in 56ms from home. A lone chain failing on a
+connect timeout is worth checking against `HOME_EGRESS` before treating it as a
+chain-side fault.
 
 **A failing chain is carried forward, not dropped.** `backfill_chains.py`
 refills it from the newest artifact within the 7-day retention, and

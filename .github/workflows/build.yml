@@ -59,10 +59,10 @@ jobs:
           - SUPER_PHARM
           - YELLOW
           # The library ships 31 scrapers and we ran 17 of them. These are the
-          # rest, minus NETIV_HASED, which the library disables itself. None is
-          # routed through the home exit node: a runner's own connection is
-          # tried first, and only a chain that actually refuses it earns a
-          # place in HOME_EGRESS.
+          # rest, minus NETIV_HASED, which the library disables itself. A
+          # runner's own connection is tried first, and only a chain that
+          # actually refuses it earns a place in HOME_EGRESS - which is how
+          # HET_COHEN_NEW_SOURCE, listed here, ended up routed after all.
           - BAREKET
           - CITY_MARKET_SHOPS
           - GOOD_PHARM
@@ -78,13 +78,15 @@ jobs:
           - SUPER_YUDA
           - WOLT
     env:
-      # These four refuse datacenter addresses outright - Reblaze answers 247,
+      # These refuse datacenter addresses outright - Reblaze answers 247,
       # Cloudflare answers 403, and laibcatalog just never answers. Nothing
       # about the request is wrong; a runner is simply not allowed to ask.
       # Their traffic leaves through a machine at home instead. OSHER_AD is in
       # on suspicion: it downloads price files locally and only store files on
-      # a runner, which is the same shape.
-      HOME_EGRESS: '["SUPER_PHARM","HAZI_HINAM","VICTORY_NEW_SOURCE","MAHSANI_ASHUK_NEW_SOURCE","OSHER_AD"]'
+      # a runner, which is the same shape. HET_COHEN_NEW_SOURCE is a laibcatalog
+      # chain too, and had been left on runner egress by oversight: it timed out
+      # after 30s on getbranches every night while answering in 56ms from home.
+      HOME_EGRESS: '["SUPER_PHARM","HAZI_HINAM","VICTORY_NEW_SOURCE","MAHSANI_ASHUK_NEW_SOURCE","OSHER_AD","HET_COHEN_NEW_SOURCE"]'
     steps:
       - uses: actions/checkout@v4
 
