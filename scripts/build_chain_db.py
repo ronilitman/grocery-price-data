@@ -22,12 +22,18 @@ from csvutil import find_csvs, read_rows, pick, digits, to_float  # noqa: E402
 
 BATCH = 20000
 
-# Chains whose store file carries no <ChainName>. Without this the fallback is
-# the scraper's enum name, and the app - which prints whatever it is given -
-# shows "HAZI_HINAM" in a list of Hebrew chain names.
+# Chain ids whose store file never names them. Without this the fallback is the
+# scraper's enum name, and the app - which prints whatever it is given - shows
+# "HAZI_HINAM" in a list of Hebrew chain names. Keyed by chain id rather than
+# by scraper: City Market publishes under two ids and only one of them is the
+# branded chain.
 DISPLAY_NAMES = {
-    "HAZI_HINAM": "חצי חינם",
-    "CITY_MARKET_SHOPS": "סיטי מרקט",
+    "7290700100008": "חצי חינם",
+    # 51k prices arrive under an all-zeros chain id in City Market's own feed,
+    # with no store file to attribute them to. Real prices, unusable branches -
+    # so it is named for what it is rather than merged into the branded chain,
+    # which would claim these prices apply at those 72 shops.
+    "0000000000000": "סיטי מרקט (ללא שיוך לסניף)",
 }
 
 SCHEMA = """
@@ -277,6 +283,34 @@ def load_promos(conn, outputs):
     return conn.execute("SELECT COUNT(*) FROM promos").fetchone()[0]
 
 
+def drop_priceless_chains(conn):
+    """Remove chain ids that have branches but no prices behind them.
+
+    One company can publish the same shops under several chain ids. Meshmat
+    Yosef ships three - 7290058289400 with 9,411 products, and 5144744100001
+    and 2222222 with the same four branches and no prices at all. All three
+    reach the app as separate chains, so the picker offers the same shop three
+    times and a cart can be compared against itself.
+
+    The test is prices, not the shape of the id: a chain with prices and no
+    store file (Fresh Market, when it published an empty one) is kept, because
+    losing its prices is the worse failure.
+    """
+    priceless = [row[0] for row in conn.execute(
+        "SELECT chain_id FROM chains WHERE chain_id NOT IN "
+        "(SELECT DISTINCT chain_id FROM chain_prices)")]
+    if not priceless:
+        return 0
+
+    marks = ",".join("?" * len(priceless))
+    for table in ("stores", "price_exceptions", "promos", "chains"):
+        conn.execute(f"DELETE FROM {table} WHERE chain_id IN ({marks})", priceless)
+    conn.commit()
+    for chain_id in priceless:
+        print(f"[build] dropped {chain_id}: branches but no prices")
+    return len(priceless)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Build a per-chain SQLite file from parsed CSVs.")
     parser.add_argument("--chain", required=True, help="ScraperFactory name, used for the filename")
@@ -297,10 +331,13 @@ def main():
     promo_rows = load_promos(conn, args.outputs)
 
     # OR IGNORE: only chains the store file did not name reach this.
-    fallback_name = DISPLAY_NAMES.get(args.chain, args.chain)
     for chain_id in chain_ids:
-        conn.execute("INSERT OR IGNORE INTO chains VALUES (?,?)", (chain_id, fallback_name))
+        conn.execute("INSERT OR IGNORE INTO chains VALUES (?,?)",
+                     (chain_id, DISPLAY_NAMES.get(chain_id, args.chain)))
     conn.commit()
+
+    # Last, so it sees the complete chain list.
+    drop_priceless_chains(conn)
 
     stats = {
         name: conn.execute(f"SELECT COUNT(*) FROM {name}").fetchone()[0]
