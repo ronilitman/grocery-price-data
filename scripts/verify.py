@@ -62,6 +62,33 @@ def main():
     """).fetchone()[0]
     print(f"[verify] prices with no product row: {orphans:,}")
 
+    # Promotions have no floor - a chain that runs none tonight is not a fault,
+    # and this table was empty for every chain until now. What is checked is
+    # the wiring, because the failure mode is silent: an offer with no branch
+    # behind it is unpublishable, and an offer whose unit price is not
+    # price/min_qty means the two have come apart, which is exactly how "2 for
+    # 34" gets shown as a 34-shekel Toffifee.
+    offers = query("SELECT COUNT(*) FROM promo_offers").fetchone()[0]
+    if offers:
+        chains_with = query(
+            "SELECT COUNT(DISTINCT chain_id) FROM promo_offers").fetchone()[0]
+        stranded = query("""
+            SELECT COUNT(*) FROM promo_offers
+            WHERE offer_id NOT IN (SELECT offer_id FROM promo_stores)
+        """).fetchone()[0]
+        inconsistent = query("""
+            SELECT COUNT(*) FROM promo_offers
+            WHERE min_qty <= 0 OR ABS(unit_price - price / min_qty) > 0.01
+        """).fetchone()[0]
+        print(f"[verify] offers {offers:,} across {chains_with} chains; "
+              f"{stranded:,} with no branch, {inconsistent:,} with a bad unit price")
+        if stranded:
+            failures.append(f"{stranded:,} promo offers with no branch")
+        if inconsistent:
+            failures.append(f"{inconsistent:,} promo offers whose unit price is not price/min_qty")
+    else:
+        print("[verify] offers 0 (no chain published a usable promotion)")
+
     conn.close()
     if failures:
         print("[verify] FAILED: " + "; ".join(failures), file=sys.stderr)

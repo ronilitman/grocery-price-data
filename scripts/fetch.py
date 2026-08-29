@@ -26,6 +26,14 @@ from csvutil import find_csvs  # noqa: E402
 # with a partial catalogue.
 FILE_TYPES = ["PRICE_FULL_FILE", "STORE_FILE", "PROMO_FULL_FILE"]
 
+# Promotions are downloaded but deliberately not converted to CSV. The generic
+# converter flattens a promotion's nested item list into a JSON blob whose
+# column name depends on the dialect, which is unreadable, and it is ruinously
+# large doing it - Yellow's promo CSV was 1,970 MB against 76 MB for its
+# prices. build_chain_db.py reads the PromoFull XML directly instead; see
+# scripts/promos.py.
+PARSE_TYPES = ["PRICE_FULL_FILE", "STORE_FILE"]
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Scrape and parse one supermarket chain.")
@@ -174,11 +182,11 @@ def main():
         # Not the library's parser: it looks for a <Details> element Super-Pharm
         # no longer publishes and writes an empty result without erroring.
         # scripts/superpharm.py explains why overriding it is not workable.
-        superpharm.convert(args.dumps, args.outputs, FILE_TYPES)
+        superpharm.convert(args.dumps, args.outputs, PARSE_TYPES)
     else:
         converter = ConvertingTask(
             enabled_parsers=[args.chain],
-            files_types=FILE_TYPES,
+            files_types=PARSE_TYPES,
             source_configuration={"folder": args.dumps},
             output_configuration=[{"output_mode": "csv", "output_folder": args.outputs}],
             status_configuration={"database_type": "json",

@@ -112,6 +112,62 @@ def write_detail(conn, out_dir):
     return len(shards)
 
 
+def write_promos(conn, out_dir):
+    """Promotions: barcode -> chain -> [offer, ...], sharded like detail/.
+
+    An offer is the deal as published, not a price: ``u`` is what one unit
+    costs under it and ``q`` is how many you must buy to get that. A client
+    that shows ``u`` without ``q`` says a Toffifee costs 17.00 when the offer
+    is two for 34.00.
+
+    ``s`` lists the branches honouring the offer, and is omitted when that is
+    every branch of the chain that publishes promotions at all - the common
+    case, and the reason this is a fraction of the size of the per-branch form.
+    """
+    offers = defaultdict(lambda: defaultdict(list))
+    stores_of = defaultdict(list)
+    for offer_id, store_id in conn.execute("SELECT offer_id, store_id FROM promo_stores"):
+        stores_of[offer_id].append(store_id)
+
+    everywhere = defaultdict(set)
+    rows = list(conn.execute(
+        "SELECT offer_id, chain_id, barcode, club, min_qty, price, unit_price, "
+        "description, ends FROM promo_offers"))
+    for offer_id, chain_id, *_ in rows:
+        everywhere[chain_id].update(stores_of.get(offer_id, ()))
+
+    for (offer_id, chain_id, barcode, club, min_qty, price,
+         unit_price, description, ends) in rows:
+        branches = stores_of.get(offer_id, [])
+        if not branches:
+            continue                      # no branch honours it; nothing to show
+        entry = {"u": unit_price, "d": description or "", "e": ends or ""}
+        if min_qty and min_qty != 1:
+            entry["q"] = min_qty
+            entry["t"] = price            # the headline "2 for 34"
+        if club:
+            entry["c"] = 1
+        if set(branches) != everywhere[chain_id]:
+            entry["s"] = sorted(branches)
+        offers[barcode][chain_id].append(entry)
+
+    promo_dir = os.path.join(out_dir, "promo")
+    os.makedirs(promo_dir, exist_ok=True)
+    shards = split_by_size(offers, list(offers), 0) if offers else {}
+    largest = 0
+    for prefix, barcodes in shards.items():
+        path = os.path.join(promo_dir, f"{prefix}.json")
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(dump({b: offers[b] for b in barcodes}))
+        largest = max(largest, os.path.getsize(path))
+    with open(os.path.join(promo_dir, "index.json"), "w", encoding="utf-8") as handle:
+        handle.write(dump({"levels": list(DETAIL_LEVELS), "shards": sorted(shards)}))
+
+    print(f"[catalog] {len(shards)} promo shards, {len(offers):,} products on offer, "
+          f"{len(rows):,} offers, largest {largest / 1e3:.0f} KB")
+    return len(shards), len(offers)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Write barcode-prefix JSON shards.")
     parser.add_argument("--db", default="dist/prices.db")
@@ -161,6 +217,7 @@ def main():
     # presenting them as today's.
     chain_as_of = json.loads(meta.get("chain_as_of") or "{}")
     detail_count = write_detail(conn, args.out_dir)
+    promo_count, promo_products = write_promos(conn, args.out_dir)
     conn.close()
 
     shards = split(list(entries), 0)
@@ -179,7 +236,10 @@ def main():
         json.dump({"levels": list(LEVELS), "shards": sorted(shards),
                    "chains": chain_names, "built_at": built_at,
                    "chain_as_of": chain_as_of,
-                   "products": len(entries)}, handle, ensure_ascii=False)
+                   "products": len(entries),
+                   # How many products have a promotion somewhere. A client can
+                   # skip fetching promo shards entirely when this is 0.
+                   "promo_products": promo_products}, handle, ensure_ascii=False)
 
     depths = defaultdict(int)
     for prefix in shards:
@@ -192,7 +252,8 @@ def main():
           f"largest {largest / 1e3:.0f} KB -> {args.out_dir}")
     print("[catalog] shards by prefix length: "
           + ", ".join(f"{k}->{v}" for k, v in sorted(depths.items())))
-    total_files = len(shards) + detail_count + 3   # + index, stores, detail/index
+    # + index, stores, detail/index, promo/index
+    total_files = len(shards) + detail_count + promo_count + 4
     print(f"[catalog] {total_files} files total")
     if total_files > MAX_FILES:
         print(f"[catalog] {total_files} files exceeds the {MAX_FILES}-file limit",

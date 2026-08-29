@@ -29,9 +29,14 @@ CREATE TABLE chain_prices(
 CREATE TABLE price_exceptions(
     chain_id TEXT NOT NULL, store_id TEXT NOT NULL, barcode TEXT NOT NULL,
     price REAL NOT NULL, PRIMARY KEY (chain_id, store_id, barcode));
-CREATE TABLE promos(
-    chain_id TEXT NOT NULL, store_id TEXT, promo_id TEXT, barcode TEXT NOT NULL,
-    description TEXT, price REAL, starts TEXT, ends TEXT);
+CREATE TABLE promo_offers(
+    offer_id INTEGER PRIMARY KEY, chain_id TEXT NOT NULL, promo_id TEXT NOT NULL,
+    barcode TEXT NOT NULL, club INTEGER NOT NULL, min_qty REAL NOT NULL,
+    price REAL NOT NULL, unit_price REAL NOT NULL, description TEXT,
+    starts TEXT, ends TEXT);
+CREATE TABLE promo_stores(
+    offer_id INTEGER NOT NULL, store_id TEXT NOT NULL,
+    PRIMARY KEY (offer_id, store_id));
 CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT);
 CREATE TABLE product_tokens(token TEXT NOT NULL, barcode TEXT NOT NULL);
 """
@@ -54,8 +59,8 @@ INDEXES = [
     "CREATE INDEX idx_stores_city ON stores(city, chain_id, store_id)",
     "CREATE INDEX idx_products_name ON products(name)",
     "CREATE INDEX idx_tokens ON product_tokens(token, barcode)",
-    "CREATE INDEX idx_promos_barcode ON promos(barcode)",
-    "CREATE INDEX idx_promos_chain ON promos(chain_id, ends)",
+    "CREATE INDEX idx_offers_barcode ON promo_offers(barcode, unit_price)",
+    "CREATE INDEX idx_offers_chain ON promo_offers(chain_id, ends)",
 ]
 
 COPY = [
@@ -70,7 +75,16 @@ COPY = [
     ("products", "INSERT OR REPLACE INTO products SELECT * FROM src.products"),
     ("chain_prices", "INSERT OR REPLACE INTO chain_prices SELECT * FROM src.chain_prices"),
     ("price_exceptions", "INSERT OR REPLACE INTO price_exceptions SELECT * FROM src.price_exceptions"),
-    ("promos", "INSERT INTO promos SELECT * FROM src.promos"),
+    # offer_id is assigned per chain database, so ids collide across chains.
+    # {offset} shifts each source past everything merged so far - exact, unlike
+    # re-joining on a key that contains REALs.
+    ("promo_offers",
+     "INSERT INTO promo_offers SELECT offer_id + {offset}, chain_id, promo_id, "
+     "barcode, club, min_qty, price, unit_price, description, starts, ends "
+     "FROM src.promo_offers"),
+    ("promo_stores",
+     "INSERT INTO promo_stores SELECT offer_id + {offset}, store_id "
+     "FROM src.promo_stores"),
 ]
 
 
@@ -135,9 +149,11 @@ def main():
         # and "this branch published nothing" must not look the same downstream.
         src_columns = {row[1] for row in conn.execute("PRAGMA src.table_info(stores)")}
         priced = "priced_items" if "priced_items" in src_columns else "NULL"
+        offset = conn.execute(
+            "SELECT COALESCE(MAX(offer_id), 0) FROM promo_offers").fetchone()[0]
         for table, statement in COPY:
             try:
-                conn.execute(statement.format(priced=priced))
+                conn.execute(statement.format(priced=priced, offset=offset))
             except sqlite3.Error as err:
                 print(f"[merge] {os.path.basename(part)}:{table}: {err}", file=sys.stderr)
         conn.commit()
@@ -159,7 +175,8 @@ def main():
     counts = {
         table: conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
         for table in ("chains", "stores", "products", "chain_prices",
-                      "price_exceptions", "promos", "product_tokens")
+                      "price_exceptions", "promo_offers", "promo_stores",
+                      "product_tokens")
     }
     built_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
     conn.executemany("INSERT OR REPLACE INTO meta VALUES (?,?)", [

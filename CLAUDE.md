@@ -18,10 +18,11 @@ published shape is a change to two repos.** Check the consumer before editing
 
 | file | holds |
 |---|---|
-| `index.json` | `levels`, `shards`, `chains` (id→name), `built_at`, `chain_as_of`, `products` |
+| `index.json` | `levels`, `shards`, `chains` (id→name), `built_at`, `chain_as_of`, `products`, `promo_products` |
 | `stores.json` | `{chain_id: {store_id: [name, city_code, priced_items]}}` |
 | `{prefix}.json` | search shards, keyed by barcode prefix |
 | `detail/{prefix}.json` | per-store prices, fetched on drill-down |
+| `promo/{prefix}.json` | promotions, one entry per distinct offer |
 
 ## Things that will bite you
 
@@ -52,6 +53,26 @@ from scratch used to *delete* a chain that failed for one night.
 deployed fine — the job's colour is the last step's, not the deploy's. Read the
 step list, not the conclusion.
 
+**A promotion is an offer, not a price.** `u` is what one unit costs under it
+and `q` is how many you must buy to get that; `t` is the headline total. Show
+`u` without `q` and a two-for-34 Toffifee reads as a 34-shekel Toffifee. `c: 1`
+means a loyalty card is required - half of Yellow's promotions are club-only.
+`s` lists the branches honouring the offer and is absent when every branch of
+that chain does. The unit price is always `DiscountedPrice / MinQty`, computed
+by us: `DiscountedPricePerMida` is per *measure* unit, so Stop Market publishes
+8.80 for a two-for-22 deal on a 125 g box. That division is also exactly what
+CHP shows.
+
+**Promo files come in two dialects and a chain can publish both.** Branches
+either nest items under `<Groups>` with the terms per item, or list them flat
+under `<PromotionItems>` with the terms on the promotion. Keshet runs 24
+branches on one and 2 on the other, emitting the same promotion id with
+different `RewardType` and `AllowMultipleDiscounts`. So those fields, and
+`IsGiftItem`, describe the *file*, not the offer - never branch on them. Only
+`PromotionId`, `PromotionDescription`, `MinQty`, `DiscountedPrice`, `ClubId`
+and the dates survive the dialect. Reading one dialect only is how Yellow
+shipped 1 of 244 branches and Stop Market shipped none of 11.
+
 **Weighed goods are priced per kilogram.** ~12k of the products. The shard
 carries `w: 1` and a unit in `u`; both are omitted when empty, so a missing `w`
 means "not weighed", never "unknown". A cart cannot just sum these.
@@ -81,6 +102,8 @@ A full run needs `pricebox` awake for its whole duration.
 
 - **King Store** produces zero files and reproduces locally.
 - **Alerting** when a chain fails — deliberately deferred.
+- **The app does not read `promo/` yet.** The shards are published and match
+  CHP's numbers; wiring them into `grocery-list-app` is the next change.
 - Firestore rules need the anonymous provider enabled in the Firebase console
   before stricter rules can ship (the one real security item).
 - Search shards should split on a byte budget like `split_by_size` already does

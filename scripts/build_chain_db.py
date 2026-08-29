@@ -16,8 +16,10 @@ import json
 import os
 import sqlite3
 import sys
+from collections import defaultdict
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import promos  # noqa: E402
 from csvutil import find_csvs, read_rows, pick, digits, to_float  # noqa: E402
 
 BATCH = 20000
@@ -85,15 +87,36 @@ CREATE TABLE IF NOT EXISTS price_exceptions(
     price    REAL NOT NULL,
     PRIMARY KEY (chain_id, store_id, barcode)
 );
-CREATE TABLE IF NOT EXISTS promos(
+-- One row per distinct offer, not per (promotion x item x branch). Every
+-- branch republishes the whole chain's promotions, so the published form is
+-- ~20x larger than the information in it: Keshet ships 206,519 item rows
+-- carrying 10,486 offers. Which branches honour an offer lives in
+-- promo_stores, because that genuinely varies - Keshet prices this box at
+-- 11.90 in eighteen branches and 9.90 in three.
+CREATE TABLE IF NOT EXISTS promo_offers(
+    offer_id    INTEGER PRIMARY KEY,
     chain_id    TEXT NOT NULL,
-    store_id    TEXT,
-    promo_id    TEXT,
+    promo_id    TEXT NOT NULL,
     barcode     TEXT NOT NULL,
+    -- 0 = anyone, 1 = needs a loyalty card. Half of Yellow's promotions are
+    -- club-only; showing those as the shelf price advertises a number most
+    -- shoppers cannot get.
+    club        INTEGER NOT NULL,
+    -- The pack size the price is for. Without it "34.00" reads as the price of
+    -- one Toffifee when it is the price of two.
+    min_qty     REAL NOT NULL,
+    price       REAL NOT NULL,
+    unit_price  REAL NOT NULL,
     description TEXT,
-    price       REAL,
     starts      TEXT,
     ends        TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_offer_key
+    ON promo_offers(chain_id, promo_id, barcode, club, min_qty, price);
+CREATE TABLE IF NOT EXISTS promo_stores(
+    offer_id INTEGER NOT NULL,
+    store_id TEXT NOT NULL,
+    PRIMARY KEY (offer_id, store_id)
 );
 """
 
@@ -227,66 +250,46 @@ def collapse(conn):
     conn.commit()
 
 
-def _barcodes_from_promo_row(row):
-    """Promo files nest their items; the CSV writer stores that as JSON."""
-    direct = digits(pick(row, "itemcode", "item_code"))
-    if len(direct) >= 6:
-        return [direct]
-    found = []
-    for key, value in row.items():
-        if "item" not in key or not value or value[0] not in "[{":
-            continue
-        try:
-            blob = json.loads(value)
-        except (ValueError, TypeError):
-            continue
-        stack = [blob]
-        while stack:
-            node = stack.pop()
-            if isinstance(node, dict):
-                for inner_key, inner_value in node.items():
-                    if isinstance(inner_value, (dict, list)):
-                        stack.append(inner_value)
-                    elif "itemcode" in inner_key.lower():
-                        code = digits(inner_value)
-                        if len(code) >= 6:
-                            found.append(code)
-            elif isinstance(node, list):
-                stack.extend(node)
-    return found
+def load_promos(conn, dumps):
+    """Collapse every branch's PromoFull into distinct offers plus a branch list.
 
+    Read from the XML dumps, not from ``outputs/``: see scripts/promos.py for
+    why the parser package's CSV cannot represent a promotion and why building
+    it cost 1,970 MB for a chain whose prices take 76 MB.
+    """
+    files = promos.find_promo_files(dumps)
+    if not files:
+        print("[build] no PromoFull dumps found")
+        return 0, 0
+    print(f"[build] reading {len(files)} PromoFull dumps")
 
-def load_promos(conn, outputs):
-    batch = []
-    for path in find_csvs(outputs, "PROMO_FULL_FILE"):
-        print(f"[build] reading {os.path.basename(path)}")
-        for row in read_rows(path):
-            chain_id = digits(pick(row, "chainid", "chain_id"))
-            if not chain_id:
-                continue
-            barcodes = _barcodes_from_promo_row(row)
-            if not barcodes:
-                continue
-            record = (
-                chain_id,
-                str(pick(row, "storeid", "store_id")).lstrip("0") or "0",
-                pick(row, "promotionid", "promo_id"),
-                None,
-                pick(row, "promotiondescription", "description"),
-                to_float(pick(row, "discountedprice", "discountedpricepermeasureunit")),
-                # Super-Pharm spells these ...DateTime; other chains ...Date.
-                pick(row, "promotionstartdate", "promostartdate", "promotionstartdatetime"),
-                pick(row, "promotionenddate", "promoenddate", "promotionenddatetime"),
-            )
-            for barcode in barcodes:
-                batch.append(record[:3] + (barcode,) + record[4:])
-            if len(batch) >= BATCH:
-                conn.executemany("INSERT INTO promos VALUES (?,?,?,?,?,?,?,?)", batch)
-                batch.clear()
-    if batch:
-        conn.executemany("INSERT INTO promos VALUES (?,?,?,?,?,?,?,?)", batch)
+    branches = defaultdict(set)             # offer -> {store_id}
+    seen_rows = 0
+    for store_id, offer in promos.read_offers(dumps):
+        branches[offer].add(store_id)
+        seen_rows += 1
+
+    conn.executemany(
+        "INSERT OR IGNORE INTO promo_offers"
+        "(chain_id, promo_id, barcode, club, min_qty, price, unit_price,"
+        " description, starts, ends) VALUES (?,?,?,?,?,?,?,?,?,?)",
+        list(branches))
     conn.commit()
-    return conn.execute("SELECT COUNT(*) FROM promos").fetchone()[0]
+
+    # The first six fields are the unique key the index above is built on;
+    # unit_price and the labels hang off them.
+    keyed = {row[1:]: row[0] for row in conn.execute(
+        "SELECT offer_id, chain_id, promo_id, barcode, club, min_qty, price "
+        "FROM promo_offers")}
+    links = [(keyed[offer[:6]], store_id)
+             for offer, stores in branches.items() for store_id in stores]
+    conn.executemany("INSERT OR IGNORE INTO promo_stores VALUES (?,?)", links)
+    conn.commit()
+
+    print(f"[build] promotions: {seen_rows:,} published item rows -> "
+          f"{len(branches):,} distinct offers "
+          f"({seen_rows / max(len(branches), 1):.1f}x)")
+    return len(branches), len(links)
 
 
 def apply_chain_aliases(conn, scraper, chain_ids, tables=("_raw",)):
@@ -333,7 +336,10 @@ def drop_priceless_chains(conn):
         return 0
 
     marks = ",".join("?" * len(priceless))
-    for table in ("stores", "price_exceptions", "promos", "chains"):
+    conn.execute(
+        f"DELETE FROM promo_stores WHERE offer_id IN "
+        f"(SELECT offer_id FROM promo_offers WHERE chain_id IN ({marks}))", priceless)
+    for table in ("stores", "price_exceptions", "promo_offers", "chains"):
         conn.execute(f"DELETE FROM {table} WHERE chain_id IN ({marks})", priceless)
     conn.commit()
     for chain_id in priceless:
@@ -345,6 +351,8 @@ def main():
     parser = argparse.ArgumentParser(description="Build a per-chain SQLite file from parsed CSVs.")
     parser.add_argument("--chain", required=True, help="ScraperFactory name, used for the filename")
     parser.add_argument("--outputs", default="outputs")
+    parser.add_argument("--dumps", default="dumps",
+                        help="Where the PromoFull XML dumps are; promotions are read from\n         the XML, never from the parser package's CSV.")
     parser.add_argument("--out-dir", default="chain_dbs")
     args = parser.parse_args()
 
@@ -359,8 +367,8 @@ def main():
         return 1
     chain_ids = apply_chain_aliases(conn, args.chain, chain_ids)
     collapse(conn)
-    promo_rows = load_promos(conn, args.outputs)
-    apply_chain_aliases(conn, args.chain, chain_ids, tables=("promos",))
+    offer_count, link_count = load_promos(conn, args.dumps)
+    apply_chain_aliases(conn, args.chain, chain_ids, tables=("promo_offers",))
 
     # OR IGNORE: only chains the store file did not name reach this.
     for chain_id in chain_ids:
@@ -373,14 +381,16 @@ def main():
 
     stats = {
         name: conn.execute(f"SELECT COUNT(*) FROM {name}").fetchone()[0]
-        for name in ("stores", "products", "chain_prices", "price_exceptions", "promos")
+        for name in ("stores", "products", "chain_prices", "price_exceptions",
+                     "promo_offers", "promo_stores")
     }
     conn.execute("VACUUM")
     conn.close()
 
     print(f"[build] {args.chain}: {price_rows:,} raw price rows -> "
           f"{stats['chain_prices']:,} baselines + {stats['price_exceptions']:,} exceptions")
-    print(f"[build] stores={store_count:,} products={stats['products']:,} promos={promo_rows:,}")
+    print(f"[build] stores={store_count:,} products={stats['products']:,} "
+          f"offers={stats['promo_offers']:,} offer-branch links={stats['promo_stores']:,}")
     print(f"[build] wrote {target} ({os.path.getsize(target) / 1e6:.1f} MB)")
     return 0
 
