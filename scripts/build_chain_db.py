@@ -97,6 +97,13 @@ CREATE TABLE IF NOT EXISTS price_exceptions(
 -- carrying 10,486 offers. Which branches honour an offer lives in
 -- promo_stores, because that genuinely varies - Keshet prices this box at
 -- 11.90 in eighteen branches and 9.90 in three.
+--
+-- The identity of an offer is its TERMS, not its PromotionID. Chains reissue
+-- the same deal under a new id per campaign, per branch or per week: 309,602
+-- of Super-Pharm's 453,021 published offers share their terms with another.
+-- Keying on the id keeps every one of those copies, so promo_id is carried as
+-- a representative for tracing a row back to a chain's file and is deliberately
+-- not part of the unique index.
 CREATE TABLE IF NOT EXISTS promo_offers(
     offer_id    INTEGER PRIMARY KEY,
     chain_id    TEXT NOT NULL,
@@ -116,7 +123,7 @@ CREATE TABLE IF NOT EXISTS promo_offers(
     ends        TEXT
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_offer_key
-    ON promo_offers(chain_id, promo_id, barcode, club, min_qty, price);
+    ON promo_offers(chain_id, barcode, club, min_qty, price);
 CREATE TABLE IF NOT EXISTS promo_stores(
     offer_id INTEGER NOT NULL,
     store_id TEXT NOT NULL,
@@ -261,11 +268,18 @@ def load_promos(conn, dumps, scraper):
     why the parser package's CSV cannot represent a promotion and why building
     it cost 1,970 MB for a chain whose prices take 76 MB.
 
-    A mistaken chain id is corrected *here*, before the collapse, rather than
-    by apply_chain_aliases() afterwards. City Market publishes the same
-    promotion under both its own id and an all-zeros one, so rewriting the id
-    after insertion collides with the offer's unique index; rewriting it first
-    lets the two copies merge into the one offer they always were.
+    Two collapses happen here. Across branches, because every branch of a chain
+    republishes the whole chain's promotions. And across promotion ids, because
+    a chain reissues the same deal under a new id constantly - so the key is
+    the terms, and the ids that shared them contribute their branches to one
+    offer. The earliest start and latest end across the copies are kept, since
+    the deal runs for as long as any of them says it does.
+
+    A mistaken chain id is corrected here, before the collapse, rather than by
+    apply_chain_aliases() afterwards. City Market publishes the same promotion
+    under both its own id and an all-zeros one, so rewriting the id after
+    insertion collides with the offer's unique index; rewriting it first lets
+    the two copies merge into the one offer they always were.
     """
     files = promos.find_promo_files(dumps)
     if not files:
@@ -273,36 +287,55 @@ def load_promos(conn, dumps, scraper):
         return 0, 0
     print(f"[build] reading {len(files)} PromoFull dumps")
 
-    branches = defaultdict(set)             # offer -> {store_id}
+    merged = {}
     seen_rows = 0
+    promo_ids = set()
     for store_id, offer in promos.read_offers(dumps):
-        right = CHAIN_ID_ALIASES.get((scraper, offer[0]))
-        if right:
-            offer = (right,) + offer[1:]
-        branches[offer].add(store_id)
+        (chain_id, promo_id, barcode, club, min_qty,
+         price, unit_price, description, starts, ends) = offer
+        chain_id = CHAIN_ID_ALIASES.get((scraper, chain_id), chain_id)
         seen_rows += 1
+        promo_ids.add((chain_id, promo_id))
+
+        key = (chain_id, barcode, club, min_qty, price)
+        found = merged.get(key)
+        if found is None:
+            merged[key] = {
+                "promo_id": promo_id, "unit_price": unit_price,
+                "description": description, "starts": starts, "ends": ends,
+                "where": {store_id},
+            }
+            continue
+        found["where"].add(store_id)
+        if ends > found["ends"]:
+            found["ends"] = ends
+        if starts and (not found["starts"] or starts < found["starts"]):
+            found["starts"] = starts
+        if description and (not found["description"]
+                            or len(description) < len(found["description"])):
+            found["description"] = description
+            found["promo_id"] = promo_id
 
     conn.executemany(
         "INSERT OR IGNORE INTO promo_offers"
         "(chain_id, promo_id, barcode, club, min_qty, price, unit_price,"
         " description, starts, ends) VALUES (?,?,?,?,?,?,?,?,?,?)",
-        list(branches))
+        [(chain_id, body["promo_id"], barcode, club, min_qty, price,
+          body["unit_price"], body["description"], body["starts"], body["ends"])
+         for (chain_id, barcode, club, min_qty, price), body in merged.items()])
     conn.commit()
 
-    # The first six fields are the unique key the index above is built on;
-    # unit_price and the labels hang off them.
     keyed = {row[1:]: row[0] for row in conn.execute(
-        "SELECT offer_id, chain_id, promo_id, barcode, club, min_qty, price "
-        "FROM promo_offers")}
-    links = [(keyed[offer[:6]], store_id)
-             for offer, stores in branches.items() for store_id in stores]
+        "SELECT offer_id, chain_id, barcode, club, min_qty, price FROM promo_offers")}
+    links = [(keyed[key], store_id)
+             for key, body in merged.items() for store_id in body["where"]]
     conn.executemany("INSERT OR IGNORE INTO promo_stores VALUES (?,?)", links)
     conn.commit()
 
-    print(f"[build] promotions: {seen_rows:,} published item rows -> "
-          f"{len(branches):,} distinct offers "
-          f"({seen_rows / max(len(branches), 1):.1f}x)")
-    return len(branches), len(links)
+    print(f"[build] promotions: {seen_rows:,} published item rows across "
+          f"{len(promo_ids):,} promotion ids -> {len(merged):,} distinct offers "
+          f"({seen_rows / max(len(merged), 1):.1f}x)")
+    return len(merged), len(links)
 
 
 def apply_chain_aliases(conn, scraper, chain_ids, tables=("_raw",)):

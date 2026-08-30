@@ -26,6 +26,13 @@ MAX_FILES = 20000       # the tightest limit among static hosts
 DETAIL_LEVELS = (3, 6, 8, 10, 13)
 DETAIL_MAX_BYTES = 120_000
 
+# Promotions split on a shallower ladder and a looser budget than detail. They
+# are fetched once per product view rather than per barcode in a cart, and at
+# detail's settings the first build wanted 23,941 files - over the 20,000-file
+# host limit on its own.
+PROMO_LEVELS = (3, 6, 8, 10)
+PROMO_MAX_BYTES = 250_000
+
 # What the chains publish when they have no unit; carrying it forward would
 # only let a client print "unknown" where it could print nothing.
 UNKNOWN_UNIT = "\u05dc\u05d0 \u05d9\u05d3\u05d5\u05e2"
@@ -51,9 +58,10 @@ def split(barcodes, depth_index):
     return shards
 
 
-def split_by_size(entries, keys, depth_index):
+def split_by_size(entries, keys, depth_index, levels=DETAIL_LEVELS,
+                  budget=DETAIL_MAX_BYTES):
     """Like split(), but bucket until the encoded shard fits the byte budget."""
-    depth = DETAIL_LEVELS[depth_index]
+    depth = levels[depth_index]
     buckets = defaultdict(list)
     for key in keys:
         buckets[key[:depth].ljust(depth, "0")].append(key)
@@ -61,11 +69,12 @@ def split_by_size(entries, keys, depth_index):
     shards = {}
     for prefix, members in buckets.items():
         payload = {k: entries[k] for k in members}
-        if (len(dump(payload).encode()) <= DETAIL_MAX_BYTES
-                or depth_index + 1 >= len(DETAIL_LEVELS)):
+        if (len(dump(payload).encode()) <= budget
+                or depth_index + 1 >= len(levels)):
             shards[prefix] = members
         else:
-            shards.update(split_by_size(entries, members, depth_index + 1))
+            shards.update(split_by_size(entries, members, depth_index + 1,
+                                        levels, budget))
     return shards
 
 
@@ -112,6 +121,93 @@ def write_detail(conn, out_dir):
     return len(shards)
 
 
+def _merge_chain(conn, chain_id, today):
+    """One chain's offers, merged on their terms rather than their id.
+
+    Chains republish the same deal under a new promotion id per campaign, per
+    branch or per week: 309,602 of Super-Pharm's 453,021 offers share their
+    terms with another. Merging on (club, quantity, unit price) and unioning
+    the branch lists is what makes the published form fit.
+    """
+    branches_of = defaultdict(set)
+    for offer_id, store_id in conn.execute(
+            "SELECT ps.offer_id, ps.store_id FROM promo_stores ps "
+            "JOIN promo_offers o ON o.offer_id = ps.offer_id WHERE o.chain_id = ?",
+            (chain_id,)):
+        branches_of[offer_id].add(store_id)
+
+    merged = {}
+    everywhere = set()
+    for (offer_id, barcode, club, min_qty, price, unit_price,
+         description, starts, ends) in conn.execute(
+            "SELECT offer_id, barcode, club, min_qty, price, unit_price, "
+            "description, starts, ends FROM promo_offers WHERE chain_id = ?",
+            (chain_id,)):
+        where = branches_of.get(offer_id)
+        if not where:
+            continue                      # no branch honours it; nothing to show
+        # Every branch that publishes promotions at all, whether or not this
+        # particular offer has ended - it is the denominator for "everywhere".
+        everywhere |= where
+        if ends and ends < today:
+            continue                      # finished; nobody can still get it
+
+        key = (barcode, club, min_qty, unit_price)
+        found = merged.get(key)
+        if found is None:
+            merged[key] = {
+                "price": price, "description": description or "",
+                "starts": starts or "", "ends": ends or "", "where": set(where),
+            }
+            continue
+        found["where"] |= where
+        # Latest end, earliest start: the deal runs as long as any copy says.
+        if (ends or "") > found["ends"]:
+            found["ends"] = ends or ""
+        if starts and (not found["starts"] or starts < found["starts"]):
+            found["starts"] = starts
+        if description and (not found["description"]
+                            or len(description) < len(found["description"])):
+            found["description"] = description
+    return merged, everywhere
+
+
+def _emit_chain(chain_id, merged, everywhere, offers, today):
+    """Prune what nobody could prefer, and encode the rest."""
+    by_product = defaultdict(list)
+    for (barcode, club, min_qty, unit_price), body in merged.items():
+        by_product[(barcode, club)].append((unit_price, min_qty, body))
+
+    kept = 0
+    for (barcode, club), group in by_product.items():
+        group.sort(key=lambda row: (row[0], row[1]))
+        covered = set()
+        for unit_price, min_qty, body in group:
+            # Every branch this runs at already has something cheaper.
+            if body["where"] <= covered:
+                continue
+            covered |= body["where"]
+            kept += 1
+            entry = {"u": unit_price, "d": body["description"], "e": body["ends"]}
+            if min_qty and min_qty != 1:
+                entry["q"] = min_qty
+                entry["t"] = body["price"]      # the headline "2 for 34"
+            if club:
+                entry["c"] = 1
+            if body["starts"] and body["starts"] > today:
+                entry["b"] = body["starts"]     # announced, not yet live
+            missing = everywhere - body["where"]
+            if missing:
+                # Whichever list is shorter says the same thing: an offer
+                # running at 300 of 305 branches should not carry 300 ids.
+                if len(missing) < len(body["where"]):
+                    entry["x"] = sorted(missing)
+                else:
+                    entry["s"] = sorted(body["where"])
+            offers[barcode][chain_id].append(entry)
+    return kept
+
+
 def write_promos(conn, out_dir, today):
     """Promotions: barcode -> chain -> [offer, ...], sharded like detail/.
 
@@ -120,49 +216,24 @@ def write_promos(conn, out_dir, today):
     that shows ``u`` without ``q`` says a Toffifee costs 17.00 when the offer
     is two for 34.00.
 
-    ``s`` lists the branches honouring the offer, and is omitted when that is
-    every branch of the chain that publishes promotions at all - the common
-    case, and the reason this is a fraction of the size of the per-branch form.
-
-    Chains publish tomorrow's campaigns alongside today's - 14,714 of 65,788
-    offers in the first build had not started yet - so ``b`` carries the start
-    date whenever it is still in the future and a client must not show the
-    offer until then. Offers that have already ended are dropped here.
+    ``s`` names the branches honouring the offer and ``x`` the ones excluded;
+    whichever is shorter is written, and neither appears when every branch of
+    the chain honours it.
     """
     offers = defaultdict(lambda: defaultdict(list))
-    stores_of = defaultdict(list)
-    for offer_id, store_id in conn.execute("SELECT offer_id, store_id FROM promo_stores"):
-        stores_of[offer_id].append(store_id)
-
-    everywhere = defaultdict(set)
-    rows = list(conn.execute(
-        "SELECT offer_id, chain_id, barcode, club, min_qty, price, unit_price, "
-        "description, starts, ends FROM promo_offers"))
-    for offer_id, chain_id, *_ in rows:
-        everywhere[chain_id].update(stores_of.get(offer_id, ()))
-
-    for (offer_id, chain_id, barcode, club, min_qty, price,
-         unit_price, description, starts, ends) in rows:
-        branches = stores_of.get(offer_id, [])
-        if not branches:
-            continue                      # no branch honours it; nothing to show
-        if ends and ends < today:
-            continue                      # finished; nobody can still get it
-        entry = {"u": unit_price, "d": description or "", "e": ends or ""}
-        if starts and starts > today:
-            entry["b"] = starts           # announced, not yet live
-        if min_qty and min_qty != 1:
-            entry["q"] = min_qty
-            entry["t"] = price            # the headline "2 for 34"
-        if club:
-            entry["c"] = 1
-        if set(branches) != everywhere[chain_id]:
-            entry["s"] = sorted(branches)
-        offers[barcode][chain_id].append(entry)
+    total_merged = kept = 0
+    # One chain at a time: Super-Pharm alone holds 4.5M offer-branch links and
+    # the national total is 17.5M, which is gigabytes of runner memory to hold
+    # at once for no benefit, since an offer never spans chains.
+    for (chain_id,) in conn.execute("SELECT DISTINCT chain_id FROM promo_offers"):
+        merged, everywhere = _merge_chain(conn, chain_id, today)
+        total_merged += len(merged)
+        kept += _emit_chain(chain_id, merged, everywhere, offers, today)
 
     promo_dir = os.path.join(out_dir, "promo")
     os.makedirs(promo_dir, exist_ok=True)
-    shards = split_by_size(offers, list(offers), 0) if offers else {}
+    shards = (split_by_size(offers, list(offers), 0, PROMO_LEVELS, PROMO_MAX_BYTES)
+              if offers else {})
     largest = 0
     for prefix, barcodes in shards.items():
         path = os.path.join(promo_dir, f"{prefix}.json")
@@ -170,11 +241,11 @@ def write_promos(conn, out_dir, today):
             handle.write(dump({b: offers[b] for b in barcodes}))
         largest = max(largest, os.path.getsize(path))
     with open(os.path.join(promo_dir, "index.json"), "w", encoding="utf-8") as handle:
-        handle.write(dump({"levels": list(DETAIL_LEVELS), "shards": sorted(shards)}))
+        handle.write(dump({"levels": list(PROMO_LEVELS), "shards": sorted(shards)}))
 
-    live = sum(len(v) for chains in offers.values() for v in chains.values())
     print(f"[catalog] {len(shards)} promo shards, {len(offers):,} products on offer, "
-          f"{live:,} of {len(rows):,} offers still current, largest {largest / 1e3:.0f} KB")
+          f"{kept:,} offers kept of {total_merged:,} merged, "
+          f"largest {largest / 1e3:.0f} KB")
     return len(shards), len(offers)
 
 

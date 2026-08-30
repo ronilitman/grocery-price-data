@@ -29,6 +29,7 @@ CREATE TABLE chain_prices(
 CREATE TABLE price_exceptions(
     chain_id TEXT NOT NULL, store_id TEXT NOT NULL, barcode TEXT NOT NULL,
     price REAL NOT NULL, PRIMARY KEY (chain_id, store_id, barcode));
+-- Keyed on the offer's terms, not its PromotionID; see build_chain_db.py.
 CREATE TABLE promo_offers(
     offer_id INTEGER PRIMARY KEY, chain_id TEXT NOT NULL, promo_id TEXT NOT NULL,
     barcode TEXT NOT NULL, club INTEGER NOT NULL, min_qty REAL NOT NULL,
