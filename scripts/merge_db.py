@@ -32,9 +32,9 @@ CREATE TABLE price_exceptions(
 -- Keyed on the offer's terms, not its PromotionID; see build_chain_db.py.
 CREATE TABLE promo_offers(
     offer_id INTEGER PRIMARY KEY, chain_id TEXT NOT NULL, promo_id TEXT NOT NULL,
-    barcode TEXT NOT NULL, club INTEGER NOT NULL, min_qty REAL NOT NULL,
-    price REAL NOT NULL, unit_price REAL NOT NULL, description TEXT,
-    starts TEXT, ends TEXT);
+    barcode TEXT NOT NULL, club INTEGER NOT NULL, coupon INTEGER NOT NULL,
+    min_qty REAL NOT NULL, price REAL NOT NULL, unit_price REAL NOT NULL,
+    description TEXT, starts TEXT, ends TEXT);
 CREATE TABLE promo_stores(
     offer_id INTEGER NOT NULL, store_id TEXT NOT NULL,
     PRIMARY KEY (offer_id, store_id));
@@ -81,8 +81,8 @@ COPY = [
     # re-joining on a key that contains REALs.
     ("promo_offers",
      "INSERT INTO promo_offers SELECT offer_id + {offset}, chain_id, promo_id, "
-     "barcode, club, min_qty, price, unit_price, description, starts, ends "
-     "FROM src.promo_offers"),
+     "barcode, club, {coupon}, min_qty, price, unit_price, description, "
+     "starts, ends FROM src.promo_offers"),
     ("promo_stores",
      "INSERT INTO promo_stores SELECT offer_id + {offset}, store_id "
      "FROM src.promo_stores"),
@@ -150,11 +150,20 @@ def main():
         # and "this branch published nothing" must not look the same downstream.
         src_columns = {row[1] for row in conn.execute("PRAGMA src.table_info(stores)")}
         priced = "priced_items" if "priced_items" in src_columns else "NULL"
+        # 0, not NULL, when a backfilled chain database predates the column:
+        # the flag is NOT NULL, and an offer nobody has classified has to read
+        # as an ordinary discount. The cost is that a chain carried forward
+        # from an artifact older than this change contributes coupons that look
+        # like shelf discounts until it is scraped again.
+        offer_columns = {row[1] for row in conn.execute(
+            "PRAGMA src.table_info(promo_offers)")}
+        coupon = "coupon" if "coupon" in offer_columns else "0"
         offset = conn.execute(
             "SELECT COALESCE(MAX(offer_id), 0) FROM promo_offers").fetchone()[0]
         for table, statement in COPY:
             try:
-                conn.execute(statement.format(priced=priced, offset=offset))
+                conn.execute(statement.format(priced=priced, coupon=coupon,
+                                              offset=offset))
             except sqlite3.Error as err:
                 print(f"[merge] {os.path.basename(part)}:{table}: {err}", file=sys.stderr)
         conn.commit()

@@ -113,6 +113,11 @@ CREATE TABLE IF NOT EXISTS promo_offers(
     -- club-only; showing those as the shelf price advertises a number most
     -- shoppers cannot get.
     club        INTEGER NOT NULL,
+    -- 0 = an ordinary discount, 1 = the price needs a coupon claimed in the
+    -- chain's app. Read from AdditionalIsCoupon; see promos.py for why the
+    -- description is not a substitute. Part of the offer's identity below: a
+    -- coupon at 12.90 and a shelf discount at 12.90 are not the same deal.
+    coupon      INTEGER NOT NULL,
     -- The pack size the price is for. Without it "34.00" reads as the price of
     -- one Toffifee when it is the price of two.
     min_qty     REAL NOT NULL,
@@ -123,7 +128,7 @@ CREATE TABLE IF NOT EXISTS promo_offers(
     ends        TEXT
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_offer_key
-    ON promo_offers(chain_id, barcode, club, min_qty, price);
+    ON promo_offers(chain_id, barcode, club, coupon, min_qty, price);
 CREATE TABLE IF NOT EXISTS promo_stores(
     offer_id INTEGER NOT NULL,
     store_id TEXT NOT NULL,
@@ -291,13 +296,13 @@ def load_promos(conn, dumps, scraper):
     seen_rows = 0
     promo_ids = set()
     for store_id, offer in promos.read_offers(dumps):
-        (chain_id, promo_id, barcode, club, min_qty,
+        (chain_id, promo_id, barcode, club, coupon, min_qty,
          price, unit_price, description, starts, ends) = offer
         chain_id = CHAIN_ID_ALIASES.get((scraper, chain_id), chain_id)
         seen_rows += 1
         promo_ids.add((chain_id, promo_id))
 
-        key = (chain_id, barcode, club, min_qty, price)
+        key = (chain_id, barcode, club, coupon, min_qty, price)
         found = merged.get(key)
         if found is None:
             merged[key] = {
@@ -318,15 +323,16 @@ def load_promos(conn, dumps, scraper):
 
     conn.executemany(
         "INSERT OR IGNORE INTO promo_offers"
-        "(chain_id, promo_id, barcode, club, min_qty, price, unit_price,"
-        " description, starts, ends) VALUES (?,?,?,?,?,?,?,?,?,?)",
-        [(chain_id, body["promo_id"], barcode, club, min_qty, price,
+        "(chain_id, promo_id, barcode, club, coupon, min_qty, price, unit_price,"
+        " description, starts, ends) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        [(chain_id, body["promo_id"], barcode, club, coupon, min_qty, price,
           body["unit_price"], body["description"], body["starts"], body["ends"])
-         for (chain_id, barcode, club, min_qty, price), body in merged.items()])
+         for (chain_id, barcode, club, coupon, min_qty, price), body in merged.items()])
     conn.commit()
 
     keyed = {row[1:]: row[0] for row in conn.execute(
-        "SELECT offer_id, chain_id, barcode, club, min_qty, price FROM promo_offers")}
+        "SELECT offer_id, chain_id, barcode, club, coupon, min_qty, price "
+        "FROM promo_offers")}
     links = [(keyed[key], store_id)
              for key, body in merged.items() for store_id in body["where"]]
     conn.executemany("INSERT OR IGNORE INTO promo_stores VALUES (?,?)", links)

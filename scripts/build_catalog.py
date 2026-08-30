@@ -126,8 +126,13 @@ def _merge_chain(conn, chain_id, today):
 
     Chains republish the same deal under a new promotion id per campaign, per
     branch or per week: 309,602 of Super-Pharm's 453,021 offers share their
-    terms with another. Merging on (club, quantity, unit price) and unioning
-    the branch lists is what makes the published form fit.
+    terms with another. Merging on (club, coupon, quantity, unit price) and
+    unioning the branch lists is what makes the published form fit.
+
+    Coupon is part of that key rather than a detail hanging off the offer. A
+    coupon at 12.90 and a shelf discount at 12.90 carry the same number and
+    different conditions, and collapsing them would silently promote one to the
+    other in whichever direction the merge happened to run.
     """
     branches_of = defaultdict(set)
     for offer_id, store_id in conn.execute(
@@ -138,9 +143,9 @@ def _merge_chain(conn, chain_id, today):
 
     merged = {}
     everywhere = set()
-    for (offer_id, barcode, club, min_qty, price, unit_price,
+    for (offer_id, barcode, club, coupon, min_qty, price, unit_price,
          description, starts, ends) in conn.execute(
-            "SELECT offer_id, barcode, club, min_qty, price, unit_price, "
+            "SELECT offer_id, barcode, club, coupon, min_qty, price, unit_price, "
             "description, starts, ends FROM promo_offers WHERE chain_id = ?",
             (chain_id,)):
         where = branches_of.get(offer_id)
@@ -152,7 +157,7 @@ def _merge_chain(conn, chain_id, today):
         if ends and ends < today:
             continue                      # finished; nobody can still get it
 
-        key = (barcode, club, min_qty, unit_price)
+        key = (barcode, club, coupon, min_qty, unit_price)
         found = merged.get(key)
         if found is None:
             merged[key] = {
@@ -175,11 +180,11 @@ def _merge_chain(conn, chain_id, today):
 def _emit_chain(chain_id, merged, everywhere, offers, today):
     """Prune what nobody could prefer, and encode the rest."""
     by_product = defaultdict(list)
-    for (barcode, club, min_qty, unit_price), body in merged.items():
-        by_product[(barcode, club)].append((unit_price, min_qty, body))
+    for (barcode, club, coupon, min_qty, unit_price), body in merged.items():
+        by_product[(barcode, club, coupon)].append((unit_price, min_qty, body))
 
     kept = 0
-    for (barcode, club), group in by_product.items():
+    for (barcode, club, coupon), group in by_product.items():
         group.sort(key=lambda row: (row[0], row[1]))
         covered = set()
         for unit_price, min_qty, body in group:
@@ -194,6 +199,8 @@ def _emit_chain(chain_id, merged, everywhere, offers, today):
                 entry["t"] = body["price"]      # the headline "2 for 34"
             if club:
                 entry["c"] = 1
+            if coupon:
+                entry["k"] = 1
             if body["starts"] and body["starts"] > today:
                 entry["b"] = body["starts"]     # announced, not yet live
             missing = everywhere - body["where"]
@@ -219,6 +226,10 @@ def write_promos(conn, out_dir, today):
     ``s`` names the branches honouring the offer and ``x`` the ones excluded;
     whichever is shorter is written, and neither appears when every branch of
     the chain honours it.
+
+    ``c`` means a loyalty card is required and ``k`` means a coupon claimed in
+    the chain's own app is - two different conditions on the same number, and
+    both absent when the price is simply the deal.
     """
     offers = defaultdict(lambda: defaultdict(list))
     total_merged = kept = 0

@@ -19,7 +19,8 @@ different ``RewardType`` values. So ``RewardType``, ``IsGiftItem`` and
 ``AllowMultipleDiscounts`` are all dialect artefacts and none of them are read
 here. What survives the dialect intact is the offer itself:
 
-    PromotionId, PromotionDescription, MinQty, DiscountedPrice, ClubId, dates
+    PromotionId, PromotionDescription, MinQty, DiscountedPrice, ClubId,
+    AdditionalIsCoupon, dates
 
   nested <Groups>                      flat <PromotionItems>
     <Promotion>                          <Promotion>
@@ -85,6 +86,29 @@ def club_of(promotion):
     return (0 if code in ("", "0") else 1), raw
 
 
+def coupon_of(promotion):
+    """1 if the price needs a coupon claimed in the chain's app, 0 otherwise.
+
+    A coupon is not a shelf price. Super-Pharm's "קופון לייף בייביז משטחי
+    החתלה" is 12.90 against a 17.90 shelf, but only after the shopper adds the
+    coupon in the app, and only once. Sold as an ordinary discount it is a
+    number most baskets will not get, which is why CHP and Pricez leave these
+    out of their comparisons entirely.
+
+    ``AdditionalIsCoupon`` is a standard field and the chains do fill it in:
+    every one of Super-Pharm's 1,062 promotions per branch carries it, 72 of
+    them set. Do not infer this from the description instead - a sample of one
+    Shufersal file had 102 coupons against 92 whose text says "קופון", and Tiv
+    Taam had two ordinary discounts whose text says it and whose flag does not.
+
+    Absent, as it may be in the flat dialect, reads as 0: not knowing must look
+    like an ordinary discount, or a chain that omits the field loses its
+    promotions rather than merely losing the distinction.
+    """
+    raw = _text(promotion, "AdditionalIsCoupon", "AdditionalIsCupon")
+    return 1 if raw.strip() in ("1", "true", "True") else 0
+
+
 def _items(promotion):
     """(barcode, min_qty, price) per item, from whichever dialect this is."""
     nested = list(promotion.iter("PromotionItem"))
@@ -117,8 +141,8 @@ def find_promo_files(dumps_dir):
 def read_offers(dumps_dir):
     """Yield ``(store_id, offer)`` for every usable promotion item.
 
-    ``offer`` is ``(chain_id, promo_id, barcode, club, min_qty, price,
-    unit_price, description, starts, ends)`` - the same tuple for both
+    ``offer`` is ``(chain_id, promo_id, barcode, club, coupon, min_qty,
+    price, unit_price, description, starts, ends)`` - the same tuple for both
     dialects, so a caller never learns which one a branch used.
     """
     for path in find_promo_files(dumps_dir):
@@ -139,6 +163,7 @@ def read_offers(dumps_dir):
             if not promo_id:
                 continue
             club, _raw = club_of(promotion)
+            coupon = coupon_of(promotion)
             description = _text(promotion, "PromotionDescription")
             starts = _text(promotion, "PromotionStartDateTime", "PromotionStartDate")[:10]
             ends = _text(promotion, "PromotionEndDateTime", "PromotionEndDate")[:10]
@@ -156,6 +181,7 @@ def read_offers(dumps_dir):
                     promo_id,
                     barcode,
                     club,
+                    coupon,
                     round(min_qty, 3),
                     round(price, 2),
                     round(price / min_qty, 2),
