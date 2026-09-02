@@ -1,0 +1,89 @@
+# Fruit and vegetables, as the chains spell them.
+#
+# This is the one hand-written input to the grouping, and it is deliberately
+# hand-written: 80 words you can read in a minute buys far more precision than
+# any classifier we could check. Everything else in scripts/generics.py comes
+# from counting the data.
+#
+# Singular forms only - the stemmer folds `עגבניות` onto `עגבניה` when the
+# singular occurs in the catalogue, which it always does for these.
+#
+# Add a word here and it becomes groupable on the next build. Removing one
+# does not lose data, it just stops collapsing that item across chains.
+
+# --- vegetables
+עגבניה
+מלפפון
+פלפל
+בצל
+שום
+גזר
+בטטה
+כרוב
+כרובית
+ברוקולי
+חציל
+קישוא
+דלעת
+דלורית
+סלק
+צנון
+צנונית
+לפת
+קולורבי
+שומר
+סלרי
+כרישה
+תירס
+אפונה
+שעועית
+במיה
+ארטישוק
+חסה
+תרד
+מנגולד
+נבטים
+פטריה
+בזיליקום
+פטרוזיליה
+כוסברה
+שמיר
+נענע
+רוקט
+
+# --- fruit
+תפוח
+בננה
+אגס
+ענבים
+תות
+אבטיח
+מלון
+אפרסק
+נקטרינה
+שזיף
+משמש
+דובדבן
+תמר
+תאנה
+רימון
+אבוקדו
+מנגו
+פפאיה
+אננס
+קיווי
+אשכולית
+תפוז
+קלמנטינה
+מנדרינה
+לימון
+ליים
+פומלה
+פומלית
+חבוש
+שסק
+אפרסמון
+גויאבה
+פסיפלורה
+קרמבולה
+ליצי
