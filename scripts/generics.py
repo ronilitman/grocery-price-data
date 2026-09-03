@@ -35,6 +35,10 @@ from collections import Counter, defaultdict
 DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data")
 
 WORD = re.compile(r"[\w\"'״׳%]+", re.UNICODE)
+# Hebrew is written with and without the extra yod/vav, by different chains for
+# the same thing: Shufersal's `עגבנייה` is everyone else's `עגבניה`, and it was
+# forming a group of its own holding the cheapest tomato in the country.
+KTIV = ((r"יי", "י"), (r"וו", "ו"))
 # A bare number, a percentage, or a size range - all of them identify.
 SPEC = re.compile(r"^[\d.]+(%|-[\d.]+)?$|^\d")
 
@@ -86,8 +90,15 @@ def load_image_map():
         return json.load(handle)
 
 
+def collapse(word):
+    """Fold the doubled yod/vav spelling onto the plain one."""
+    for double, single in KTIV:
+        word = word.replace(double, single)
+    return word
+
+
 def words(name):
-    return WORD.findall(name or "")
+    return [collapse(w) for w in WORD.findall(name or "")]
 
 
 class Namer:
@@ -150,12 +161,19 @@ class Namer:
 
 
 def unit_of(unit_qty, unit_of_measure):
-    """Kilogram, or nothing.
+    """Kilogram, or None when the fields do not say so.
 
-    The two unit fields disagree on 85% of weighed rows and each is wrong on
-    its own - Rami Levy files a tomato as `ליטר` in one and `קילוגרם` in the
-    other. Either field saying kilogram is taken as kilogram; a product where
-    neither does is left out of the comparison rather than guessed at.
+    Reported, never used as a filter. Requiring kilogram here is what dropped
+    Carrefour from the tomato comparison entirely: it files loose tomatoes as
+    `לא ידוע` / `100 גרם`, Osher Ad files them as `יחידות`, and neither is
+    lying about selling tomatoes by weight - the unit field is simply noise.
+    The two fields already disagree on 85% of weighed rows, so treating them as
+    a gate threw away real chains to guard against a case the price band
+    catches anyway.
+
+    Worse, the merged products table holds one row per barcode, so the unit a
+    barcode ends up with belongs to whichever chain sorted last. Filtering on
+    it removed a barcode from EVERY chain because of one chain's typo.
     """
     for raw in (unit_qty, unit_of_measure):
         value = re.sub(r"[\d\s]", "", (raw or "").strip())
@@ -164,25 +182,37 @@ def unit_of(unit_qty, unit_of_measure):
     return None
 
 
-def build(rows, image_map=None, produce=None):
-    """rows: (barcode, name, unit_qty, unit_of_measure, is_weighted, prices).
+def build(rows, all_names, extra=None, image_map=None, produce=None):
+    """rows: (chain_id, barcode, name, unit_qty, unit_of_measure, price, count).
 
-    `prices` is {chain_id: (price, store_count)}. Returns (generics, of_barcode)
-    where generics is keyed by the group key and of_barcode maps every member
-    barcode to its group.
+    One row per chain-and-barcode, carrying THAT chain's own name for the code.
+    That matters more than it sounds: barcodes collide, so the merged catalogue
+    holds one name per barcode and it belongs to whichever chain sorted last.
+    Grouping on the merged name made Rami Levy's kilo of tomatoes disappear
+    because another chain calls 7290000000100 a box of matches.
+
+    `all_names` is every product name in the catalogue, which is what decides
+    which words are filler - rarity only means anything against the whole.
+
+    `extra` supplies the fallback: chains that price a member barcode but say
+    nothing about it in their own file. Their prices still belong in the
+    comparison - a chain pricing the national code for loose tomatoes is
+    selling loose tomatoes - and staying silent is not the same as calling it
+    something else, which is the case this whole per-chain reading exists to
+    catch.
+
+    Returns (generics, of_barcode).
     """
     produce = produce if produce is not None else load_produce_words()
     image_map = image_map if image_map is not None else load_image_map()
 
-    namer = Namer(name for _, name, _, _, _, _ in rows)
+    namer = Namer(all_names)
 
     groups = defaultdict(lambda: {"barcodes": set(), "names": Counter(),
-                                  "prices": defaultdict(list)})
-    for barcode, name, unit_qty, measure, weighted, prices in rows:
+                                  "prices": defaultdict(list), "units": Counter()})
+    for chain_id, barcode, name, unit_qty, measure, price, count in rows:
         name = (name or "").strip()
-        if not weighted or not name or PREPARED.search(name):
-            continue
-        if unit_of(unit_qty, measure) != "kg":
+        if not name or PREPARED.search(name):
             continue
         specs, ident = namer.parse(name)
         # Produce names are one or two words. Three or more is a prepared dish
@@ -195,8 +225,8 @@ def build(rows, image_map=None, produce=None):
         group = groups[key]
         group["barcodes"].add(barcode)
         group["names"][name] += 1
-        for chain_id, (price, count) in prices.items():
-            group["prices"][chain_id].append((price, count, barcode))
+        group["units"][unit_of(unit_qty, measure)] += 1
+        group["prices"][chain_id].append((price, count or 0, barcode))
 
     # Images were resolved by hand against Pricez under our label at the time.
     # Indexing them by key rather than by that label means a chain renaming its
@@ -207,16 +237,31 @@ def build(rows, image_map=None, produce=None):
         if key:
             image_by_key.setdefault(key, entry.get("pricez_id"))
 
+    # Silence is not disagreement. A chain with no weighed row of its own for a
+    # member barcode joins on the strength of the other chains' reading; a
+    # chain that files the same barcode as something else never reaches here,
+    # because its own row put it in another group or in none.
+    if extra:
+        member_of = {}
+        for key, group in groups.items():
+            for barcode in group["barcodes"]:
+                member_of.setdefault(barcode, key)
+        for chain_id, barcode, price, count in extra:
+            key = member_of.get(barcode)
+            if key is None or chain_id in groups[key]["prices"]:
+                continue
+            groups[key]["prices"][chain_id].append((price, count or 0, barcode))
+
     generics, of_barcode = {}, {}
     for key, group in groups.items():
-        # Cheapest member per chain, and WHICH member it was. The barcode has
-        # to travel with the price: per-branch detail is published per barcode,
-        # so without it the drill-down can only ask about one arbitrary member
-        # and every other chain looks like it does not stock the thing.
-        best = {c: min(v) for c, v in group["prices"].items()}
+        # Cheapest first, then MOST branches: two members can carry the same
+        # price, and the one 57 branches use describes the chain better than
+        # the one 2 branches use - a plain min() picks by barcode digits.
+        best = {c: min(v, key=lambda row: (row[0], -(row[1] or 0), row[2]))
+                for c, v in group["prices"].items()}
         if not best:
             continue
-        ordered = sorted(p for p, _, _ in best.values())
+        ordered = sorted(price for price, _, _ in best.values())
         median = ordered[len(ordered) // 2]
         kept = {c: row for c, row in best.items()
                 if median / OUTLIER_FACTOR <= row[0] <= median * OUTLIER_FACTOR}
@@ -230,33 +275,56 @@ def build(rows, image_map=None, produce=None):
         entry = {
             "n": label,
             "w": 1,
-            "u": "kg",
             # [price, branches at that price, the member barcode it came from]
             "p": {c: [round(price, 2), count or 0, src]
                   for c, (price, count, src) in kept.items()},
             "b": sorted(group["barcodes"]),
         }
+        # Reported when any member says so, omitted when none does. The field
+        # is no longer a gate, so it must not claim a unit the data never gave.
+        if group["units"].get("kg"):
+            entry["u"] = "kg"
         if spellings:
             entry["a"] = spellings
         image = image_by_key.get(key)
         if image:
             entry["i"] = image
         generics[key] = entry
+        # A barcode can belong to different groups for different chains, since
+        # the chains disagree about what it is. The pointer on the search shard
+        # can only name one, so it names the group with the most chains behind
+        # it - the reading most of the country agrees on.
         for barcode in group["barcodes"]:
-            of_barcode[barcode] = key
+            current = of_barcode.get(barcode)
+            if current is None or len(kept) > len(generics[current]["p"]):
+                of_barcode[barcode] = key
     return generics, of_barcode
 
 
 def from_db(conn):
-    """Read the merged database and group its weighed produce."""
-    prices = defaultdict(dict)
-    for barcode, chain_id, price, count in conn.execute(
-            "SELECT barcode, chain_id, price, store_count FROM chain_prices"):
-        prices[barcode][chain_id] = (price, count or 0)
+    """Read the merged database and group its weighed produce.
 
-    rows = []
-    for barcode, name, unit_qty, measure, weighted in conn.execute(
-            "SELECT barcode, name, unit_qty, unit_of_measure, is_weighted FROM products"):
-        rows.append((barcode, name, unit_qty, measure, weighted,
-                     prices.get(barcode, {})))
-    return build(rows)
+    chain_products is the per-chain view: what each chain itself calls a
+    weighed barcode, joined to what that chain charges for it. Reading the
+    merged products table instead is what let one chain's name for a colliding
+    barcode decide the answer for every other chain.
+    """
+    rows = conn.execute("""
+        SELECT cp.chain_id, cp.barcode, cp.name, cp.unit_qty, cp.unit_of_measure,
+               p.price, p.store_count
+        FROM chain_products cp
+        JOIN chain_prices p ON p.chain_id = cp.chain_id AND p.barcode = cp.barcode
+    """).fetchall()
+    all_names = [n for (n,) in conn.execute(
+        "SELECT name FROM products WHERE name <> ''")]
+    # Chains that price a weighed barcode without describing it themselves.
+    # Restricted to barcodes some chain does describe, which is what keeps this
+    # to the produce aisle instead of the whole catalogue.
+    extra = conn.execute("""
+        SELECT p.chain_id, p.barcode, p.price, p.store_count
+        FROM chain_prices p
+        WHERE p.barcode IN (SELECT DISTINCT barcode FROM chain_products)
+          AND NOT EXISTS (SELECT 1 FROM chain_products cp
+                          WHERE cp.chain_id = p.chain_id AND cp.barcode = p.barcode)
+    """).fetchall()
+    return build(rows, all_names, extra)

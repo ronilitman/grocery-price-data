@@ -40,6 +40,17 @@ CREATE TABLE promo_stores(
     PRIMARY KEY (offer_id, store_id));
 CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT);
 CREATE TABLE product_tokens(token TEXT NOT NULL, barcode TEXT NOT NULL);
+-- What each chain itself calls a weighed product, kept per chain because the
+-- merged products row cannot answer it. Barcodes collide: 7290000000100 is a
+-- kilo of tomatoes at Rami Levy and a box of matches somewhere else, and
+-- whichever chain sorts last wins the single products row - so the catalogue
+-- believed the tomato was matches and dropped it from the price comparison.
+-- Only weighed rows, which keeps this at tens of thousands rather than
+-- millions, and only pairs a chain actually prices.
+CREATE TABLE chain_products(
+    chain_id TEXT NOT NULL, barcode TEXT NOT NULL, name TEXT,
+    unit_qty TEXT, unit_of_measure TEXT,
+    PRIMARY KEY (chain_id, barcode));
 """
 
 # The price a given store charges: its own exception if it has one, else the
@@ -60,6 +71,7 @@ INDEXES = [
     "CREATE INDEX idx_stores_city ON stores(city, chain_id, store_id)",
     "CREATE INDEX idx_products_name ON products(name)",
     "CREATE INDEX idx_tokens ON product_tokens(token, barcode)",
+    "CREATE INDEX idx_chain_products ON chain_products(barcode)",
     "CREATE INDEX idx_offers_barcode ON promo_offers(barcode, unit_price)",
     "CREATE INDEX idx_offers_chain ON promo_offers(chain_id, ends)",
 ]
@@ -86,6 +98,15 @@ COPY = [
     ("promo_stores",
      "INSERT INTO promo_stores SELECT offer_id + {offset}, store_id "
      "FROM src.promo_stores"),
+    # Joined to chain_prices so a chain only claims the weighed products it
+    # actually sells. A source file can carry two chains (Yaino Bitan and
+    # Carrefour ship together), and each gets its own row.
+    ("chain_products",
+     "INSERT OR REPLACE INTO chain_products "
+     "(chain_id, barcode, name, unit_qty, unit_of_measure) "
+     "SELECT cp.chain_id, p.barcode, p.name, p.unit_qty, p.unit_of_measure "
+     "FROM src.products p JOIN src.chain_prices cp ON cp.barcode = p.barcode "
+     "WHERE p.is_weighted = 1 AND p.name <> ''"),
 ]
 
 

@@ -173,6 +173,14 @@ def _merge_chain(conn, chain_id, today):
             "SELECT offer_id, barcode, club, coupon, min_qty, price, unit_price, "
             "description, starts, ends FROM promo_offers WHERE chain_id = ?",
             (chain_id,)):
+        # A MinQty below 1 is a weight, not a pack size, so price/MinQty is not
+        # a unit price - it is that number multiplied by a hundred. Rami Levy's
+        # 2.90 tomato deal is filed as MinQty 0.01 and came out at 290.00 a
+        # kilo, which no client would show and none should. promos.py now
+        # stores these correctly, but the correction lives here as well because
+        # a republish reuses chain databases built before that fix.
+        if min_qty and min_qty < 1:
+            min_qty, unit_price = 1.0, price
         where = branches_of.get(offer_id)
         if not where:
             continue                      # no branch honours it; nothing to show

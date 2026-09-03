@@ -35,6 +35,15 @@ from ``DiscountedPricePerMida``: that field is per *measure* unit, so Stop
 Market publishes 8.80 for a 2-for-22 deal on a 125 g box (22 / 2.5 hundred
 grams). CHP does the same division, which is how their page shows 11.00 for
 that offer.
+
+That division is wrong for exactly one case, and it is a big one. A MinQty
+below 1 is not a pack size - nobody buys a hundredth of a box - it is a
+*weight*, and the chains use it to say "this is the kilo price". Rami Levy
+files its 2.90 tomato promotion as MinQty 0.01 with DiscountedPrice 2.90, so
+dividing turns a real 2.90/kg discount into 290.00 a kilo. 15,289 offers carry
+a fractional MinQty and on Shufersal every single one is a weighed product, so
+this is the whole country's fresh-produce discounts, not an edge case. Below 1,
+the discounted price IS the unit price and there is no minimum count to meet.
 """
 
 import os
@@ -176,15 +185,22 @@ def read_offers(dumps_dir):
                     continue                      # loyalty blanket, not a price
                 if min_qty is None or min_qty <= 0 or min_qty >= MAX_MIN_QTY:
                     continue                      # basket promotion, not a price
+                # A fractional MinQty is a weight, not a count: the price is
+                # already per kilo and there is nothing to divide, nor any
+                # "buy 2" to report. See the note at the top of this file.
+                if min_qty < 1:
+                    effective_qty, unit_price = 1.0, price
+                else:
+                    effective_qty, unit_price = min_qty, price / min_qty
                 yield store_id, (
                     chain_id,
                     promo_id,
                     barcode,
                     club,
                     coupon,
-                    round(min_qty, 3),
+                    round(effective_qty, 3),
                     round(price, 2),
-                    round(price / min_qty, 2),
+                    round(unit_price, 2),
                     description,
                     starts,
                     ends,
