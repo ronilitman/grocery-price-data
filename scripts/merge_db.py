@@ -49,7 +49,7 @@ CREATE TABLE product_tokens(token TEXT NOT NULL, barcode TEXT NOT NULL);
 -- millions, and only pairs a chain actually prices.
 CREATE TABLE chain_products(
     chain_id TEXT NOT NULL, barcode TEXT NOT NULL, name TEXT,
-    unit_qty TEXT, unit_of_measure TEXT,
+    unit_qty TEXT, unit_of_measure TEXT, is_weighted INTEGER,
     PRIMARY KEY (chain_id, barcode));
 """
 
@@ -103,8 +103,8 @@ COPY = [
     # Carrefour ship together), and each gets its own row.
     ("chain_products",
      "INSERT OR REPLACE INTO chain_products "
-     "(chain_id, barcode, name, unit_qty, unit_of_measure) "
-     "SELECT cp.chain_id, p.barcode, p.name, p.unit_qty, p.unit_of_measure "
+     "(chain_id, barcode, name, unit_qty, unit_of_measure, is_weighted) "
+     "SELECT cp.chain_id, p.barcode, p.name, p.unit_qty, p.unit_of_measure, 1 "
      "FROM src.products p JOIN src.chain_prices cp ON cp.barcode = p.barcode "
      "WHERE p.is_weighted = 1 AND p.name <> ''"),
 ]
@@ -132,6 +132,52 @@ def build_tokens(conn):
     if rows:
         conn.executemany("INSERT INTO product_tokens VALUES (?,?)", rows)
     conn.commit()
+
+
+def claim_disagreements(conn, parts):
+    """Record the chains that call a weighed barcode something else entirely.
+
+    First pass collected what each chain calls the barcodes IT sells by weight.
+    That is not enough on its own: 7290000000100 is `עגבניה` at Rami Levy,
+    `גפרורים` at Super Yuda, `ירק ישראלי` at Polizer and `אבוקדו האס` at Salach
+    Dabach. Knowing only the first, a grouping that lets silent chains join on
+    everyone else's reading would price matches as tomatoes.
+
+    So a second pass adds the OTHER chains' rows for those same barcodes,
+    flagged with their own is_weighted. After this, a chain absent from the
+    table for a barcode genuinely said nothing about it, and only then is it
+    safe to let it join on someone else's word.
+    """
+    known = {b for (b,) in conn.execute("SELECT DISTINCT barcode FROM chain_products")}
+    if not known:
+        return
+    conn.execute("CREATE TEMP TABLE weighed_anywhere(barcode TEXT PRIMARY KEY)")
+    conn.executemany("INSERT INTO weighed_anywhere VALUES (?)", [(b,) for b in known])
+    added = 0
+    for part in parts:
+        conn.execute("ATTACH DATABASE ? AS src", (part,))
+        before = conn.execute("SELECT COUNT(*) FROM chain_products").fetchone()[0]
+        try:
+            conn.execute("""
+                INSERT OR IGNORE INTO chain_products
+                    (chain_id, barcode, name, unit_qty, unit_of_measure, is_weighted)
+                SELECT cp.chain_id, p.barcode, p.name, p.unit_qty, p.unit_of_measure,
+                       p.is_weighted
+                FROM src.products p
+                JOIN src.chain_prices cp ON cp.barcode = p.barcode
+                JOIN weighed_anywhere w ON w.barcode = p.barcode
+                WHERE p.name <> ''
+            """)
+        except sqlite3.Error as err:
+            print(f"[merge] {os.path.basename(part)}:chain_products(2): {err}",
+                  file=sys.stderr)
+        conn.commit()
+        added += conn.execute(
+            "SELECT COUNT(*) FROM chain_products").fetchone()[0] - before
+        conn.execute("DETACH DATABASE src")
+    conn.execute("DROP TABLE weighed_anywhere")
+    print(f"[merge] chain_products: {added:,} rows from chains that call a "
+          f"weighed barcode something else")
 
 
 def main():
@@ -198,6 +244,7 @@ def main():
         merged.append(os.path.basename(part))
         print(f"[merge] merged {os.path.basename(part)}")
 
+    claim_disagreements(conn, parts)
     build_tokens(conn)
     conn.executescript(VIEW)
     for statement in INDEXES:

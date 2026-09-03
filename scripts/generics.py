@@ -314,12 +314,15 @@ def from_db(conn):
                p.price, p.store_count
         FROM chain_products cp
         JOIN chain_prices p ON p.chain_id = cp.chain_id AND p.barcode = cp.barcode
+        WHERE cp.is_weighted = 1
     """).fetchall()
     all_names = [n for (n,) in conn.execute(
         "SELECT name FROM products WHERE name <> ''")]
-    # Chains that price a weighed barcode without describing it themselves.
-    # Restricted to barcodes some chain does describe, which is what keeps this
-    # to the produce aisle instead of the whole catalogue.
+    # Chains that price a weighed barcode and say NOTHING about it themselves.
+    # A chain with a row of its own is excluded whatever that row says: if it
+    # calls 7290000000100 `גפרורים`, it is selling matches and must not inherit
+    # the tomato reading from Rami Levy. Silence is the only thing that lets a
+    # chain join on someone else's word.
     extra = conn.execute("""
         SELECT p.chain_id, p.barcode, p.price, p.store_count
         FROM chain_prices p
