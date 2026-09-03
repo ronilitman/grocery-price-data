@@ -196,7 +196,7 @@ def build(rows, image_map=None, produce=None):
         group["barcodes"].add(barcode)
         group["names"][name] += 1
         for chain_id, (price, count) in prices.items():
-            group["prices"][chain_id].append((price, count))
+            group["prices"][chain_id].append((price, count, barcode))
 
     # Images were resolved by hand against Pricez under our label at the time.
     # Indexing them by key rather than by that label means a chain renaming its
@@ -209,16 +209,19 @@ def build(rows, image_map=None, produce=None):
 
     generics, of_barcode = {}, {}
     for key, group in groups.items():
-        best = {c: min(v)[0] for c, v in group["prices"].items()}
+        # Cheapest member per chain, and WHICH member it was. The barcode has
+        # to travel with the price: per-branch detail is published per barcode,
+        # so without it the drill-down can only ask about one arbitrary member
+        # and every other chain looks like it does not stock the thing.
+        best = {c: min(v) for c, v in group["prices"].items()}
         if not best:
             continue
-        ordered = sorted(best.values())
+        ordered = sorted(p for p, _, _ in best.values())
         median = ordered[len(ordered) // 2]
-        kept = {c: p for c, p in best.items()
-                if median / OUTLIER_FACTOR <= p <= median * OUTLIER_FACTOR}
+        kept = {c: row for c, row in best.items()
+                if median / OUTLIER_FACTOR <= row[0] <= median * OUTLIER_FACTOR}
         if not kept:
             continue
-        counts = {c: max(n for _, n in group["prices"][c]) for c in kept}
         label = group["names"].most_common(1)[0][0]
         # Every other spelling the chains use for this same thing. The label is
         # one chain's wording; somebody typing `עגבניות` must still find a
@@ -228,7 +231,9 @@ def build(rows, image_map=None, produce=None):
             "n": label,
             "w": 1,
             "u": "kg",
-            "p": {c: [round(p, 2), counts.get(c, 0)] for c, p in kept.items()},
+            # [price, branches at that price, the member barcode it came from]
+            "p": {c: [round(price, 2), count or 0, src]
+                  for c, (price, count, src) in kept.items()},
             "b": sorted(group["barcodes"]),
         }
         if spellings:
