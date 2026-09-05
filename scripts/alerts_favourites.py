@@ -281,28 +281,69 @@ def escape(text):
     return (text or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-def render(alerts):
-    """One grouped message, cheapest-looking saving first.
+# Telegram rejects a message over 4096 characters. Splitting at 3600 leaves
+# room for the continuation header and never lands mid-offer.
+TELEGRAM_LIMIT = 3600
+
+
+def offer_lines(a):
+    """One offer as two lines: the price, then the terms under it.
 
     ``q`` is always printed beside ``u``: "₪14.95" alone, for a two-for deal,
     is the same misreading as the ₪1 mouthwash this script guards against.
+    The branch is named only when the offer does not run at every branch of the
+    chain, since under a chain heading it would otherwise repeat on every line.
     """
+    terms = []
+    if a["min_qty"] and a["min_qty"] != 1:
+        terms.append(f"{a['min_qty']:g} ב-{a['price']:g}")
+    if a["club"]:
+        terms.append("מועדון")
+    if a["coupon"]:
+        terms.append("קופון")
+    if a.get("branch_specific"):
+        terms.append(escape(a["branch"]))
+    terms.append(f"עד {a['ends'][8:10]}.{a['ends'][5:7]}")
+    return [f"<b>₪{a['unit_price']:g}</b> {escape(a['name'])}",
+            f"   <i>{' · '.join(terms)}</i>"]
+
+
+def render(alerts):
+    """Every offer, grouped by chain, as one or more messages.
+
+    Grouped by chain rather than by branch because an offer frequently runs at
+    both of the Shufersal branches, and filing it under one of them arbitrarily
+    is what made a flat list read as repetition. Chains are ordered by their
+    cheapest find, so the best thing in the message is near the top.
+    """
+    by_chain = {}
+    for a in alerts:
+        by_chain.setdefault(a["chain_name"], []).append(a)
+    order = sorted(by_chain, key=lambda c: min(x["unit_price"] for x in by_chain[c]))
+
+    blocks = []
+    for chain in order:
+        rows = sorted(by_chain[chain], key=lambda x: x["unit_price"])
+        block = [f"🏬 <b>{escape(chain)}</b> · {len(rows)}"]
+        for a in rows:
+            block += offer_lines(a)
+        blocks.append("\n".join(block))
+
     head = f"🏷️ <b>{len(alerts)} new discount{'s' if len(alerts) != 1 else ''} on your favourites</b>"
-    lines = [head, ""]
-    for a in alerts[:12]:
-        terms = []
-        if a["min_qty"] and a["min_qty"] != 1:
-            terms.append(f"{a['min_qty']:g} ב-{a['price']:g}")
-        if a["club"]:
-            terms.append("מועדון")
-        if a["coupon"]:
-            terms.append("קופון")
-        terms.append(f"עד {a['ends'][8:10]}.{a['ends'][5:7]}")
-        lines.append(f"<b>₪{a['unit_price']:g}</b> {escape(a['name'])}")
-        lines.append(f"   <i>{escape(a['branch'])} · {' · '.join(terms)}</i>")
-    if len(alerts) > 12:
-        lines.append(f"\n+ {len(alerts) - 12} more")
-    return "\n".join(lines)
+    messages, current = [], [head]
+    for block in blocks:
+        candidate = "\n\n".join(current + [block])
+        if len(candidate) > TELEGRAM_LIMIT and len(current) > 1:
+            messages.append("\n\n".join(current))
+            current = [block]
+        else:
+            current.append(block)
+    messages.append("\n\n".join(current))
+
+    if len(messages) > 1:
+        messages = [m if i == 0 else f"🏷️ <i>({i + 1}/{len(messages)})</i>\n\n{m}"
+                    for i, m in enumerate(messages)]
+    return messages
 
 
 # --------------------------------------------------------------- main
@@ -393,6 +434,10 @@ def main():
 
                     branch_id = sorted(branches)[0]
                     branch = (store_names.get(chain_id, {}).get(branch_id) or [branch_id])[0]
+                    # Naming the branch only earns its place when the offer does
+                    # not run chain-wide; otherwise it repeats under every line
+                    # of a chain heading that already says it.
+                    branch_specific = "s" in offer or "x" in offer
                     record = {
                         "chain_id": chain_id, "barcode": variant,
                         "unit_price": offer["u"], "min_qty": offer.get("q", 1),
@@ -402,8 +447,9 @@ def main():
                         "ends": ends, "first_seen": today, "last_seen": today,
                     }
                     ledger.put(key, record)
-                    alerts.append({**record, "name": name,
-                                   "branch": f"{chain_names.get(chain_id, chain_id)} {branch}"})
+                    alerts.append({**record, "name": name, "branch": branch,
+                                   "branch_specific": branch_specific,
+                                   "chain_name": chain_names.get(chain_id, chain_id)})
             break   # this variant matched; do not also look up the other form
 
     swept = ledger.sweep(today)
@@ -413,7 +459,7 @@ def main():
 
     if args.dry_run:
         print("\n--- would send ---")
-        print(render(alerts) if alerts else "(nothing)")
+        print("\n\n=== next message ===\n\n".join(render(alerts)) if alerts else "(nothing)")
         return 0
 
     if args.seed:
@@ -427,12 +473,14 @@ def main():
         return 0
 
     if alerts:
-        problem = telegram(render(alerts))
-        if problem:
-            # Do not commit: an alert the ledger records but never delivers is
-            # an alert lost for good.
-            print(f"Telegram failed — {problem}", file=sys.stderr)
-            return 1
+        for message in render(alerts):
+            problem = telegram(message)
+            if problem:
+                # Do not commit: an alert the ledger records but never delivers
+                # is an alert lost for good. Stop at the first refusal rather
+                # than pressing on - the rest will fail the same way.
+                print(f"Telegram failed — {problem}", file=sys.stderr)
+                return 1
 
     ledger.commit()
     return 0
