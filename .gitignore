@@ -5,3 +5,9 @@ dist/
 __pycache__/
 *.pyc
 .DS_Store
+
+# Service-account keys. Never in the repo - they live in GitHub Actions secrets
+# and, locally, outside the working tree entirely.
+*-sa.json
+*service-account*.json
+gha-creds-*.json

@@ -1,0 +1,112 @@
+"""Prove the alerting plumbing works before any alerting logic exists.
+
+Three things have to be true before pipeline A is worth writing, and all three
+are credentials-and-network problems rather than logic problems:
+
+    1. the service account can read Firestore    (favourites live there)
+    2. the service account can write Firestore   (the ledger will live there)
+    3. the bot can post to the chat              (nothing is worth computing
+                                                  if it cannot be delivered)
+
+This checks all three and reports the result to Telegram, so a green run is
+visible on the phone rather than only in the Actions log.
+
+Nothing here reads a secret from anywhere but the environment. The service
+account key arrives as a file path in GOOGLE_APPLICATION_CREDENTIALS, written
+by the workflow from a repository secret and never committed.
+
+The write test deliberately uses its own throwaway document under
+``alerts_selfcheck``. It never touches ``favproducts_*`` or ``settings_*``:
+those are a real shopping list two people use, and a self-check has no business
+writing to them.
+"""
+
+import datetime
+import os
+import sys
+import urllib.parse
+import urllib.request
+
+from google.cloud import firestore
+
+ROOM = os.environ.get("ALERTS_ROOM", "our-groceries")
+SELFCHECK_COLLECTION = "alerts_selfcheck"
+
+
+def telegram(text):
+    """Post to the chat. Returns None on success, else a reason."""
+    token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    chat = os.environ.get("TELEGRAM_CHAT_ID")
+    if not token or not chat:
+        return "TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID is not set"
+
+    body = urllib.parse.urlencode({
+        "chat_id": chat,
+        "text": text,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": "true",
+    }).encode()
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url, data=body), timeout=30) as r:
+            if r.status != 200:
+                return f"Telegram returned HTTP {r.status}"
+    except Exception as exc:
+        # The token is in the URL, so it can appear in an exception's text.
+        # Never let that reach a log.
+        return f"Telegram request failed: {type(exc).__name__}"
+    return None
+
+
+def main():
+    checks = []
+    ok = True
+
+    # ---- 1. read -------------------------------------------------------
+    try:
+        db = firestore.Client()
+        favs = list(db.collection(f"favproducts_{ROOM}").stream())
+        stores = db.collection(f"settings_{ROOM}").document("prefs").get()
+        n_stores = len((stores.to_dict() or {}).get("favouriteStores", [])) if stores.exists else 0
+        with_barcode = sum(1 for d in favs if (d.to_dict() or {}).get("barcode"))
+        checks.append(f"✅ Firestore read — {len(favs)} favourites "
+                      f"({with_barcode} with a barcode), {n_stores} branches")
+    except Exception as exc:
+        ok = False
+        checks.append(f"❌ Firestore read failed — {type(exc).__name__}: {exc}")
+        # Without a client there is nothing further to test on that side.
+        db = None
+
+    # ---- 2. write ------------------------------------------------------
+    if db is not None:
+        try:
+            ref = db.collection(SELFCHECK_COLLECTION).document("last_run")
+            stamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            ref.set({"at": stamp, "by": "alerts_selfcheck"})
+            written = (ref.get().to_dict() or {}).get("at")
+            if written != stamp:
+                raise RuntimeError("value read back did not match what was written")
+            checks.append("✅ Firestore write — round-tripped a document")
+        except Exception as exc:
+            ok = False
+            checks.append(f"❌ Firestore write failed — {type(exc).__name__}: {exc}")
+
+    # ---- 3. deliver ----------------------------------------------------
+    head = "🔔 <b>Alert plumbing self-check</b>" if ok else "⚠️ <b>Alert plumbing self-check</b>"
+    message = head + "\n\n" + "\n".join(checks)
+    problem = telegram(message)
+    if problem:
+        # Telegram is the only check that cannot report its own failure.
+        print(f"❌ Telegram delivery failed — {problem}", file=sys.stderr)
+        for line in checks:
+            print(line, file=sys.stderr)
+        return 1
+
+    print("✅ Telegram delivery — message sent")
+    for line in checks:
+        print(line)
+    return 0 if ok else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
