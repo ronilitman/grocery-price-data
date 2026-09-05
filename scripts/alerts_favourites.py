@@ -277,6 +277,99 @@ def telegram(text):
     return None
 
 
+def telegram_photo(png, caption):
+    """sendPhoto as multipart/form-data, built by hand.
+
+    Keeping this on urllib rather than pulling in requests means the alerting
+    job installs pillow and python-bidi and nothing else.
+    """
+    token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    chat = os.environ.get("TELEGRAM_CHAT_ID")
+    if not token or not chat:
+        return "TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID is not set"
+
+    boundary = "----alerts" + hashlib.sha1(png[:64]).hexdigest()[:16]
+    parts = []
+    for field, value in (("chat_id", chat), ("caption", caption), ("parse_mode", "HTML")):
+        parts.append(f"--{boundary}\r\nContent-Disposition: form-data; name=\"{field}\"\r\n\r\n{value}\r\n".encode())
+    parts.append(f"--{boundary}\r\nContent-Disposition: form-data; name=\"photo\"; "
+                 f"filename=\"offers.png\"\r\nContent-Type: image/png\r\n\r\n".encode())
+    parts.append(png)
+    parts.append(f"\r\n--{boundary}--\r\n".encode())
+    body = b"".join(parts)
+
+    req = urllib.request.Request(
+        f"https://api.telegram.org/bot{token}/sendPhoto", data=body,
+        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"})
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            if r.status != 200:
+                return f"HTTP {r.status}"
+    except urllib.error.HTTPError as exc:
+        try:
+            detail = exc.read().decode("utf-8", "replace")[:300]
+        except Exception:
+            detail = "(no body)"
+        return f"HTTP {exc.code} — {detail}"
+    except Exception as exc:
+        return f"request failed: {type(exc).__name__}"
+    return None
+
+
+def terms_of(a):
+    """The conditions on a price, as one line."""
+    terms = []
+    if a["min_qty"] and a["min_qty"] != 1:
+        terms.append(f"{a['min_qty']:g} ב-{a['price']:g}")
+    if a["club"]:
+        terms.append("מועדון")
+    if a["coupon"]:
+        terms.append("קופון")
+    if a.get("branch_specific"):
+        terms.append(a["branch"])
+    terms.append(f"עד {a['ends'][8:10]}.{a['ends'][5:7]}")
+    return " · ".join(terms)
+
+
+# send_tables outcomes. "unavailable" means fall back to text; "failed" means
+# Telegram refused and the run should not commit the ledger.
+SENT, UNAVAILABLE, FAILED = "sent", "unavailable", "failed"
+
+
+def send_tables(alerts):
+    """One table image per chain, cheapest chain first.
+
+    Returns (SENT, None), (UNAVAILABLE, why) when drawing is impossible - a
+    missing font on a runner should downgrade the message, not lose it - or
+    (FAILED, why) when Telegram refused what was drawn.
+    """
+    try:
+        from alerts_render import render_chain
+    except Exception as exc:
+        return UNAVAILABLE, f"{type(exc).__name__}: {exc}"
+
+    by_chain = {}
+    for a in alerts:
+        by_chain.setdefault(a["chain_name"], []).append(a)
+    order = sorted(by_chain, key=lambda c: min(x["unit_price"] for x in by_chain[c]))
+
+    total = len(alerts)
+    for n, chain in enumerate(order, 1):
+        rows = sorted(by_chain[chain], key=lambda x: x["unit_price"])
+        drawn = [{"unit_price": r["unit_price"], "name": r["name"],
+                  "terms": terms_of(r), "barcode": r["barcode"]} for r in rows]
+        try:
+            png = render_chain(chain, drawn)
+        except Exception as exc:
+            return UNAVAILABLE, f"could not draw {chain}: {type(exc).__name__}: {exc}"
+        caption = (f"🏷️ <b>{total} new discounts on your favourites</b>\n"
+                   f"<i>{n} of {len(order)}</i>") if n == 1 else f"<i>{n} of {len(order)}</i>"
+        problem = telegram_photo(png, caption)
+        if problem:
+            return FAILED, problem
+    return SENT, None
+
+
 def escape(text):
     return (text or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
@@ -354,6 +447,8 @@ def main():
                     help="Record everything as seen and send only a count. Use once.")
     ap.add_argument("--reset", action="store_true",
                     help="Empty the ledger first, so this run alerts on every live offer.")
+    ap.add_argument("--text-only", action="store_true",
+                    help="Send the plain text list instead of table images.")
     ap.add_argument("--dry-run", action="store_true",
                     help="Print what would be sent; write nothing, send nothing.")
     ap.add_argument("--favourites-file", help="Test without Firestore.")
@@ -471,6 +566,18 @@ def main():
             print(f"Telegram failed — {problem}", file=sys.stderr)
             return 1
         return 0
+
+    if alerts and not args.text_only:
+        outcome, why = send_tables(alerts)
+        if outcome == SENT:
+            ledger.commit()
+            return 0
+        if outcome == FAILED:
+            # Do not commit: an alert recorded as seen but never delivered is
+            # lost for good.
+            print(f"Telegram failed — {why}", file=sys.stderr)
+            return 1
+        print(f"tables unavailable ({why}); falling back to text", file=sys.stderr)
 
     if alerts:
         for message in render(alerts):

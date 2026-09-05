@@ -35,8 +35,17 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install the Firestore client
-        run: pip install --quiet google-cloud-firestore
+      - name: Install dependencies
+        run: pip install --quiet google-cloud-firestore pillow python-bidi
+
+      # The tables are drawn with Pillow, which needs a font that covers
+      # Hebrew. Runners ship DejaVu; this fails loudly rather than silently
+      # falling back to a text-only message.
+      - name: Check for a Hebrew-capable font
+        run: |
+          ls -l /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf \
+            || { echo "::warning::DejaVu missing - alerts will fall back to text"; \
+                 sudo apt-get install -y -qq fonts-dejavu-core || true; }
 
       - name: Materialise the service-account key
         env:
