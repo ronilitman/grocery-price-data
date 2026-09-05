@@ -6,11 +6,13 @@ is four words that could be any tub until you see the tub.
 
 Two things make this less obvious than it looks.
 
-**Hebrew is right-to-left and Pillow does not reorder it.** Drawn raw, the
-string comes out reversed. ``python-bidi`` applies the Unicode bidi algorithm
-so mixed Hebrew-and-digits text - which every row here is, because prices and
-dates are Latin digits inside Hebrew - lands in the right visual order. Hebrew
-needs no cursive shaping, so bidi is the whole job.
+**Hebrew is right-to-left, and whether Pillow reorders it depends on the
+build.** Pillow only applies the bidi algorithm when it was compiled against
+libraqm, which the Linux wheels bundle and the macOS ones do not. Reordering
+unconditionally therefore works on a laptop and ships backwards text from a
+runner, which is precisely the bug this once had. ``shape()`` reorders only
+when Pillow will not, so the same code is correct on both. Hebrew needs no
+cursive shaping, so bidi is the whole job.
 
 **A product picture may not exist.** The image host is keyed by barcode, and
 weighed goods carry a short internal barcode it has never heard of. The app has
@@ -22,8 +24,21 @@ import io
 import os
 import urllib.request
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, features
 from bidi.algorithm import get_display
+
+# Pillow reorders right-to-left text ONLY when it was built against libraqm.
+# The Linux wheels bundle it; the macOS ones do not. Applying python-bidi on
+# top of a Raqm build reverses the string twice and ships unreadable Hebrew -
+# which is exactly what happened: it rendered correctly on a Mac and arrived
+# backwards from the runner. So the reordering is done here only when Pillow
+# will not do it, and the check is made once at import.
+HAS_RAQM = features.check("raqm")
+
+
+def shape(text):
+    """Logical order in, whatever this Pillow needs to draw it correctly out."""
+    return text if HAS_RAQM else get_display(text)
 
 IMAGE_HOST = "https://m.pricez.co.il/ProductPictures"
 
@@ -88,7 +103,7 @@ def render_chain(chain_name, rows):
 
     draw.rectangle([0, 0, WIDTH, HEADER_H], fill=ACCENT)
     heading = f"{chain_name} · {len(rows)}"
-    draw.text((WIDTH - PAD, HEADER_H // 2), get_display(heading),
+    draw.text((WIDTH - PAD, HEADER_H // 2), shape(heading),
               font=f_title, fill="#FFFFFF", anchor="rm")
 
     y = HEADER_H
@@ -107,9 +122,9 @@ def render_chain(chain_name, rows):
                            outline=RULE, width=2)
 
         right = box_x - 16
-        draw.text((right, y + 32), get_display(row["name"]),
+        draw.text((right, y + 32), shape(row["name"]),
                   font=f_name, fill=INK, anchor="rm")
-        draw.text((right, y + 64), get_display(row["terms"]),
+        draw.text((right, y + 64), shape(row["terms"]),
                   font=f_terms, fill=MUTED, anchor="rm")
         draw.text((PAD, y + ROW_H // 2), f"₪{row['unit_price']:g}",
                   font=f_price, fill=PRICE, anchor="lm")

@@ -41,6 +41,15 @@ jobs:
       # The tables are drawn with Pillow, which needs a font that covers
       # Hebrew. Runners ship DejaVu; this fails loudly rather than silently
       # falling back to a text-only message.
+      # Pillow only reorders right-to-left text when built against libraqm,
+      # and the answer differs between a Mac and this runner - which is how
+      # backwards Hebrew shipped once. Logged so a future mismatch is visible
+      # here rather than in a phone screenshot.
+      - name: Report the Hebrew rendering path
+        run: |
+          python -c "from PIL import features; \
+            print('raqm (Pillow reorders RTL itself):', features.check('raqm'))"
+
       - name: Check for a Hebrew-capable font
         run: |
           ls -l /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf \
