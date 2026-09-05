@@ -22,6 +22,7 @@ writing to them.
 """
 
 import datetime
+import json
 import os
 import sys
 import urllib.error
@@ -67,6 +68,46 @@ def telegram(text):
     return None
 
 
+def diagnose_chat():
+    """Work out *why* the chat was not found, and say what to do about it.
+
+    "chat not found" has two quite different causes and the fix differs: either
+    the bot has never been spoken to - a bot cannot open a conversation, the
+    human has to send the first message - or the configured id belongs to some
+    other chat.
+
+    ``getUpdates`` distinguishes them. Printing the ids it finds is safe: an id
+    equal to the configured secret is masked by Actions anyway, and an id that
+    is *not* masked is exactly the one that should have been configured.
+    """
+    token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    try:
+        url = f"https://api.telegram.org/bot{token}/getUpdates"
+        with urllib.request.urlopen(url, timeout=30) as r:
+            payload = json.load(r)
+    except Exception as exc:
+        return f"   could not read getUpdates to diagnose ({type(exc).__name__})"
+
+    chats = {}
+    for update in payload.get("result", []):
+        for key in ("message", "edited_message", "channel_post", "my_chat_member"):
+            chat = (update.get(key) or {}).get("chat")
+            if chat:
+                chats[chat.get("id")] = chat
+
+    if not chats:
+        return ("   The bot has no conversations at all. A bot cannot start one -\n"
+                "   open t.me/groceries_notifier_bot, press Start, send it any\n"
+                "   message, then re-run this check.")
+
+    lines = [f"   The bot knows {len(chats)} chat(s), and TELEGRAM_CHAT_ID matches none of them:"]
+    for cid, chat in chats.items():
+        who = chat.get("title") or chat.get("username") or chat.get("first_name") or "?"
+        lines.append(f"     id={cid}  type={chat.get('type')}  {who}")
+    lines.append("   Set TELEGRAM_CHAT_ID to the id above (group ids are negative).")
+    return "\n".join(lines)
+
+
 def main():
     checks = []
     ok = True
@@ -107,6 +148,8 @@ def main():
     if problem:
         # Telegram is the only check that cannot report its own failure.
         print(f"❌ Telegram delivery failed — {problem}", file=sys.stderr)
+        if "chat not found" in problem.lower():
+            print(diagnose_chat(), file=sys.stderr)
         for line in checks:
             print(line, file=sys.stderr)
         return 1
