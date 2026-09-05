@@ -1,0 +1,67 @@
+# Discount alerts on favourited products.
+#
+# A separate workflow rather than a job inside build.yml, because the script
+# reads the *published* catalogue rather than the merged database: prices.db is
+# deleted at the end of the publish job, so there is nothing to hand a
+# downstream job anyway. Keeping it out here also means a change to alerting
+# cannot break the nightly price build.
+#
+# It runs after the build finishes rather than on a clock, so it sees that
+# night's prices. The build going red does not stop it - publish can be red
+# while the site deployed fine - and the script itself refuses to alert off a
+# catalogue that was not built today.
+name: Discount alerts
+
+on:
+  workflow_run:
+    workflows: ["Build price database"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'normal, seed (record everything as seen), or dry-run'
+        required: true
+        default: dry-run
+        type: choice
+        options: [dry-run, seed, normal]
+
+jobs:
+  alert:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install the Firestore client
+        run: pip install --quiet google-cloud-firestore
+
+      - name: Materialise the service-account key
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+        run: |
+          if [ -z "$GCP_SA_KEY" ]; then
+            echo "::error::GCP_SA_KEY is not set on this repository"
+            exit 1
+          fi
+          printf '%s' "$GCP_SA_KEY" > "$RUNNER_TEMP/sa.json"
+
+      - name: Alert on new discounts
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MODE: ${{ github.event.inputs.mode || 'normal' }}
+        run: |
+          case "$MODE" in
+            seed)    FLAGS=--seed ;;
+            dry-run) FLAGS=--dry-run ;;
+            *)       FLAGS= ;;
+          esac
+          python scripts/alerts_favourites.py $FLAGS
+
+      - name: Shred the key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/sa.json"
