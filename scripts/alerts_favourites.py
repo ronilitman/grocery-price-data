@@ -186,6 +186,11 @@ class FileLedger:
             del self.rows[k]
         return len(gone)
 
+    def clear(self):
+        n = len(self.rows)
+        self.rows = {}
+        return n
+
     def commit(self):
         json.dump(self.rows, open(self.path, "w"), ensure_ascii=False, indent=1)
 
@@ -215,6 +220,21 @@ class FirestoreLedger:
             del self.rows[key]
             self.pending.pop(key, None)
         return len(gone)
+
+    def clear(self):
+        """Empty the ledger so the next run alerts on everything live.
+
+        Only ever touches the alert ledger. The collection name is a module
+        constant rather than an argument precisely so this cannot be pointed at
+        favproducts_* or settings_*, which are a real shopping list.
+        """
+        n = 0
+        for doc in self.col.stream():
+            doc.reference.delete()
+            n += 1
+        self.rows.clear()
+        self.pending.clear()
+        return n
 
     def commit(self):
         # Firestore caps a batch at 500 writes; the ledger is far smaller than
@@ -291,6 +311,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--seed", action="store_true",
                     help="Record everything as seen and send only a count. Use once.")
+    ap.add_argument("--reset", action="store_true",
+                    help="Empty the ledger first, so this run alerts on every live offer.")
     ap.add_argument("--dry-run", action="store_true",
                     help="Print what would be sent; write nothing, send nothing.")
     ap.add_argument("--favourites-file", help="Test without Firestore.")
@@ -321,6 +343,9 @@ def main():
         None if args.dry_run and not args.ledger_file else FirestoreLedger())
     if ledger is None:
         ledger = FileLedger(os.devnull + ".json")  # nothing persists in a bare dry run
+
+    if args.reset and not args.dry_run:
+        print(f"cleared {ledger.clear()} ledger rows — this run alerts on everything live")
 
     alerts, suppressed, seen = [], 0, 0
 

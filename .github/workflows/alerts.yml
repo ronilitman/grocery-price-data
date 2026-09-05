@@ -19,11 +19,11 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'normal, seed (record everything as seen), or dry-run'
+        description: 'dry-run, seed (record all as seen), normal, or resend (clear ledger and alert on everything live)'
         required: true
         default: dry-run
         type: choice
-        options: [dry-run, seed, normal]
+        options: [dry-run, seed, normal, resend]
 
 jobs:
   alert:
@@ -58,6 +58,7 @@ jobs:
           case "$MODE" in
             seed)    FLAGS=--seed ;;
             dry-run) FLAGS=--dry-run ;;
+            resend)  FLAGS=--reset ;;
             *)       FLAGS= ;;
           esac
           python scripts/alerts_favourites.py $FLAGS
