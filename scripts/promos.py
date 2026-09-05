@@ -30,6 +30,11 @@ here. What survives the dialect intact is the offer itself:
           <ItemCode>                         <Item><ItemCode>
           <MinQty> <DiscountedPrice>
 
+``<Group>`` is the exception to that: it is structure, not dialect. Two groups
+mean one deal with two halves - "buy one at 28.90, the second at 1.00" - and
+flattening them into two offers is how a 1 shekel Listerine reached the app.
+See ``_across_groups``.
+
 The unit price is computed here as ``DiscountedPrice / MinQty`` and never taken
 from ``DiscountedPricePerMida``: that field is per *measure* unit, so Stop
 Market publishes 8.80 for a 2-for-22 deal on a 125 g box (22 / 2.5 hundred
@@ -118,8 +123,58 @@ def coupon_of(promotion):
     return 1 if raw.strip() in ("1", "true", "True") else 0
 
 
+def _group_terms(group):
+    """``{barcode: (min_qty, price)}`` for one ``<Group>``."""
+    terms = {}
+    for item in group.iter("PromotionItem"):
+        code = _text(item, "ItemCode")
+        if code:
+            terms[code] = (_number(_text(item, "MinQty")),
+                           _number(_text(item, "DiscountedPrice")))
+    return terms
+
+
+def _across_groups(groups):
+    """One combined (barcode, qty, price) per barcode a multi-group deal needs.
+
+    A promotion with two ``<Group>``s is not two offers, it is one offer with
+    two halves that must both be bought. Super-Pharm files "the second at 1 shekel"
+    that way: group 1 is the bottle at its shelf 28.90, group 2 is the second
+    bottle at 1.00. Read the groups apart and the 1.00 looks like the price of
+    a bottle of Listerine, which is what the app showed - flattening the groups
+    with ``iter("PromotionItem")`` is exactly what loses the "second".
+
+    Together they say what the description says: two for 29.90, so 14.95 each.
+    Sum the quantities and sum the prices, and the caller's usual
+    ``price / min_qty`` lands on the right unit price with no special case.
+
+    Only a barcode that appears in *every* group is priced. Missing from one,
+    and the deal is a cross-product one - "buy a Cerruti perfume, get the 9.5 ml
+    free" - which changes no price on either item and cannot honestly be
+    published as one.
+    """
+    terms = [_group_terms(group) for group in groups]
+    shared = set(terms[0])
+    for other in terms[1:]:
+        shared &= set(other)
+
+    for barcode in shared:
+        rows = [group[barcode] for group in terms]
+        # A fractional MinQty is a weight (see the note at the top of this
+        # file); summing it with a count would be nonsense, so leave those.
+        if any(qty is None or price is None or qty < 1 for qty, price in rows):
+            continue
+        yield (barcode,
+               sum(qty for qty, _ in rows),
+               sum(price for _, price in rows))
+
+
 def _items(promotion):
     """(barcode, min_qty, price) per item, from whichever dialect this is."""
+    groups = list(promotion.iter("Group"))
+    if len(groups) > 1:
+        yield from _across_groups(groups)
+        return
     nested = list(promotion.iter("PromotionItem"))
     if nested:
         for item in nested:
