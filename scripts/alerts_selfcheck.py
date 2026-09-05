@@ -24,6 +24,7 @@ writing to them.
 import datetime
 import os
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -51,10 +52,18 @@ def telegram(text):
         with urllib.request.urlopen(urllib.request.Request(url, data=body), timeout=30) as r:
             if r.status != 200:
                 return f"Telegram returned HTTP {r.status}"
+    except urllib.error.HTTPError as exc:
+        # str(exc) embeds the request URL, and the token is in the URL - so it
+        # is never printed. The JSON body is Telegram's own diagnosis
+        # ("chat not found", "Unauthorized") and carries no secret, so that is
+        # what gets reported. Without it every failure looks identical.
+        try:
+            detail = exc.read().decode("utf-8", "replace")[:300]
+        except Exception:
+            detail = "(no response body)"
+        return f"HTTP {exc.code} — {detail}"
     except Exception as exc:
-        # The token is in the URL, so it can appear in an exception's text.
-        # Never let that reach a log.
-        return f"Telegram request failed: {type(exc).__name__}"
+        return f"request failed: {type(exc).__name__}"
     return None
 
 
