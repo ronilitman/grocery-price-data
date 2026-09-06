@@ -124,11 +124,42 @@ jobs:
           sudo tailscale set --exit-node='${{ vars.TS_EXIT_NODE }}'
           echo "egress now: $(curl -s --max-time 20 https://ipinfo.io/org)"
 
+      # Three attempts, because most of what goes wrong here is weather
+      # rather than illness: a chain rate-limits the exit node for a minute, a
+      # TLS handshake dies, laibcatalog stops answering and starts again. A
+      # single attempt turned those into a whole chain missing for a day, and
+      # the publish job carries the previous data forward so silently that
+      # nobody notices until a price is wrong in a shop.
+      #
+      # The dumps directory is cleared between attempts. fetch.py fails when it
+      # finds no XML at all, so a half-finished download left behind by attempt
+      # one could let attempt two "succeed" on a fraction of the chain, which
+      # is worse than the failure it replaced.
+      #
+      # This cannot help a runner that GitHub reclaims mid-job - exit 143 takes
+      # the retry loop with it. That case is handled by .github/workflows/
+      # retry-failed-chains.yml, which re-runs the job on a fresh runner.
       - name: Scrape and parse
         run: |
-          python scripts/fetch.py "${{ matrix.chain }}" \
-            --timeout 2400 \
-            ${{ github.event.inputs.limit && format('--limit {0}', github.event.inputs.limit) || '' }}
+          for attempt in 1 2 3; do
+            echo "::group::${{ matrix.chain }} attempt $attempt of 3"
+            rm -rf dumps outputs
+            if python scripts/fetch.py "${{ matrix.chain }}" \
+                 --timeout 2400 \
+                 ${{ github.event.inputs.limit && format('--limit {0}', github.event.inputs.limit) || '' }}
+            then
+              echo "::endgroup::"
+              exit 0
+            fi
+            echo "::endgroup::"
+            echo "::warning::${{ matrix.chain }} attempt $attempt failed"
+            # An `[ ] && sleep` one-liner would be false on the last pass,
+            # and under `set -e` that aborts the step before the error
+            # annotation below ever prints.
+            if [ "$attempt" -lt 3 ]; then sleep $((attempt * 60)); fi
+          done
+          echo "::error::${{ matrix.chain }} failed three times"
+          exit 1
 
       # Back to the runner's own connection before the artifact upload, so a
       # home line carries the chain's files and nothing else. always(), because

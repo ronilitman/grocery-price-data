@@ -11,3 +11,6 @@ __pycache__/
 *-sa.json
 *service-account*.json
 gha-creds-*.json
+
+# Scraper log, written into the working tree on every local run.
+logging.log
