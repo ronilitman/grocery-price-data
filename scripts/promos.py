@@ -53,6 +53,7 @@ the discounted price IS the unit price and there is no minimum count to meet.
 
 import os
 import xml.etree.ElementTree as ET
+from typing import NamedTuple
 
 # Above this, MinQty is not a pack size but a spend threshold: Yellow's
 # "5בום חודש יולי 100- שח פריטי אוסם" carries MinQty=10000 against a basket
@@ -65,6 +66,35 @@ MAX_MIN_QTY = 50
 # 22,784 of Yellow's 25,189 old rows. Dropping the unpriced ones is what makes
 # the table small enough to publish.
 MIN_PRICE = 0.01
+
+
+class Offer(NamedTuple):
+    """One promotion, as one branch published it.
+
+    A NamedTuple rather than a bare tuple because the row grew past the point
+    where positional unpacking was readable, and because two consumers unpack
+    it - build_chain_db.py and the tests.
+
+    ``price`` and ``unit_price`` are None only while an offer is waiting on a
+    shelf price it could not know: one of its legs said "at whatever this
+    branch charges". ``known_price`` is what the other legs came to and
+    ``unpriced_qty`` how much still needs pricing, so build_chain_db.py can
+    finish the sum against the branch's own price.
+    """
+
+    chain_id: str
+    promo_id: str
+    barcode: str
+    club: int
+    coupon: int
+    min_qty: float
+    price: float
+    unit_price: float
+    description: str
+    starts: str
+    ends: str
+    known_price: float = 0.0
+    unpriced_qty: float = 0.0
 
 
 def _text(node, *names):
@@ -123,8 +153,19 @@ def coupon_of(promotion):
     return 1 if raw.strip() in ("1", "true", "True") else 0
 
 
+# A group whose only "item" is this placeholder is not a product list. Fresh
+# Market uses it to express a spend threshold - "MinPurchaseAmount 75.00, item
+# 0000000000000" - and no shopper can put that in a basket.
+PLACEHOLDER_ITEM = "0000000000000"
+
+
 def _group_terms(group):
-    """``{barcode: (min_qty, price)}`` for one ``<Group>``."""
+    """``{barcode: (min_qty, price)}`` for one ``<Group>``.
+
+    ``price`` is None when the group states none. That is not zero and not
+    free: it means the item costs whatever the branch charges for it, which
+    only the price tables know. See ``_across_groups``.
+    """
     terms = {}
     for item in group.iter("PromotionItem"):
         code = _text(item, "ItemCode")
@@ -134,60 +175,104 @@ def _group_terms(group):
     return terms
 
 
-def _across_groups(groups):
-    """One combined (barcode, qty, price) per barcode a multi-group deal needs.
+def _is_threshold(terms):
+    """A group that states a condition on the basket rather than a leg to buy."""
+    return set(terms) <= {PLACEHOLDER_ITEM}
 
-    A promotion with two ``<Group>``s is not two offers, it is one offer with
-    two halves that must both be bought. Super-Pharm files "the second at 1 shekel"
-    that way: group 1 is the bottle at its shelf 28.90, group 2 is the second
-    bottle at 1.00. Read the groups apart and the 1.00 looks like the price of
-    a bottle of Listerine, which is what the app showed - flattening the groups
-    with ``iter("PromotionItem")`` is exactly what loses the "second".
 
-    Together they say what the description says: two for 29.90, so 14.95 each.
-    Sum the quantities and sum the prices, and the caller's usual
-    ``price / min_qty`` lands on the right unit price with no special case.
+def _legs(groups):
+    """The groups that are actually legs of the deal, thresholds discarded."""
+    return [terms for terms in (_group_terms(g) for g in groups)
+            if not _is_threshold(terms)]
 
-    Only a barcode that appears in *every* group is priced. Missing from one,
-    and the deal is a cross-product one - "buy a Cerruti perfume, get the 9.5 ml
-    free" - which changes no price on either item and cannot honestly be
-    published as one.
+
+def _across_legs(legs):
+    """One combined ``(barcode, qty, price, known, unpriced_qty)`` per barcode.
+
+    A promotion with several ``<Group>``s is not several offers, it is one
+    offer with several legs that must all be bought. Both chains that do this
+    file "the second one is a shekel" the same way, and the whole deal is the
+    sum of its legs:
+
+        Super-Pharm   group 1  one bottle 28.90   group 2  one bottle 1.00
+                      -> two for 29.90, 14.95 each
+
+        Fresh Market  group 1  spend 75.00        (a threshold, not a leg)
+                      group 2  one tin, no price  (whatever the branch charges)
+                      group 3  one tin, 1.00
+                      -> two for shelf + 1.00
+
+    Read the groups apart instead and the shekel looks like the price of the
+    product, which is what the app once showed for a bottle of Listerine.
+
+    Threshold groups are skipped before anything else. They can never contain a
+    real barcode, so counting them would demand that the tin appear in a group
+    it cannot be in - which silently discarded a genuine Fresh Market discount
+    at 46 branches.
+
+    A leg with no price of its own is reported rather than guessed at:
+    ``unpriced_qty`` says how much of the quantity still needs a shelf price,
+    and ``known`` is the total of the legs that did state one. Resolving it
+    needs the branch's own price, so build_chain_db.py finishes the sum once
+    the price tables exist. Publishing the known part alone would advertise two
+    tins for a shekel.
+
+    Only a barcode in *every* remaining group is priced. Missing from one and
+    the deal is a cross-product one - "buy a Cerruti perfume, get the 9.5 ml
+    free" - which changes neither item's own price and cannot honestly be
+    published as a price for either.
     """
-    terms = [_group_terms(group) for group in groups]
-    shared = set(terms[0])
-    for other in terms[1:]:
+    shared = set(legs[0])
+    for other in legs[1:]:
         shared &= set(other)
 
     for barcode in shared:
-        rows = [group[barcode] for group in terms]
+        rows = [leg[barcode] for leg in legs]
         # A fractional MinQty is a weight (see the note at the top of this
         # file); summing it with a count would be nonsense, so leave those.
-        if any(qty is None or price is None or qty < 1 for qty, price in rows):
+        if any(qty is None or qty < 1 for qty, _ in rows):
             continue
-        yield (barcode,
-               sum(qty for qty, _ in rows),
-               sum(price for _, price in rows))
+        qty = sum(qty for qty, _ in rows)
+        known = sum(price for _, price in rows if price is not None)
+        unpriced = sum(q for q, price in rows if price is None)
+        yield barcode, qty, (known if not unpriced else None), known, unpriced
 
 
 def _items(promotion):
-    """(barcode, min_qty, price) per item, from whichever dialect this is."""
+    """``(barcode, min_qty, price, known, unpriced_qty)`` per item.
+
+    ``price`` is the whole cost when it is knowable from the promotion alone,
+    and None when a leg priced itself at "whatever the branch charges". In that
+    case ``known`` holds the legs that did state a price and ``unpriced_qty``
+    the quantity still waiting on one; an ordinary offer carries known == price
+    and unpriced_qty == 0, so callers that do not care can ignore both.
+    """
     groups = list(promotion.iter("Group"))
     if len(groups) > 1:
-        yield from _across_groups(groups)
-        return
+        legs = _legs(groups)
+        if len(legs) > 1:
+            # A real multi-leg deal. It may yield nothing - a cross-product
+            # gift has no barcode in every leg - and that silence is the
+            # answer, not a reason to fall through and price the qualifying
+            # item as though its own price had changed.
+            yield from _across_legs(legs)
+            return
+        # Every group but one was a spend threshold, so there is no multi-leg
+        # deal here; read it as the ordinary promotion it is.
     nested = list(promotion.iter("PromotionItem"))
     if nested:
         for item in nested:
+            price = _number(_text(item, "DiscountedPrice"))
             yield (_text(item, "ItemCode"),
                    _number(_text(item, "MinQty")),
-                   _number(_text(item, "DiscountedPrice")))
+                   price, price, 0.0)
         return
     # Flat: the terms sit on the promotion and the items are a bare code list.
     min_qty = _number(_text(promotion, "MinQty"))
     price = _number(_text(promotion, "DiscountedPrice"))
     container = promotion.find("PromotionItems")
     for item in (container if container is not None else []):
-        yield (_text(item, "ItemCode"), min_qty, price)
+        yield (_text(item, "ItemCode"), min_qty, price, price, 0.0)
 
 
 def find_promo_files(dumps_dir):
@@ -232,11 +317,14 @@ def read_offers(dumps_dir):
             starts = _text(promotion, "PromotionStartDateTime", "PromotionStartDate")[:10]
             ends = _text(promotion, "PromotionEndDateTime", "PromotionEndDate")[:10]
 
-            for barcode, min_qty, price in _items(promotion):
+            for barcode, min_qty, price, known, unpriced in _items(promotion):
                 barcode = "".join(ch for ch in barcode if ch.isdigit())
                 if len(barcode) < 6:
                     continue
-                if price is None or price < MIN_PRICE:
+                # An offer still waiting on a shelf price has no `price` yet,
+                # and must not be judged against MIN_PRICE on the strength of
+                # the leg that happens to be known.
+                if not unpriced and (price is None or price < MIN_PRICE):
                     continue                      # loyalty blanket, not a price
                 if min_qty is None or min_qty <= 0 or min_qty >= MAX_MIN_QTY:
                     continue                      # basket promotion, not a price
@@ -246,17 +334,20 @@ def read_offers(dumps_dir):
                 if min_qty < 1:
                     effective_qty, unit_price = 1.0, price
                 else:
-                    effective_qty, unit_price = min_qty, price / min_qty
-                yield store_id, (
-                    chain_id,
-                    promo_id,
-                    barcode,
-                    club,
-                    coupon,
-                    round(effective_qty, 3),
-                    round(price, 2),
-                    round(unit_price, 2),
-                    description,
-                    starts,
-                    ends,
+                    effective_qty = min_qty
+                    unit_price = None if price is None else price / min_qty
+                yield store_id, Offer(
+                    chain_id=chain_id,
+                    promo_id=promo_id,
+                    barcode=barcode,
+                    club=club,
+                    coupon=coupon,
+                    min_qty=round(effective_qty, 3),
+                    price=None if price is None else round(price, 2),
+                    unit_price=None if unit_price is None else round(unit_price, 2),
+                    description=description,
+                    starts=starts,
+                    ends=ends,
+                    known_price=round(known or 0.0, 2),
+                    unpriced_qty=round(unpriced, 3),
                 )

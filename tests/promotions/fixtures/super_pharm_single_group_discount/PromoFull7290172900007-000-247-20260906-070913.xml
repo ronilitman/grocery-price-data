@@ -1,0 +1,51 @@
+<?xml version='1.0' encoding='utf-8'?>
+<Root><ChainID>7290172900007</ChainID><SubChainID>000</SubChainID><StoreID>247</StoreID><Promotions><Promotion>
+      <PromotionUpdateTime>2026-08-23T08:14:10.000</PromotionUpdateTime>
+      <AllowMultipleDiscounts>0</AllowMultipleDiscounts>
+      <PromotionID>0004755184</PromotionID>
+      <PromotionDescription>קופון CARELINE מסיר איפור מיסליירי דו פאזי  קופון 29.90 ₪</PromotionDescription>
+      <PromotionStartDateTime>2026-08-26T00:00:00.000</PromotionStartDateTime>
+      <PromotionEndDateTime>2026-09-15T23:59:59.000</PromotionEndDateTime>
+      <PromotionStartHour />
+      <PromotionEndHour />
+      <PromotionDays />
+      <RedemptionLimit />
+      <MinNoOfItemOffered>00001</MinNoOfItemOffered>
+      <ClubID>0=אין</ClubID>
+      <IsGiftItem>1</IsGiftItem>
+      <AdditionalIsCoupon>1</AdditionalIsCoupon>
+      <AdditionalRestrictions>0.00</AdditionalRestrictions>
+      <Remarks />
+      <Groups>
+        <Group>
+          <GroupID>1</GroupID>
+          <MinPurchaseAmount>0.00</MinPurchaseAmount>
+          <DiscountType />
+          <PromotionItems>
+            <PromotionItem>
+              <ItemCode>7290104965401</ItemCode>
+              <ItemType>1</ItemType>
+              <RewardType>3</RewardType>
+              <MinQty>1.00</MinQty>
+              <MaxQty />
+              <DiscountRate>46.61</DiscountRate>
+              <DiscountedPrice>29.90</DiscountedPrice>
+              <DiscountedPricePerMida>0.00</DiscountedPricePerMida>
+              <bIsWeighted>0</bIsWeighted>
+            </PromotionItem>
+            <PromotionItem>
+              <ItemCode>7290104969744</ItemCode>
+              <ItemType>1</ItemType>
+              <RewardType>3</RewardType>
+              <MinQty>1.00</MinQty>
+              <MaxQty />
+              <DiscountRate>46.61</DiscountRate>
+              <DiscountedPrice>29.90</DiscountedPrice>
+              <DiscountedPricePerMida>0.00</DiscountedPricePerMida>
+              <bIsWeighted>0</bIsWeighted>
+            </PromotionItem>
+          </PromotionItems>
+        </Group>
+      </Groups>
+    </Promotion>
+    </Promotions></Root>

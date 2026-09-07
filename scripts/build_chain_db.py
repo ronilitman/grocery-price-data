@@ -266,6 +266,97 @@ def collapse(conn):
     conn.commit()
 
 
+def resolve_unpriced_offers(conn, staged):
+    """Finish offers whose price was "whatever this branch charges".
+
+    Fresh Market's "second tin for a shekel" states only the shekel. The other
+    tin is priced at the branch's own shelf price, which lives in the price
+    tables rather than in the promotion, so the total cannot be worked out
+    while the XML is being read. A till receipt from branch 47 shows what the
+    answer has to be: two tins at 19.90 each less 18.90, so 20.90 for two.
+
+    This is a split, not a fix. A branch paying 19.90 and a branch paying 21.90
+    are running the same campaign at two different prices, and `price` is part
+    of an offer's identity - see idx_offer_key - so they are two rows with two
+    branch lists, not one row to be updated. A GROUP BY is what performs the
+    split; iterating and correcting rows could not.
+
+    Runs after collapse(), which is where chain_prices and price_exceptions get
+    filled in. main() already calls collapse() before load_promos(), so the
+    prices are waiting by the time this is reached.
+
+    A branch that does not stock the product at all drops out: no shelf price,
+    no total, nothing honest to publish.
+    """
+    if not staged:
+        return 0, 0
+
+    conn.execute("""
+        CREATE TEMP TABLE _unpriced(
+            chain_id TEXT, promo_id TEXT, barcode TEXT, club INTEGER,
+            coupon INTEGER, store_id TEXT, min_qty REAL, known_price REAL,
+            unpriced_qty REAL, description TEXT, starts TEXT, ends TEXT)
+    """)
+    conn.executemany(
+        "INSERT INTO _unpriced VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", staged)
+
+    # The branch's price is its exception if it has one, else the chain
+    # baseline - the same rule the app applies in priceAt(). Rounded to agorot
+    # as an integer so the GROUP BY below, and the join after it, never turn on
+    # float equality.
+    conn.execute("""
+        CREATE TEMP TABLE _resolved AS
+        SELECT u.chain_id, u.promo_id, u.barcode, u.club, u.coupon, u.store_id,
+               u.min_qty, u.description, u.starts, u.ends,
+               CAST(ROUND((u.known_price + u.unpriced_qty * shelf) * 100) AS INTEGER)
+                   AS agorot
+        FROM (
+            SELECT u.*, COALESCE(e.price, c.price) AS shelf
+            FROM _unpriced u
+            LEFT JOIN price_exceptions e
+                   ON e.chain_id = u.chain_id AND e.store_id = u.store_id
+                  AND e.barcode  = u.barcode
+            LEFT JOIN chain_prices c
+                   ON c.chain_id = u.chain_id AND c.barcode = u.barcode
+        ) u
+        WHERE shelf IS NOT NULL
+    """)
+
+    conn.execute("""
+        INSERT OR IGNORE INTO promo_offers
+            (chain_id, promo_id, barcode, club, coupon, min_qty, price,
+             unit_price, description, starts, ends)
+        SELECT chain_id, MIN(promo_id), barcode, club, coupon, min_qty,
+               agorot / 100.0,
+               ROUND(agorot / 100.0 / min_qty, 2),
+               MIN(description), MIN(starts), MAX(ends)
+        FROM _resolved
+        GROUP BY chain_id, barcode, club, coupon, min_qty, agorot
+    """)
+    added = conn.total_changes
+
+    # Back to the offers just written, joined on the integer agorot rather than
+    # the float price for the reason above.
+    linked = conn.execute("""
+        INSERT OR IGNORE INTO promo_stores (offer_id, store_id)
+        SELECT o.offer_id, r.store_id
+        FROM _resolved r
+        JOIN promo_offers o
+          ON o.chain_id = r.chain_id AND o.barcode = r.barcode
+         AND o.club = r.club AND o.coupon = r.coupon
+         AND o.min_qty = r.min_qty
+         AND CAST(ROUND(o.price * 100) AS INTEGER) = r.agorot
+    """).rowcount
+    conn.commit()
+
+    offers = conn.execute(
+        "SELECT COUNT(*) FROM (SELECT DISTINCT chain_id, barcode, club, coupon,"
+        " min_qty, agorot FROM _resolved)").fetchone()[0]
+    conn.execute("DROP TABLE _resolved")
+    conn.execute("DROP TABLE _unpriced")
+    return offers, max(linked, 0)
+
+
 def load_promos(conn, dumps, scraper):
     """Collapse every branch's PromoFull into distinct offers plus a branch list.
 
@@ -295,12 +386,23 @@ def load_promos(conn, dumps, scraper):
     merged = {}
     seen_rows = 0
     promo_ids = set()
+    unpriced = []
     for store_id, offer in promos.read_offers(dumps):
         (chain_id, promo_id, barcode, club, coupon, min_qty,
-         price, unit_price, description, starts, ends) = offer
+         price, unit_price, description, starts, ends) = offer[:11]
         chain_id = CHAIN_ID_ALIASES.get((scraper, chain_id), chain_id)
         seen_rows += 1
         promo_ids.add((chain_id, promo_id))
+
+        # One of this offer's legs is priced "at whatever the branch charges",
+        # so its total is not knowable yet - and `price` is half an offer's
+        # identity, so it cannot be merged with anything until it is. Park it;
+        # resolve_unpriced_offers() finishes it once the price tables exist.
+        if offer.unpriced_qty:
+            unpriced.append((chain_id, promo_id, barcode, club, coupon, store_id,
+                             min_qty, offer.known_price, offer.unpriced_qty,
+                             description, starts, ends))
+            continue
 
         key = (chain_id, barcode, club, coupon, min_qty, price)
         found = merged.get(key)
@@ -338,10 +440,15 @@ def load_promos(conn, dumps, scraper):
     conn.executemany("INSERT OR IGNORE INTO promo_stores VALUES (?,?)", links)
     conn.commit()
 
+    resolved, resolved_links = resolve_unpriced_offers(conn, unpriced)
+
     print(f"[build] promotions: {seen_rows:,} published item rows across "
           f"{len(promo_ids):,} promotion ids -> {len(merged):,} distinct offers "
           f"({seen_rows / max(len(merged), 1):.1f}x)")
-    return len(merged), len(links)
+    if unpriced:
+        print(f"[build] promotions: {len(unpriced):,} branch rows priced at the "
+              f"shelf -> {resolved:,} further offers")
+    return len(merged) + resolved, len(links) + resolved_links
 
 
 def apply_chain_aliases(conn, scraper, chain_ids, tables=("_raw",)):

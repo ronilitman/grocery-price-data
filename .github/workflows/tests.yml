@@ -1,0 +1,30 @@
+name: Tests
+
+# Fast and dependency-free on purpose: the tests read carved XML fixtures and
+# build SQLite databases in memory, so nothing here scrapes a chain or needs
+# the exit node. That is what lets them run on every push rather than only in
+# the nightly build, which is where the promotion bugs kept being discovered.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # Deliberately not requirements.txt: that installs both scraper packages
+      # from git and takes minutes. The tests import scripts/ directly and need
+      # nothing but the standard library.
+      - name: Install pytest
+        run: pip install pytest
+
+      - name: Run the tests
+        run: python -m pytest tests/ -v
