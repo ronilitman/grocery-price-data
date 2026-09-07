@@ -22,7 +22,10 @@ permissions:
   contents: write
   pages: write
   id-token: write
-  actions: read      # to download artifacts from a previous run (reuse_run_id)
+  # read: to download artifacts from a previous run (reuse_run_id).
+  # write: to delete a previous attempt's Pages artifact - see "Clear the
+  # Pages artifact" below.
+  actions: write
 
 concurrency:
   group: build-price-db
@@ -236,6 +239,24 @@ jobs:
           ls -1 dist
 
       - uses: actions/configure-pages@v5
+      # A re-run does not replace the first attempt's Pages artifact, it adds
+      # to it, and deploy-pages refuses outright when it finds two of them:
+      # "Multiple artifacts named github-pages were unexpectedly found". That
+      # is how run #47 scraped all 31 chains successfully on its second attempt
+      # and then published nothing at all. Since retry-failed-chains.yml exists
+      # precisely to cause second attempts, publish has to be repeatable.
+      - name: Clear the Pages artifact left by an earlier attempt
+        if: github.run_attempt != '1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ids=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" \
+                  --jq '.artifacts[] | select(.name == "github-pages") | .id')
+          for id in $ids; do
+            echo "removing stale github-pages artifact $id"
+            gh api -X DELETE "repos/${{ github.repository }}/actions/artifacts/$id"
+          done
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
