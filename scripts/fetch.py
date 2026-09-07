@@ -19,7 +19,8 @@ from il_supermarket_parsers import ConvertingTask
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import superpharm  # noqa: E402
-from csvutil import find_csvs  # noqa: E402
+from csvutil import find_csvs
+import dumps  # noqa: E402
 
 # Full snapshots only. PRICE_FILE / PROMO_FILE are hourly *deltas* - fetching
 # them means downloading the same store many times over and still ending up
@@ -176,6 +177,13 @@ def main():
         return 1
 
     quarantine_unparsable_names(args.dumps)
+
+    # The chains serve a window of files, not one per branch, so the scrape
+    # above has downloaded several days of some branches. Drop the superseded
+    # copies before anything reads them: the parser would otherwise fold old
+    # prices in with new, and promos.py would credit branches with offers they
+    # have since dropped. See scripts/dumps.py.
+    dumps.prune_to_newest(args.dumps)
 
     print(f"[fetch] parsing {args.chain}")
     if args.chain == "SUPER_PHARM":
