@@ -6,11 +6,13 @@
 # runner has actually asked. This answers it before the chain is trusted to a
 # nightly job, and is deleted once it has.
 #
-# Manual only, and it downloads one file.
+# Runs on this branch only, and downloads one file.
 name: Netiv egress probe
 
 on:
   workflow_dispatch:
+  push:
+    branches: [netiv-hesed]
 
 jobs:
   probe:
