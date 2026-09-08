@@ -31,6 +31,33 @@ parser reports `errors: False` with zero rows — that is how Super-Pharm shippe
 nothing for months, and how Fresh Market's branches vanished. Never trust the
 status field. Check row counts and whether a CSV was actually written.
 
+**One chain is scraped by this repo, not by the library.** נתיב החסד moved
+off the host the library's `NETIV_HASED` points at - it still answers HTTP 500 -
+and the library responded by disabling the chain, so it is absent from
+`ScraperFactory.all_scrapers_name()` entirely. It publishes at
+`app.netiv-hesed.com`, and `scripts/netiv.py` downloads from there; the
+library's *parser* for the chain is still correct and still used. The portal
+sits behind Cloudflare, which objects twice: it rejects bot User-Agents
+(`python-requests`, `curl`) even from home, and refuses a GitHub runner
+whatever User-Agent it sends. So the request needs a browser UA *and* the exit
+node - it is the seventh `HOME_EGRESS` chain.
+
+**That one ChainID is three separately-priced brands.** נתיב החסד, בר-כל and
+שירה מרקט all publish under `7290058160839`. שירה מרקט's branches agree with
+each other on 99% of shared barcodes and disagree with a נתיב החסד branch on
+about 40% of them, so one baseline for the parent id would be a בר-כל price -
+45 branches out-voting שירה מרקט's 9 - shown for a chain where nobody pays it.
+`SUBCHAIN_SPLITS` in `build_chain_db.py` gives each brand its own chain id,
+`<chain id>-<subchain id>`. Split only a chain that genuinely prices its brands
+apart: Shufersal's שלי / דיל / אקספרס share one price list.
+
+**A promotion file will not tell you its sub-chain.** Every one of Netiv
+Hesed's PromoFull dumps says `<SubChainID>000</SubChainID>` while the PriceFull
+for the same branch says `009`. The filename is no better - see the note in
+`dumps.py` about chains whose names lie about that field. Promotions are
+attributed through the *branch* instead, which `load_stores` has already
+placed. `tests/subchains/` guards it.
+
 **Six chains cannot be scraped from a datacenter.** Super-Pharm (Reblaze, HTTP
 247), Hazi Hinam (Cloudflare 403), Victory, Mahsani Ashuk and Het Cohen
 (laibcatalog never answers at all), Osher Ad. Their jobs route egress through a

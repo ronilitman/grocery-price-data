@@ -49,8 +49,6 @@ jobs:
       fail-fast: false          # one broken chain must not sink the other 16
       max-parallel: 6
       matrix:
-        # NETIV_HASED omitted: upstream site is down (HTTP 500), excluded from
-        # ScraperFactory.all_scrapers_name() by the library itself - not a typo.
         chain:
           - RAMI_LEVY
           - SHUFERSAL
@@ -69,11 +67,18 @@ jobs:
           - FRESH_MARKET_AND_SUPER_DOSH
           - SUPER_PHARM
           - YELLOW
+          # Scraped by scripts/netiv.py rather than by the library. The
+          # library's NETIV_HASED points at a host that has answered 500 for
+          # months, so it disables the chain and drops it from
+          # ScraperFactory.all_scrapers_name() - but the chain only moved, and
+          # publishes three separately-priced brands (נתיב החסד, בר-כל,
+          # שירה מרקט) at app.netiv-hesed.com. Cloudflare refuses a runner, so
+          # it goes out through the exit node; see HOME_EGRESS below.
+          - NETIV_HASED
           # The library ships 31 scrapers and we ran 17 of them. These are the
-          # rest, minus NETIV_HASED, which the library disables itself. A
-          # runner's own connection is tried first, and only a chain that
-          # actually refuses it earns a place in HOME_EGRESS - which is how
-          # HET_COHEN_NEW_SOURCE, listed here, ended up routed after all.
+          # rest. A runner's own connection is tried first, and only a chain
+          # that actually refuses it earns a place in HOME_EGRESS - which is
+          # how HET_COHEN_NEW_SOURCE, listed here, ended up routed after all.
           - BAREKET
           - CITY_MARKET_SHOPS
           - GOOD_PHARM
@@ -97,7 +102,12 @@ jobs:
       # a runner, which is the same shape. HET_COHEN_NEW_SOURCE is a laibcatalog
       # chain too, and had been left on runner egress by oversight: it timed out
       # after 30s on getbranches every night while answering in 56ms from home.
-      HOME_EGRESS: '["SUPER_PHARM","HAZI_HINAM","VICTORY_NEW_SOURCE","MAHSANI_ASHUK_NEW_SOURCE","OSHER_AD","HET_COHEN_NEW_SOURCE"]'
+      # NETIV_HASED was added after a runner asked. Its Cloudflare rejects the
+      # bot User-Agents from home - python-requests and curl get 403 while an
+      # empty one gets through - which made the block look like a UA rule; a
+      # runner is refused whatever UA it sends. Reading a UA rule as the whole
+      # story is how a chain ends up on runner egress and fails every night.
+      HOME_EGRESS: '["SUPER_PHARM","HAZI_HINAM","VICTORY_NEW_SOURCE","MAHSANI_ASHUK_NEW_SOURCE","OSHER_AD","HET_COHEN_NEW_SOURCE","NETIV_HASED"]'
     steps:
       - uses: actions/checkout@v4
 

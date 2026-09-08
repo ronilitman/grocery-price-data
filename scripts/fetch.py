@@ -18,9 +18,18 @@ from il_supermarket_scarper import ScarpingTask, ScraperFactory
 from il_supermarket_parsers import ConvertingTask
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import netiv  # noqa: E402
 import superpharm  # noqa: E402
 from csvutil import find_csvs
 import dumps  # noqa: E402
+
+# Chains this repo scrapes itself, because the library cannot. NETIV_HASED is
+# not merely broken there - its scraper points at a host that has answered 500
+# for months, so the library disables it and drops it from
+# ScraperFactory.all_scrapers_name() entirely. The parser package still has a
+# working parser for it, which is why only the download is replaced. See
+# scripts/netiv.py.
+LOCAL_SCRAPERS = {"NETIV_HASED": netiv.scrape}
 
 # Full snapshots only. PRICE_FILE / PROMO_FILE are hourly *deltas* - fetching
 # them means downloading the same store many times over and still ending up
@@ -38,7 +47,7 @@ PARSE_TYPES = ["PRICE_FULL_FILE", "STORE_FILE"]
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Scrape and parse one supermarket chain.")
-    parser.add_argument("chain", help="ScraperFactory name, e.g. RAMI_LEVY")
+    parser.add_argument("chain", help="ScraperFactory name (e.g. RAMI_LEVY), or a LOCAL_SCRAPERS name")
     parser.add_argument("--dumps", default="dumps")
     parser.add_argument("--outputs", default="outputs")
     parser.add_argument("--limit", type=int, default=None,
@@ -138,19 +147,8 @@ def quarantine_unparsable_names(dumps_dir):
           file=sys.stderr)
 
 
-def main():
-    args = parse_args()
-
-    known = ScraperFactory.all_scrapers_name()
-    if args.chain not in known:
-        print(f"Unknown chain {args.chain!r}.", file=sys.stderr)
-        print("Known chains: " + ", ".join(sorted(known)), file=sys.stderr)
-        return 2
-
-    os.makedirs(args.dumps, exist_ok=True)
-    os.makedirs(args.outputs, exist_ok=True)
-
-    print(f"[fetch] scraping {args.chain} (file types: {', '.join(FILE_TYPES)})")
+def scrape_with_library(args):
+    """The ordinary path: hand the chain to the scrapers package."""
     scraper = ScarpingTask(
         # Names, not enum members: the filter does getattr(FileTypesFilters, x)
         # and getattr() on an enum member raises TypeError.
@@ -165,6 +163,25 @@ def main():
     scraper.start(limit=args.limit)
     scraper.join()          # start() returns immediately - without this the
                             # parser below runs against an empty folder.
+
+
+def main():
+    args = parse_args()
+
+    known = ScraperFactory.all_scrapers_name() + list(LOCAL_SCRAPERS)
+    if args.chain not in known:
+        print(f"Unknown chain {args.chain!r}.", file=sys.stderr)
+        print("Known chains: " + ", ".join(sorted(known)), file=sys.stderr)
+        return 2
+
+    os.makedirs(args.dumps, exist_ok=True)
+    os.makedirs(args.outputs, exist_ok=True)
+
+    print(f"[fetch] scraping {args.chain} (file types: {', '.join(FILE_TYPES)})")
+    if args.chain in LOCAL_SCRAPERS:
+        LOCAL_SCRAPERS[args.chain](args.dumps, limit=args.limit)
+    else:
+        scrape_with_library(args)
 
     normalize_dump_extensions(args.dumps)
 
