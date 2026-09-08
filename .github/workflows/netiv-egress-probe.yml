@@ -1,0 +1,55 @@
+# Can a GitHub runner reach app.netiv-hesed.com?
+#
+# The portal sits behind Cloudflare. From home it rejects bot User-Agents
+# (python-requests, curl) and lets everything else through, which reads like a
+# bot-UA rule rather than a datacenter-IP block - but that is a guess until a
+# runner has actually asked. This answers it before the chain is trusted to a
+# nightly job, and is deleted once it has.
+#
+# Manual only, and it downloads one file.
+name: Netiv egress probe
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # Deliberately not requirements.txt: that builds both scraper packages
+      # from git and takes minutes. scripts/netiv.py needs requests and nothing
+      # else, which is the whole point of it being ours.
+      - name: Install requests
+        run: pip install --quiet requests
+
+      - name: Ask the portal from a runner
+        run: |
+          python - <<'PY'
+          import sys
+          sys.path.insert(0, "scripts")
+          import netiv
+
+          session = netiv._session()
+          names = netiv.list_files(session)
+          print(f"listed {len(names)} full-snapshot files")
+          stores = [n for n in names if n.lower().startswith("stores")]
+          print("store file:", stores[0] if stores else "MISSING")
+
+          import tempfile, os
+          with tempfile.TemporaryDirectory() as tmp:
+              size = netiv._download(session, stores[0], tmp)
+              print(f"downloaded {size} bytes")
+              assert size, "the download failed from a runner"
+          PY
+
+      - name: And confirm the bot UA is what Cloudflare objects to
+        run: |
+          echo -n "python-requests UA: "
+          curl -s -o /dev/null -w "%{http_code}\n" -A "python-requests/2.32" \
+            https://app.netiv-hesed.com/
