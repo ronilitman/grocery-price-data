@@ -30,6 +30,11 @@ Every chain publishes the same legally-mandated data in a different dialect and
 the parsers package has a dedicated parser for each one — writing your own XML
 reader is how you end up with data from a single chain.
 
+One chain is the exception: `scripts/netiv.py` downloads נתיב החסד — and with
+it בר-כל and שירה מרקט — because the library's scraper for it points at a host
+that has answered HTTP 500 long enough for the library to disable the chain.
+Only the download is ours; the library's parser for it is still correct.
+
 The workflow runs one chain per matrix job. A national scrape does not fit on a
 single runner's disk, and `fail-fast: false` means one broken chain does not
 sink the other seventeen.
@@ -40,6 +45,11 @@ Per-store prices nationally are roughly 80 million rows — a multi-gigabyte fil
 that no free host will serve. But chains price almost everything chain-wide, so
 `build_chain_db.py` stores one baseline price per `(chain, barcode)` plus only
 the stores that genuinely differ. Same answers, about fifty times smaller.
+
+One published `ChainID` is not always one chain. Netiv Hesed sells under three
+brands with three price lists, so `SUBCHAIN_SPLITS` in `build_chain_db.py`
+gives each its own id, `<chain id>-<subchain id>`. Without that, the baseline
+for שירה מרקט's 9 branches would be set by בר-כל's 45.
 
 The `store_prices` view puts it back together:
 

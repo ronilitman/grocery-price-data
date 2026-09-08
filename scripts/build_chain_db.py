@@ -35,6 +35,38 @@ BATCH = 20000
 # branded chain.
 DISPLAY_NAMES = {
     "7290700100008": "חצי חינם",
+    # Only reachable if a Netiv Hesed file arrives with no SubChainID; see
+    # SUBCHAIN_SPLITS. Named anyway, so the fallback is a Hebrew chain rather
+    # than the string "NETIV_HASED".
+    "7290058160839": "נתיב החסד",
+}
+
+# Chains that publish several separately-priced brands under one ChainID, and
+# the brand each SubChainID is. A chain listed here contributes one chain per
+# sub-chain instead of one chain overall, with `<chain id>-<subchain id>` as
+# the id - still opaque to everything downstream, and unable to collide with a
+# real GS1 chain id.
+#
+# This is not a cosmetic split. The whole database rests on chains pricing
+# chain-wide: one baseline per (chain, barcode), plus the branches that
+# genuinely differ. Netiv Hesed breaks that assumption. Its שירה מרקט branches
+# agree with each other on 99% of shared barcodes and disagree with a נתיב
+# החסד branch on about 40% of them, so a single baseline for the parent id
+# would be a בר-כל price - decided by that brand's 45 branches out-voting
+# שירה מרקט's 9 - shown against every branch of a chain where nobody pays it.
+# Carts stay right either way, since they read the per-store exception, but the
+# price in search would not be.
+#
+# Split only a chain that actually prices its brands apart. Shufersal's שלי /
+# דיל / אקספרס sub-chains share one price list, and splitting those would turn
+# one chain into three in the picker for nothing.
+SUBCHAIN_SPLITS = {
+    "7290058160839": {
+        "002": "בר-כל",
+        "006": "נתיב החסד",     # the file says just "נתיב"
+        "009": "שירה מרקט",
+        "010": "אקספרס מהדרין",
+    },
 }
 
 # Chain ids a chain publishes by mistake, and the id the rows belong to.
@@ -47,6 +79,24 @@ DISPLAY_NAMES = {
 CHAIN_ID_ALIASES = {
     ("CITY_MARKET_SHOPS", "0000000000000"): "7290000000003",
 }
+
+
+def split_id(chain_id, subchain_id):
+    """The chain id a row belongs to once sub-chain splitting is applied.
+
+    An unknown sub-chain - a brand the chain has added since - keeps the parent
+    id rather than inventing a nameless chain, and DISPLAY_NAMES gives that
+    residue a Hebrew name. It will show up as one extra chain in the picker,
+    which is a visible prompt to add it here, not a silent wrong price.
+    """
+    brands = SUBCHAIN_SPLITS.get(chain_id)
+    if not brands:
+        return chain_id
+    subchain_id = str(subchain_id or "").strip().zfill(3)
+    if subchain_id not in brands:
+        return chain_id
+    return f"{chain_id}-{subchain_id}"
+
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS chains(
@@ -154,17 +204,24 @@ def load_stores(conn, outputs):
             store_id = pick(row, "storeid", "store_id")
             if not chain_id or not store_id:
                 continue
+            subchain_id = pick(row, "subchainid", "subchain_id")
+            brand = split_id(chain_id, subchain_id)
             rows.append((
-                chain_id,
+                brand,
                 str(store_id).lstrip("0") or "0",
-                pick(row, "subchainid", "subchain_id"),
+                subchain_id,
                 pick(row, "storename", "store_name"),
                 pick(row, "city", "cityname"),
                 pick(row, "address"),
             ))
-            chain_name = pick(row, "chainname", "chain_name")
+            # A split chain is named for its brand, not for the company on the
+            # file: every branch of it would otherwise read "נתיב החסד- סופר
+            # חסד בע\"מ", including the nine that say שירה מרקט over the door.
+            brands = SUBCHAIN_SPLITS.get(chain_id, {})
+            chain_name = (brands.get(str(subchain_id or "").strip().zfill(3))
+                          or pick(row, "chainname", "chain_name"))
             if chain_name:
-                conn.execute("INSERT OR REPLACE INTO chains VALUES (?,?)", (chain_id, chain_name))
+                conn.execute("INSERT OR REPLACE INTO chains VALUES (?,?)", (brand, chain_name))
     conn.executemany(
         "INSERT OR REPLACE INTO stores "
         "(chain_id, store_id, subchain_id, store_name, city, address) "
@@ -201,6 +258,7 @@ def load_prices(conn, outputs):
             store_id = str(pick(row, "storeid", "store_id")).lstrip("0") or "0"
             if not chain_id:
                 continue
+            chain_id = split_id(chain_id, pick(row, "subchainid", "subchain_id"))
             seen_chains.add(chain_id)
 
             raw_batch.append((chain_id, store_id, barcode, price))
@@ -357,6 +415,26 @@ def resolve_unpriced_offers(conn, staged):
     return offers, max(linked, 0)
 
 
+def subchain_brands(conn):
+    """``(parent chain id, store id) -> split chain id``, for split chains only.
+
+    A promotion file cannot answer which brand it belongs to. Netiv Hesed's
+    PromoFull declares ``<SubChainID>000</SubChainID>`` in every single one of
+    them, while the matching PriceFull for the same branch declares the real
+    ``009``. Reading the name instead is not the answer either - dumps.py has
+    the list of chains whose filenames lie about exactly this field.
+
+    The branch knows, though, and load_stores has already written it down. So
+    a promotion is attributed through the store it was published for.
+    """
+    mapping = {}
+    for brand, store_id in conn.execute("SELECT chain_id, store_id FROM stores"):
+        parent, _, subchain = brand.rpartition("-")
+        if parent and subchain:
+            mapping[(parent, store_id)] = brand
+    return mapping
+
+
 def load_promos(conn, dumps, scraper):
     """Collapse every branch's PromoFull into distinct offers plus a branch list.
 
@@ -383,6 +461,7 @@ def load_promos(conn, dumps, scraper):
         return 0, 0
     print(f"[build] reading {len(files)} PromoFull dumps")
 
+    brands = subchain_brands(conn)
     merged = {}
     seen_rows = 0
     promo_ids = set()
@@ -391,6 +470,7 @@ def load_promos(conn, dumps, scraper):
         (chain_id, promo_id, barcode, club, coupon, min_qty,
          price, unit_price, description, starts, ends) = offer[:11]
         chain_id = CHAIN_ID_ALIASES.get((scraper, chain_id), chain_id)
+        chain_id = brands.get((chain_id, store_id), chain_id)
         seen_rows += 1
         promo_ids.add((chain_id, promo_id))
 

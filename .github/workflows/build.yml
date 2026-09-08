@@ -49,8 +49,6 @@ jobs:
       fail-fast: false          # one broken chain must not sink the other 16
       max-parallel: 6
       matrix:
-        # NETIV_HASED omitted: upstream site is down (HTTP 500), excluded from
-        # ScraperFactory.all_scrapers_name() by the library itself - not a typo.
         chain:
           - RAMI_LEVY
           - SHUFERSAL
@@ -69,8 +67,17 @@ jobs:
           - FRESH_MARKET_AND_SUPER_DOSH
           - SUPER_PHARM
           - YELLOW
+          # Scraped by scripts/netiv.py rather than by the library. The
+          # library's NETIV_HASED points at a host that has answered 500 for
+          # months, so it disables the chain and drops it from
+          # ScraperFactory.all_scrapers_name() - but the chain only moved, and
+          # publishes three separately-priced brands (נתיב החסד, בר-כל,
+          # שירה מרקט) at app.netiv-hesed.com. The Cloudflare in front of it
+          # rejects bot User-Agents, not datacenter addresses, which is why it
+          # is not in HOME_EGRESS.
+          - NETIV_HASED
           # The library ships 31 scrapers and we ran 17 of them. These are the
-          # rest, minus NETIV_HASED, which the library disables itself. A
+          # rest. A
           # runner's own connection is tried first, and only a chain that
           # actually refuses it earns a place in HOME_EGRESS - which is how
           # HET_COHEN_NEW_SOURCE, listed here, ended up routed after all.
