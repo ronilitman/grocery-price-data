@@ -32,8 +32,16 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # The gate. Half a minute against a 45 minute scrape, and it fails before a
+  # single chain is touched rather than after everything has been published:
+  # three promotion bugs in a week reached the app, and each was found by a
+  # shopper in an aisle rather than by us.
+  tests:
+    uses: ./.github/workflows/tests.yml
+
   fetch:
     name: ${{ matrix.chain }}
+    needs: tests
     if: ${{ github.event.inputs.reuse_run_id == '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -184,8 +192,13 @@ jobs:
           if-no-files-found: error
 
   publish:
-    needs: fetch
-    if: always()               # publish whatever chains succeeded; verify.py is the gate
+    needs: [tests, fetch]
+    # always(), because publishing whatever chains succeeded is the whole point
+    # of carrying a failed one forward - but never over a failed test. Without
+    # the second clause always() would publish through a red suite, which is
+    # the one thing this gate exists to prevent. A reuse_run_id rebuild skips
+    # fetch entirely, so 'skipped' has to count as acceptable there.
+    if: always() && needs.tests.result == 'success'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

@@ -9,6 +9,9 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+  # Called by build.yml as a gate. Defined once and reused rather than copied,
+  # so the tests that guard a build can never drift from the ones run on push.
+  workflow_call:
 
 jobs:
   pytest:
