@@ -13,12 +13,14 @@ file dialect it emits parses without a single override.
 
 Two things about the portal are worth knowing before changing anything here.
 
-**It is behind Cloudflare, and Cloudflare reads the User-Agent.** A request
-with the ``python-requests`` or ``curl`` default UA gets 403; an empty UA, a
-browser UA and the literal string "grocery-price-data" all get 200. So this is
-a bot-UA rule rather than a datacenter-IP block, which is why the chain is not
-in ``HOME_EGRESS`` - but it does mean a request must never go out with the
-library's default header.
+**It is behind Cloudflare, and Cloudflare objects twice.** From a home
+connection the ``python-requests`` and ``curl`` default UAs get 403 while an
+empty UA, a browser UA and the literal string "grocery-price-data" all get
+200 - so a request must never go out with the library's default header. That
+looked like the whole rule and it is not: a GitHub runner is refused whatever
+UA it sends, which is why the chain is in ``HOME_EGRESS`` and leaves through
+the exit node. Both defences are live; satisfying one does not settle the
+other.
 
 **One page holds everything.** The index lists every file for the current day -
 563 of them - with no pagination and no date argument we need. It also lists

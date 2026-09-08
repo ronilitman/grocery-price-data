@@ -37,9 +37,10 @@ and the library responded by disabling the chain, so it is absent from
 `ScraperFactory.all_scrapers_name()` entirely. It publishes at
 `app.netiv-hesed.com`, and `scripts/netiv.py` downloads from there; the
 library's *parser* for the chain is still correct and still used. The portal
-sits behind Cloudflare, which rejects bot User-Agents (`python-requests`,
-`curl`) but not datacenter addresses - an empty UA gets through - so it is not
-a `HOME_EGRESS` chain.
+sits behind Cloudflare, which objects twice: it rejects bot User-Agents
+(`python-requests`, `curl`) even from home, and refuses a GitHub runner
+whatever User-Agent it sends. So the request needs a browser UA *and* the exit
+node - it is the seventh `HOME_EGRESS` chain.
 
 **That one ChainID is three separately-priced brands.** נתיב החסד, בר-כל and
 שירה מרקט all publish under `7290058160839`. שירה מרקט's branches agree with

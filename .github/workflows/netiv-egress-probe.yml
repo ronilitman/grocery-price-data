@@ -30,6 +30,20 @@ jobs:
       - name: Install requests
         run: pip install --quiet requests
 
+      # The same route build.yml gives the chain. Placed after pip so package
+      # downloads do not travel through a home connection.
+      - name: Join the tailnet
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
+      - name: Leave from home
+        run: |
+          sudo tailscale set --exit-node='${{ vars.TS_EXIT_NODE }}'
+          echo "egress now: $(curl -s --max-time 20 https://ipinfo.io/org)"
+
       - name: Ask the portal from a runner
         run: |
           python - <<'PY'
@@ -50,7 +64,7 @@ jobs:
               assert size, "the download failed from a runner"
           PY
 
-      - name: And confirm the bot UA is what Cloudflare objects to
+      - name: And confirm the bot UA is refused even from here
         run: |
           echo -n "python-requests UA: "
           curl -s -o /dev/null -w "%{http_code}\n" -A "python-requests/2.32" \
