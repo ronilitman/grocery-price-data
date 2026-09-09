@@ -88,8 +88,24 @@ class TestTheFileIsAppendable:
     def test_one_row_per_barcode(self, rows):
         assert len({r[0] for r in rows}) == len(rows)
 
-    def test_every_row_names_the_chain_it_came_from(self, rows):
-        assert {r[2] for r in rows} <= {"shufersal", "tiv_taam"}
+    def test_every_row_names_a_chain_we_actually_scraped(self, rows):
+        import sys
+        sys.path.insert(0, os.path.join(ROOT, "scripts"))
+        import chain_maps
+        known = set(chain_maps.BY_CHAIN) | {"shufersal", "tiv_taam"}
+        assert {r[2] for r in rows} <= known
+
+    def test_every_scraped_chain_contributed_something(self, rows):
+        # A chain that silently stops matching its table is the failure this
+        # catches: the build still succeeds, the file still looks healthy, and
+        # thousands of placements quietly vanish.
+        import sys
+        sys.path.insert(0, os.path.join(ROOT, "scripts"))
+        import chain_maps
+        present = {r[2] for r in rows}
+        for chain in chain_maps.BY_CHAIN:
+            if os.path.exists(os.path.join(DATA, "chain_taxonomies", f"{chain}.json")):
+                assert chain in present, f"{chain} placed nothing"
 
 
 @pytest.fixture(scope="module")

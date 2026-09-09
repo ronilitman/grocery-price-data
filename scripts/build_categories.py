@@ -574,17 +574,81 @@ def tiv_taam(sub_id):
     return out
 
 
+
+def other_chains(sub_id):
+    """The five chains added after Shufersal, each through its own table.
+
+    Every one publishes a `department > category > ...` tree of its own, so
+    there is no chain-to-chain translation anywhere: each table points
+    straight at our slugs. A key with no destination is left for the LLM pass
+    rather than guessed at.
+    """
+    import chain_maps
+    out, misses = {}, Counter()
+    for chain, table in chain_maps.BY_CHAIN.items():
+        path = os.path.join(DATA, "chain_taxonomies", f"{chain}.json")
+        if not os.path.exists(path):
+            continue
+        with open(path, encoding="utf-8") as handle:
+            raw = json.load(handle)["products"]
+        for barcode, product in raw.items():
+            parts = [x.strip() for x in (product.get("path") or "").split(">")]
+            key = ">".join(parts[:2])
+            slug = table.get(key)
+            if slug is None:
+                misses[(chain, key)] += 1
+                continue
+            out.setdefault(barcode, (sub_id[slug], chain))
+    return out, misses
+
+
+def audit(sub_id):
+    """Every table key must name a real slug and still appear in some dump.
+
+    A table shared by several chains - Carrefour, Keshet Teamim and Yenot
+    Bitan all run the same platform - is checked against the union of their
+    dumps, because each chain carries only part of the shared tree.
+    """
+    import chain_maps
+    live = {}
+    for chain, table in chain_maps.BY_CHAIN.items():
+        path = os.path.join(DATA, "chain_taxonomies", f"{chain}.json")
+        if not os.path.exists(path):
+            continue
+        with open(path, encoding="utf-8") as handle:
+            raw = json.load(handle)["products"]
+        seen = live.setdefault(id(table), set())
+        seen.update(">".join(x.strip() for x in (p.get("path") or "").split(">")[:2])
+                    for p in raw.values())
+    problems = []
+    for table in {id(t): t for t in chain_maps.BY_CHAIN.values()}.values():
+        seen = live.get(id(table), set())
+        for key, slug in table.items():
+            if slug not in sub_id:
+                problems.append(f"{key!r} -> unknown slug {slug!r}")
+            elif seen and key not in seen:
+                problems.append(f"{key!r} no longer in any dump")
+    return problems
+
+
 def main():
     rows, sub_id = build_taxonomy()
     with open(os.path.join(DATA, "categories.json"), "w", encoding="utf-8") as handle:
         json.dump(rows, handle, ensure_ascii=False, indent=1)
         handle.write("\n")
 
+    for problem in audit(sub_id):
+        print("[audit]", problem)
+
     shuf, misses, scraped = shufersal(sub_id)
     tiv = tiv_taam(sub_id)
-    # Shufersal wins: it is the larger and more general catalogue, and a
-    # disagreement is nearly always Tiv Taam's specialty shelving.
+    others, other_misses = other_chains(sub_id)
+    # Shufersal wins, then the other chains in the order they were added, and
+    # Tiv Taam last - it is the narrowest catalogue and shelves a specialty
+    # range, so its placements are the least representative.
     merged = {b: (c, "tiv_taam") for b, c in tiv.items()}
+    for barcode, (category_id, chain) in others.items():
+        merged.setdefault(barcode, (category_id, chain))
     merged.update({b: (c, "shufersal") for b, c in shuf.items()})
 
     out = os.path.join(DATA, "product_categories.tsv")
@@ -599,16 +663,20 @@ def main():
         by_top[top_of[top_of[category_id]["parent_id"]]["name_he"]] += 1
     print(f"[categories] {len(rows)} rows "
           f"({sum(1 for r in rows if r['parent_id'] is None)} top-level)")
-    print(f"[products]   {len(merged):,} mapped "
-          f"({len(shuf):,} shufersal, {len(tiv):,} tiv taam) "
-          f"of {scraped:,} scraped")
+    print(f"[products]   {len(merged):,} barcodes placed across "
+          f"{len(set(s for _, s in merged.values()))} chains")
     for name, count in by_top.most_common():
         print(f"    {count:6,}  {name}")
-    unmapped = sum(misses.values())
-    print(f"[unmapped]   {unmapped:,} products over {len(misses)} paths "
-          f"- left for the LLM pass")
-    for path, count in misses.most_common(10):
-        print(f"    {count:6,}  {path or '(no path)'}")
+    by_source = Counter(src for _, src in merged.values())
+    print("[sources]")
+    for source, count in by_source.most_common():
+        print(f"    {count:6,}  {source}")
+    unmapped = sum(misses.values()) + sum(other_misses.values())
+    print(f"[unmapped]   {unmapped:,} products - left for the LLM pass")
+    for path, count in misses.most_common(5):
+        print(f"    {count:6,}  shufersal  {path or '(no path)'}")
+    for (chain, key), count in other_misses.most_common(8):
+        print(f"    {count:6,}  {chain}  {key or '(no path)'}")
 
 
 if __name__ == "__main__":
