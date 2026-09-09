@@ -1,0 +1,152 @@
+[
+  {
+    "id": 1,
+    "slug": "produce",
+    "name_he": "פירות וירקות",
+    "parent_id": null
+  },
+  {
+    "id": 2,
+    "slug": "refrigerated",
+    "name_he": "מוצרים קפואים",
+    "parent_id": null
+  },
+  {
+    "id": 3,
+    "slug": "dairy",
+    "name_he": "מוצרי חלב וביצים",
+    "parent_id": null
+  },
+  {
+    "id": 4,
+    "slug": "meat-fish",
+    "name_he": "בשר, עוף ודגים",
+    "parent_id": null
+  },
+  {
+    "id": 5,
+    "slug": "grains",
+    "name_he": "דגנים ופסטה",
+    "parent_id": null
+  },
+  {
+    "id": 6,
+    "slug": "cooking",
+    "name_he": "חומרי בישול",
+    "parent_id": null
+  },
+  {
+    "id": 7,
+    "slug": "condiments",
+    "name_he": "שמנים ורטבים",
+    "parent_id": null
+  },
+  {
+    "id": 8,
+    "slug": "snacks",
+    "name_he": "חטיפים וממתקים",
+    "parent_id": null
+  },
+  {
+    "id": 9,
+    "slug": "bread",
+    "name_he": "לחמים",
+    "parent_id": null
+  },
+  {
+    "id": 10,
+    "slug": "drinks",
+    "name_he": "משקאות",
+    "parent_id": null
+  },
+  {
+    "id": 11,
+    "slug": "coffee-tea",
+    "name_he": "קפה ותה",
+    "parent_id": null
+  },
+  {
+    "id": 12,
+    "slug": "alcohol",
+    "name_he": "אלכוהול",
+    "parent_id": null
+  },
+  {
+    "id": 13,
+    "slug": "hair",
+    "name_he": "שיער",
+    "parent_id": null
+  },
+  {
+    "id": 14,
+    "slug": "skin",
+    "name_he": "פנים",
+    "parent_id": null
+  },
+  {
+    "id": 15,
+    "slug": "fragrance",
+    "name_he": "בישום",
+    "parent_id": null
+  },
+  {
+    "id": 16,
+    "slug": "makeup",
+    "name_he": "איפור",
+    "parent_id": null
+  },
+  {
+    "id": 17,
+    "slug": "bath",
+    "name_he": "רחצה",
+    "parent_id": null
+  },
+  {
+    "id": 18,
+    "slug": "teeth",
+    "name_he": "פה",
+    "parent_id": null
+  },
+  {
+    "id": 19,
+    "slug": "vitamins",
+    "name_he": "ויטמינים",
+    "parent_id": null
+  },
+  {
+    "id": 20,
+    "slug": "pharmacy",
+    "name_he": "תרופות",
+    "parent_id": null
+  },
+  {
+    "id": 21,
+    "slug": "baby",
+    "name_he": "תינוקות וילדים",
+    "parent_id": null
+  },
+  {
+    "id": 22,
+    "slug": "pets",
+    "name_he": "חיות מחמד",
+    "parent_id": null
+  },
+  {
+    "id": 23,
+    "slug": "organic",
+    "name_he": "אורגני ודיאט",
+    "parent_id": null
+  },
+  {
+    "id": 24,
+    "slug": "household",
+    "name_he": "בית",
+    "parent_id": null
+  },
+  {
+    "id": 25,
+    "slug": "other",
+    "name_he": "אחר",
+    "parent_id": null
+  }
+]
