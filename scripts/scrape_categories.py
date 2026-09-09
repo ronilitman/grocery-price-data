@@ -33,7 +33,9 @@ def scrape_shufersal():
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
     }
 
-    page = 1
+    # Shufersal paginates from zero. Starting at 1 silently drops the first
+    # hundred products - which is how cottage cheese went missing.
+    page = 0
     max_pages = None
 
     while True:
@@ -63,21 +65,24 @@ def scrape_shufersal():
             if not sku:
                 continue
 
-            # Extract category path from URL breadcrumb
+            # Extract category path from URL breadcrumb:
+            #   /קטגוריות/<root>/<dept>/<category>/<sub>/<product-slug>/p/P_<sku>
+            #
+            # The segment before /p/ is the PRODUCT, not a category. Keeping it
+            # turns 24,931 products into 21,647 one-product "categories" and no
+            # tree can be built from that; dropping it leaves 262 real
+            # department/category pairs. Depth varies - a promotion landing
+            # page is two segments deep - so take what is there rather than
+            # assuming a fixed shape.
             url = product.get("url", "")
             if url:
-                # URL format: /קטגוריות/סופרמרקט/פירות-וירקות/...
                 parts = [unquote(p) for p in url.split("/") if p]
-                # [2]=root, [3]=dept, [4]=category, [5]=subcategory, [6]=product
-                if len(parts) >= 6:
-                    root = parts[2] if len(parts) > 2 else ""
-                    dept = parts[3] if len(parts) > 3 else ""
-                    category = parts[4] if len(parts) > 4 else ""
-                    subcategory = parts[5] if len(parts) > 5 else ""
-
-                    path = [root, dept, category, subcategory]
-                    path_key = " > ".join(p for p in path if p)
-                    category_paths[path_key] += 1
+                while parts and (parts[-1] == "p" or parts[-1].startswith("P_")):
+                    parts.pop()
+                if parts and parts[0] == "קטגוריות":
+                    parts = parts[1:]
+                if parts[:-1]:
+                    category_paths[" > ".join(parts[:-1])] += 1
 
             products_by_barcode[sku] = {
                 "brand": product.get("brandName", ""),
@@ -88,7 +93,7 @@ def scrape_shufersal():
 
         print(f"  Page {page}/{max_pages}: {len(results)} products, {len(products_by_barcode)} total")
 
-        if page >= max_pages:
+        if page >= max_pages - 1:
             break
 
         page += 1
