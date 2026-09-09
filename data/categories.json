@@ -1,0 +1,142 @@
+{
+  "version": "2.0",
+  "structure": "2-level hierarchy (consolidated from Shufersal's actual structure)",
+  "consolidated_from": "shufersal",
+  "categories": {
+    "1": {
+      "name": "פירות וירקות",
+      "slug": "produce",
+      "sub_categories": {}
+    },
+    "2": {
+      "name": "מוצרים קפואים",
+      "slug": "frozen",
+      "sub_categories": {}
+    },
+    "3": {
+      "name": "מוצרי חלב וביצים",
+      "slug": "dairy",
+      "sub_categories": {}
+    },
+    "4": {
+      "name": "בשר, עוף ודגים",
+      "slug": "meat",
+      "sub_categories": {}
+    },
+    "5": {
+      "name": "חומרי בישול",
+      "slug": "cooking",
+      "sub_categories": {}
+    },
+    "6": {
+      "name": "לחמים",
+      "slug": "bread",
+      "sub_categories": {}
+    },
+    "7": {
+      "name": "חטיפים וממתקים",
+      "slug": "snacks",
+      "sub_categories": {}
+    },
+    "8": {
+      "name": "משקאות",
+      "slug": "drinks",
+      "sub_categories": {}
+    },
+    "9": {
+      "name": "ויטמינים",
+      "slug": "vitamins",
+      "sub_categories": {}
+    },
+    "10": {
+      "name": "אורגני ובריאות",
+      "slug": "organic",
+      "sub_categories": {}
+    },
+    "11": {
+      "name": "שיער וטיפוח גוף",
+      "slug": "hair",
+      "sub_categories": {}
+    },
+    "12": {
+      "name": "טיפוח פנים",
+      "slug": "skincare",
+      "sub_categories": {}
+    },
+    "13": {
+      "name": "בישום",
+      "slug": "fragrance",
+      "sub_categories": {}
+    },
+    "14": {
+      "name": "איפור",
+      "slug": "makeup",
+      "sub_categories": {}
+    },
+    "15": {
+      "name": "רחצה והגיינה",
+      "slug": "bath",
+      "sub_categories": {}
+    },
+    "16": {
+      "name": "רוקח ותרופות",
+      "slug": "pharmacy",
+      "sub_categories": {}
+    },
+    "17": {
+      "name": "ילדים ותינוקות",
+      "slug": "kids",
+      "sub_categories": {}
+    },
+    "18": {
+      "name": "חיות מחמד",
+      "slug": "pets",
+      "sub_categories": {}
+    },
+    "19": {
+      "name": "בית וניקיון",
+      "slug": "household",
+      "sub_categories": {}
+    },
+    "20": {
+      "name": "מטבח",
+      "slug": "kitchen",
+      "sub_categories": {}
+    },
+    "21": {
+      "name": "חדר שינה",
+      "slug": "bedroom",
+      "sub_categories": {}
+    },
+    "22": {
+      "name": "אמבטיה וכביסה",
+      "slug": "bathroom",
+      "sub_categories": {}
+    },
+    "23": {
+      "name": "סלון",
+      "slug": "living-room",
+      "sub_categories": {}
+    },
+    "24": {
+      "name": "גינה וחוץ",
+      "slug": "garden",
+      "sub_categories": {}
+    },
+    "25": {
+      "name": "טיולים וקמפינג",
+      "slug": "travel",
+      "sub_categories": {}
+    },
+    "26": {
+      "name": "אלקטרוניקה",
+      "slug": "electronics",
+      "sub_categories": {}
+    },
+    "27": {
+      "name": "ביגוד",
+      "slug": "clothing",
+      "sub_categories": {}
+    }
+  }
+}
