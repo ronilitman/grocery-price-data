@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>&#x5DE;&#x5D7;&#x5D9;&#x5E8;&#x5D9;&#x5DD; &#x5D5;&#x5DE;&#x5D1;&#x5E6;&#x5E2;&#x5D9;&#x5DD; - שקיפות מחירים</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@600;700;800&family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css" rel="stylesheet" />
+    <link href="/css/site.css?v=t5qdOTtPp5KehhEGwvZ_fFiFWz00PNqq0717FWtJWpk" rel="stylesheet" />
+</head>
+<body>
+    <header class="site-header">
+        <div class="header-row">
+            <a href="https://www.shemi-group.co.il/" target="_blank" rel="noopener" class="site-logo-link">
+                <img src="/images/logo.png" alt="לוגו שמי גרופ" class="site-logo" />
+            </a>
+            <a class="site-title" href="/">
+                אתר שקיפות מחירים נתיב החסד, ברכלטוב, שירה מרקט
+            </a>
+        </div>
+    </header>
+
+    <main class="container-fluid px-4">
+        
+    <div class="alert alert-warning">&#x5DC;&#x5D0; &#x5E0;&#x5D8;&#x5E2;&#x5E0;&#x5D5; &#x5E1;&#x5E0;&#x5D9;&#x5E4;&#x5D9;&#x5DD; &#x5DE;&#x5D4;&#x5DE;&#x5E1;&#x5D3;. &#x5D1;&#x5D3;&#x5D5;&#x5E7; &#x5D0;&#x5EA; ConnectionStrings:NetivSite &#x5D1;&#x5E7;&#x5D5;&#x5D1;&#x5E5; appsettings.json.</div>
+
+<form method="get" class="card filter-card mb-4" action="/">
+    <div class="card-body">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-2">
+                <label class="form-label">תת רשת</label>
+                <select name="BranchTypeNumber" class="form-select" onchange="this.form.submit()">
+                    <option value="">כל תתי הרשתות</option>
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">סניף</label>
+                <select name="StoreNumber" class="form-select" onchange="this.form.submit()">
+                    <option value="">כל הסניפים</option>
+                </select>
+            </div>
+
+            <div class="col-md-2">
+                <label class="form-label">סוג קובץ</label>
+                <select name="FileType" class="form-select" onchange="this.form.submit()">
+                    <option value="">הכל</option>
+                    <option value="Promo">מבצעים</option>
+                    <option value="PromoFull">מבצעים מלא</option>
+                    <option value="Price">מחירים</option>
+                    <option value="PriceFull">מחירים מלא</option>
+                    <option value="Stores">קובץ סניפים</option>
+                </select>
+            </div>
+
+            <div class="col-md-2">
+                <label class="form-label">תאריך</label>
+                <input type="date" name="Date" class="form-control" value="2026-09-09" onchange="this.form.submit()" />
+            </div>
+
+            <div class="col-md-2">
+                <label class="form-label">חיפוש חופשי</label>
+                <input type="text" name="Search" class="form-control" placeholder="שם קובץ / סניף" />
+            </div>
+
+            <div class="col-md-1 d-grid">
+                <button type="submit" class="btn btn-primary">חפש</button>
+            </div>
+        </div>
+    </div>
+</form>
+
+<div class="summary-bar mb-3">
+    <div class="summary-main">
+        <span class="summary-total">נמצאו 726 קבצים בתאריך 09/09/2026</span>
+        <span class="summary-sep">|</span>
+        <span class="summary-item">מחירים: <strong>89</strong></span>
+        <span class="summary-sep">·</span>
+        <span class="summary-item">מחירים מלא: <strong>91</strong></span>
+        <span class="summary-sep">·</span>
+        <span class="summary-item">מבצעים: <strong>454</strong></span>
+        <span class="summary-sep">·</span>
+        <span class="summary-item">מבצעים מלא: <strong>91</strong></span>
+        <span class="summary-sep">·</span>
+        <span class="summary-item">קובץ סניפים: <strong>1</strong></span>
+        <span class="summary-sep">|</span>
+        <span class="summary-updated">עדכון אחרון: 09/09/2026 19:20</span>
+    </div>
+    <a class="btn btn-outline-secondary btn-sm" href="/">נקה פילטרים</a>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-striped table-bordered align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th>סוג</th>
+                <th>תת רשת</th>
+                <th>מספר סניף</th>
+                <th>שם סניף</th>
+                <th>תאריך קובץ</th>
+                <th>שם קובץ</th>
+                <th>הורדה</th>
+            </tr>
+        </thead>
+        <tbody>
+                <tr>
+                    <td>
+                            <span class="badge badge-price">&#x5DE;&#x5D7;&#x5D9;&#x5E8;&#x5D9;&#x5DD; &#x5DE;&#x5DC;&#x5D0;</span>
+                    </td>
+                    <td></td>
+                    <td>001</td>
+                    <td></td>
+                    <td>09/09/2026 16:59</td>
+                    <td class="file-name">PriceFull7290058160839-002-001-20260909-165905.GZ</td>
+                    <td>
+                        <a class="btn btn-success btn-sm" href="/Prices/Download?fileName=PriceFull7290058160839-002-001-20260909-165905.GZ">
+                            הורדה
+                        </a>
+                    </td>
+                </tr><tr>
+                    <td>
+                            <span class="badge badge-promo">&#x5DE;&#x5D1;&#x5E6;&#x5E2;&#x5D9;&#x5DD; &#x5DE;&#x5DC;&#x5D0;</span>
+                    </td>
+                    <td></td>
+                    <td>001</td>
+                    <td></td>
+                    <td>09/09/2026 16:59</td>
+                    <td class="file-name">PromoFull7290058160839-002-001-20260909-165905.GZ</td>
+                    <td>
+                        <a class="btn btn-success btn-sm" href="/Prices/Download?fileName=PromoFull7290058160839-002-001-20260909-165905.GZ">
+                            הורדה
+                        </a>
+                    </td>
+                </tr><tr>
+                    <td>
+                            <span class="badge badge-stores">&#x5E7;&#x5D5;&#x5D1;&#x5E5; &#x5E1;&#x5E0;&#x5D9;&#x5E4;&#x5D9;&#x5DD;</span>
+                    </td>
+                    <td></td>
+                    <td>000</td>
+                    <td></td>
+                    <td>09/09/2026 16:59</td>
+                    <td class="file-name">Stores7290058160839-000-20260909-165905.GZ</td>
+                    <td>
+                        <a class="btn btn-success btn-sm" href="/Prices/Download?fileName=Stores7290058160839-000-20260909-165905.GZ">
+                            הורדה
+                        </a>
+                    </td>
+                </tr><tr>
+                    <td>
+                            <span class="badge badge-price">&#x5DE;&#x5D7;&#x5D9;&#x5E8;&#x5D9;&#x5DD;</span>
+                    </td>
+                    <td></td>
+                    <td>031</td>
+                    <td></td>
+                    <td>09/09/2026 18:24</td>
+                    <td class="file-name">Price7290058160839-006-031-20260909-182406.GZ</td>
+                    <td>
+                        <a class="btn btn-success btn-sm" href="/Prices/Download?fileName=Price7290058160839-006-031-20260909-182406.GZ">
+                            הורדה
+                        </a>
+                    </td>
+                </tr>
+        </tbody>
+    </table>
+</div>
+
+    </main>
+
+    <footer class="site-footer">
+        כל הזכויות שמורות <a href="https://faceai.ai" target="_blank" rel="noopener">faceai.ai</a>
+    </footer>
+</body>
+</html>

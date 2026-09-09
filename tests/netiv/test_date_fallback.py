@@ -28,24 +28,21 @@ import netiv  # noqa: E402
 
 TODAY = datetime.date(2026, 9, 9)
 
-DELTAS_ONLY = ['<a href="/Prices/Download?fileName='
-               'Price7290058160839-002-001-20260909-001524.GZ">a</a>']
+FIXTURES = os.path.join(os.path.dirname(__file__), "fixtures")
 
 
-def page(day, kinds=("PriceFull", "PromoFull", "Stores")):
-    """A listing page for one day, in the portal's own markup."""
-    stamp = day.strftime("%Y%m%d") + "-052506"
-    return "".join(
-        f'<a href="/Prices/Download?fileName={kind}7290058160839-009-300-{stamp}.GZ">x</a>'
-        for kind in kinds)
+def listing(name):
+    with open(os.path.join(FIXTURES, f"listing_{name}.html"), encoding="utf-8") as h:
+        return h.read()
 
 
 class FakePortal:
-    """Serves listings for the days it has, and deltas for the days it has not.
+    """The real portal's three answers, replayed from carved pages.
 
-    Mirrors the real thing: a day with no full snapshot still returns a page
-    with links on it, which is why "no links at all" and "no snapshot yet" have
-    to be told apart.
+    `days_with_files` get the page that carries a full snapshot. `blank_days`
+    get the one with no links at all. Everything else gets the deltas-only
+    page - the shape the 07:26 build was served, and the reason "no links" and
+    "no snapshot" have to be told apart.
     """
 
     def __init__(self, days_with_files, blank_days=()):
@@ -59,11 +56,11 @@ class FakePortal:
             day = datetime.date.fromisoformat(params["Date"])
         self.asked.append(day)
         if day in self.days:
-            body = page(day)
+            body = listing("with_snapshot")
         elif day in self.blank:
-            body = "<p>no files</p>"      # a day the chain published nothing
+            body = listing("empty")
         else:
-            body = "".join(DELTAS_ONLY)
+            body = listing("deltas_only")
         return type("Response", (), {
             "text": body,
             "raise_for_status": lambda self: None,
@@ -76,7 +73,7 @@ class TestNewestDayWithFiles:
         portal = FakePortal([TODAY])
         day, names = netiv.newest_day_with_files(portal, today=TODAY)
         assert day is None
-        assert len(names) == 3
+        assert len(names) == 3   # PriceFull, PromoFull, Stores
         assert portal.asked == [TODAY]      # the default listing, unparameterised
 
     def test_it_falls_back_to_yesterday(self):
@@ -84,7 +81,7 @@ class TestNewestDayWithFiles:
         portal = FakePortal([yesterday])
         day, names = netiv.newest_day_with_files(portal, today=TODAY)
         assert day == yesterday
-        assert len(names) == 3
+        assert len(names) == 3   # PriceFull, PromoFull, Stores
 
     def test_it_takes_the_newest_day_it_can_find(self):
         portal = FakePortal([TODAY - datetime.timedelta(days=1),
@@ -107,7 +104,7 @@ class TestNewestDayWithFiles:
                             blank_days=[TODAY - datetime.timedelta(days=1)])
         day, names = netiv.newest_day_with_files(portal, today=TODAY)
         assert day == TODAY - datetime.timedelta(days=2)
-        assert len(names) == 3
+        assert len(names) == 3   # PriceFull, PromoFull, Stores
 
     def test_a_blank_today_does_not_stop_the_walk_either(self):
         # Right after the midnight rollover even the deltas can be missing.
@@ -117,7 +114,7 @@ class TestNewestDayWithFiles:
                             blank_days=[TODAY])
         day, names = netiv.newest_day_with_files(portal, today=TODAY)
         assert day == TODAY - datetime.timedelta(days=1)
-        assert len(names) == 3
+        assert len(names) == 3   # PriceFull, PromoFull, Stores
 
     def test_no_listing_on_any_day_is_an_error(self):
         # Not "the chain published nothing all week" - that is what a page
