@@ -50,6 +50,10 @@ def parse_args():
     parser.add_argument("chain", help="ScraperFactory name (e.g. RAMI_LEVY), or a LOCAL_SCRAPERS name")
     parser.add_argument("--dumps", default="dumps")
     parser.add_argument("--outputs", default="outputs")
+    parser.add_argument("--chain-dbs", default="chain_dbs",
+                        help="Where build_chain_db.py will put this chain's database.\n"
+                             "A local scraper leaves its as-of note there; see\n"
+                             "netiv.record_as_of.")
     parser.add_argument("--limit", type=int, default=None,
                         help="Max files to download. Omit for everything.")
     parser.add_argument("--timeout", type=int, default=1800,
@@ -179,7 +183,8 @@ def main():
 
     print(f"[fetch] scraping {args.chain} (file types: {', '.join(FILE_TYPES)})")
     if args.chain in LOCAL_SCRAPERS:
-        LOCAL_SCRAPERS[args.chain](args.dumps, limit=args.limit)
+        LOCAL_SCRAPERS[args.chain](args.dumps, limit=args.limit,
+                                   chain_dbs=args.chain_dbs)
     else:
         scrape_with_library(args)
 

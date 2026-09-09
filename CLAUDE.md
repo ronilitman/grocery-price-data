@@ -51,6 +51,17 @@ about 40% of them, so one baseline for the parent id would be a בר-כל price 
 `<chain id>-<subchain id>`. Split only a chain that genuinely prices its brands
 apart: Shufersal's שלי / דיל / אקספרס share one price list.
 
+**Its portal shows one day at a time.** Every other chain serves a rolling
+window, so a late morning still lists yesterday and nothing notices. This one
+lists today, and today holds nothing but hourly deltas until the chain
+publishes - usually about 05:25, but on 9 Sep 2026 not until 16:59, which is
+how the chain's first night produced no data at all. `netiv.py` walks back up
+to three days with the portal's `Date` parameter, and writes what it settled on
+to `chain_dbs/_asof_NETIV_HASED.json` so `backfill_chains.py` labels those
+prices their real age instead of tonight's. A day with no links at all is a
+skipped day, not a dead portal - that verdict is only reached when no day
+answers.
+
 **A promotion file will not tell you its sub-chain.** Every one of Netiv
 Hesed's PromoFull dumps says `<SubChainID>000</SubChainID>` while the PriceFull
 for the same branch says `009`. The filename is no better - see the note in

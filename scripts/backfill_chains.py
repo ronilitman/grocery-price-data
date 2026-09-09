@@ -78,6 +78,22 @@ def main():
     if not recovered:
         print("[backfill] nothing to carry forward")
 
+    # A chain built by this run is stamped `now` above, which is right only if
+    # its portal actually served today's files. One that had to reach back a
+    # day leaves an _asof_ note beside its database, and that beats the time of
+    # the run that fetched it - otherwise yesterday's prices reach the app with
+    # nothing to say so. See fetch.record_as_of.
+    for name in sorted(os.listdir(args.dir)):
+        if not (name.startswith("_asof_") and name.endswith(".json")):
+            continue
+        with open(os.path.join(args.dir, name), encoding="utf-8") as handle:
+            noted = json.load(handle)
+        for chain, as_of in noted.items():
+            if chain.upper() not in present:
+                continue          # the chain failed anyway; the artifact's age wins
+            freshness[chain.upper()] = as_of
+            print(f"[backfill] {chain}: scraped tonight, published {as_of}")
+
     with open(os.path.join(args.dir, "_freshness.json"), "w", encoding="utf-8") as handle:
         json.dump(freshness, handle, indent=2, sort_keys=True)
     return 0

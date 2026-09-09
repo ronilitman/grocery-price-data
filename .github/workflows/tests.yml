@@ -25,9 +25,10 @@ jobs:
 
       # Deliberately not requirements.txt: that installs both scraper packages
       # from git and takes minutes. The tests import scripts/ directly and need
-      # nothing but the standard library.
+      # nothing but the standard library - except requests, which scripts/
+      # netiv.py imports at module scope and which installs in a second.
       - name: Install pytest
-        run: pip install pytest
+        run: pip install pytest requests
 
       - name: Run the tests
         run: python -m pytest tests/ -v

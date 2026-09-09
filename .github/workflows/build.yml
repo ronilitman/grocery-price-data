@@ -197,7 +197,16 @@ jobs:
           name: db-${{ matrix.chain }}
           # 7 days, not 1: reuse_run_id republishes from a prior run's
           # artifacts, and a one-day window makes that unusable by Tuesday.
-          path: chain_dbs/*.db
+          #
+          # _asof_*.json travels with the database and is usually absent. It
+          # appears when a chain's portal had not published today's files yet
+          # and the scrape fell back to an earlier day, and it is how the
+          # publish job learns to label those prices instead of stamping them
+          # with tonight's date. if-no-files-found still fires on a job that
+          # produced neither.
+          path: |
+            chain_dbs/*.db
+            chain_dbs/_asof_*.json
           retention-days: 7
           if-no-files-found: error
 
