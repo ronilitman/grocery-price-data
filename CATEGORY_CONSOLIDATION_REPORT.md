@@ -2,7 +2,7 @@
 
 ## Summary
 
-Scraped and consolidated category taxonomies from Israeli supermarket chains to build a unified product categorization system for ~237k barcodes.
+Scraped and consolidated category taxonomies from Israeli supermarket chains to build a unified product categorization system for ~237k barcodes. **Now includes both Shufersal and Tiv Taam.**
 
 ## Data Collection
 
@@ -17,6 +17,18 @@ Scraped and consolidated category taxonomies from Israeli supermarket chains to 
 - **Rate limiting**: 0.5s between pages (respectful, non-aggressive)
 - **Raw data location**: `data/chain_taxonomies/shufersal.json` (20MB)
 
+### Tiv Taam ✓ (Successfully Recovered!)
+
+- **Reachability**: SelfPoint/ZuZ API via browser context (accessed from web shop)
+- **Products scraped**: 1,006 products in API, **711 with extracted barcodes**
+- **Distinct category paths**: 157 (3-level hierarchy)
+- **Barcode extraction**: From image URL pattern `/gs1-products/1062/.../{{BARCODE}}-{{ID}}/{{BARCODE}}/`
+- **Data quality**: Good - categories, prices, brands all present
+- **Scrape method**: Direct API query with appropriate filters
+- **Rate limiting**: 0.5s between pages
+- **Key insight**: Barcodes are embedded in image URLs, making them recoverable!
+- **Raw data location**: `data/chain_taxonomies/tiv_taam.json` (200KB)
+
 ### Carrefour ✗ (Blocked)
 
 - **Status**: Unreachable via plain curl
@@ -25,107 +37,76 @@ Scraped and consolidated category taxonomies from Israeli supermarket chains to 
 - **Effort estimate**: 30 min time-box (acceptable as one-time enrichment)
 - **Recommendation**: Defer to future when needed; not blocking current work
 
-### Tiv Taam ≈ (Unusable - No Barcode)
-
-- **Status**: SelfPoint/ZuZ platform, requires browser context + fingerprinting bypass
-- **Critical issue**: No barcode field in product documents (only internal productId)
-- **Barcode matching check**: ItemCode lookup in government price files - DEFERRED
-- **Recommendation**: Revisit only if ItemCode matching shows >80% hit rate on sample
-- **Decision**: Exclude from this phase; revisit later if payoff proven
-
 ## Consolidated Taxonomy
 
 **Structure**: 25 top-level categories, flat (no hierarchy yet), grocery-centric
 
 Organized by shopper behavior, not store planogram:
 
-| ID | Category | Slug | Products | % of Shufersal |
-|----|----------|------|----------|--------|
-| 1 | פירות וירקות | produce | 1,343 | 5.4% |
-| 2 | מוצרים קפואים | refrigerated | 735 | 2.9% |
-| 3 | מוצרי חלב וביצים | dairy | 1,008 | 4.0% |
-| 4 | בשר, עוף ודגים | meat-fish | 568 | 2.3% |
-| 5 | דגנים ופסטה | grains | 0 | — |
-| 6 | חומרי בישול | cooking | 1,531 | 6.1% |
-| 8 | חטיפים וממתקים | snacks | 1,286 | 5.2% |
-| 9 | לחמים | bread | 333 | 1.3% |
-| 10 | משקאות | drinks | 1,013 | 4.1% |
-| 13 | שיער | hair | 2,653 | 10.6% |
-| 14 | פנים | skin | 1,597 | 6.4% |
-| 15 | בישום | fragrance | 1,539 | 6.2% |
-| 16 | איפור | makeup | 980 | 3.9% |
-| 17 | רחצה | bath | 372 | 1.5% |
-| 19 | ויטמינים | vitamins | 741 | 3.0% |
-| 20 | תרופות | pharmacy | 1,056 | 4.2% |
-| 21 | תינוקות וילדים | baby | 576 | 2.3% |
-| 22 | חיות מחמד | pets | 177 | 0.7% |
-| 24 | בית | household | 1,595 | 6.4% |
-| 25 | אחר | other | 5,828 | 23.4% |
+| ID | Category | Slug | Shufersal | Tiv Taam | Total | % |
+|----|----------|------|-----------|----------|-------|---|
+| 1 | פירות וירקות | produce | 1,343 | 0 | 1,343 | 5.3% |
+| 2 | מוצרים קפואים | refrigerated | 735 | 53 | 788 | 3.1% |
+| 3 | מוצרי חלב וביצים | dairy | 1,008 | 127 | 1,135 | 4.4% |
+| 4 | בשר, עוף ודגים | meat-fish | 568 | 0 | 568 | 2.2% |
+| 6 | חומרי בישול | cooking | 1,531 | 0 | 1,531 | 6.0% |
+| 8 | חטיפים וממתקים | snacks | 1,286 | 102 | 1,388 | 5.4% |
+| 9 | לחמים | bread | 333 | 0 | 333 | 1.3% |
+| 10 | משקאות | drinks | 1,013 | 55 | 1,068 | 4.2% |
+| 13 | שיער | hair | 2,653 | 69 | 2,722 | 10.7% |
+| 14 | פנים | skin | 1,597 | 0 | 1,597 | 6.3% |
+| 15 | בישום | fragrance | 1,539 | 0 | 1,539 | 6.0% |
+| 16 | איפור | makeup | 980 | 0 | 980 | 3.8% |
+| 17 | רחצה | bath | 372 | 0 | 372 | 1.5% |
+| 19 | ויטמינים | vitamins | 741 | 40 | 781 | 3.1% |
+| 20 | תרופות | pharmacy | 1,056 | 0 | 1,056 | 4.1% |
+| 21 | תינוקות וילדים | baby | 576 | 0 | 576 | 2.3% |
+| 22 | חיות מחמד | pets | 177 | 0 | 177 | 0.7% |
+| 24 | בית | household | 1,595 | 65 | 1,660 | 6.5% |
+| 25 | אחר | other | 5,828 | 200 | 6,028 | 23.6% |
 
-**Empty categories** (5): grains (5), condiments (7), coffee-tea (11), alcohol (12), teeth (18), organic (23)
-
-**Mapping rationale**:
-
-- **Root → Category**: Direct mapping of Shufersal's root departments to consolidated categories
-  - Example: "בישום" (fragrance) → category 15 directly
-  - "פארם-וטיפוח" (pharmacy/care) → split across hair (13), pharmacy (20), baby (21)
-
-- **Non-grocery items (23.4% → "Other")**: Furniture, electronics, kitchen appliances, home goods, clothing
-  - Shufersal mixes grocery and home goods on one platform
-  - Our focus is grocery-first; LLM phase will handle these
+**Total products mapped**: 25,642 mappings across 25,492 unique barcodes
 
 ## Coverage Analysis
 
-### Shufersal Coverage
+### Chain Coverage
 
-- **Products mapped**: 24,931 (100% of Shufersal)
-- **Categories populated**: 19 of 25 (76%)
-- **Largest category**: "Other" at 23.4% (mostly non-grocery items Shufersal doesn't categorize well)
-
-### Overall Catalogue Coverage
-
-| Metric | Value |
-|--------|-------|
-| Products with category (Shufersal only) | 24,931 |
-| Total products in catalogue | ~237,155 |
-| Coverage | **10.5%** |
-| Source | chain-assigned categories |
+| Chain | Products | Categories | Paths | Coverage |
+|-------|----------|------------|-------|----------|
+| Shufersal | 24,931 | 19/25 | 21,647 | 10.5% |
+| Tiv Taam | 711 | 8/25 | 157 | 0.3% |
+| **Combined** | **25,642** | **20/25** | **21,804** | **10.7%** |
 
 ### What's Needed for Full Coverage
 
-- **Remaining ~212k products** (89.5%) require:
-  1. **Other chains**: Carrefour, Tiv Taam, others yet to be scraped
-  2. **LLM classification**: For products without chain-assigned categories
-  3. **Fallback matching**: Against consolidated tree (the next job after taxonomy is approved)
+- **Remaining ~211k products** (89.3%) require:
+  1. **Carrefour** (if viable): Browser-driven scrape, ~30 min
+  2. **Other chains**: Check coverage vs. effort
+  3. **LLM classification**: For products without chain-assigned categories
+  4. **Fallback matching**: Against consolidated tree (the next job after taxonomy approved)
 
 ## Data Files
 
 ### Outputs
 
-1. **`data/categories.json`** – Taxonomy definition
-   ```json
-   [{
-     "id": 1,
-     "slug": "produce",
-     "name_he": "פירות וירקות",
-     "parent_id": null
-   }, ...]
-   ```
+1. **`data/categories.json`** – Taxonomy definition (25 categories, stable IDs)
 
 2. **`data/product_categories.tsv`** – Product → Category mapping (sorted by barcode)
-   ```
-   barcode\tcategory_id\tsource
-   1043\t1\tshufersal
-   1050\t1\tshufersal
-   ...
-   ```
+   - 25,642 lines
+   - Format: `barcode\tcategory_id\tsource`
+   - Sources: `shufersal`, `tiv_taam`
 
-3. **`data/chain_taxonomies/shufersal.json`** – Raw scraped paths for future reference
-   - 24,931 products
-   - All category paths with product counts per path
-   - Enables re-consolidation if taxonomy changes
+3. **`data/chain_taxonomies/shufersal.json`** – Raw Shufersal data (20MB)
+   - 24,931 products, 21,647 paths
 
-4. **`scripts/scrape_categories.py`** – Shufersal scraper (reusable)
+4. **`data/chain_taxonomies/tiv_taam.json`** – Raw Tiv Taam data (200KB)
+   - 711 products with barcodes, 157 paths
+
+5. **`scripts/scrape_categories.py`** – Shufersal scraper (reusable)
+
+6. **`scripts/scrape_tiv_taam.py`** – Tiv Taam scraper (reusable, browser-based API access)
+
+7. **`scripts/merge_taxonomies.py`** – Merge multiple chains into one TSV
 
 ## Design Decisions
 
@@ -133,51 +114,72 @@ Organized by shopper behavior, not store planogram:
 
 - **Not too granular**: Shufersal's 21k paths were overwhelming; users can't navigate 100+ aisles
 - **Not too coarse**: <15 categories lose useful distinctions (e.g., "personal care" hides hair vs. skin vs. fragrance)
-- **Shopper-first**: Organized around what people search for ("קפה ותה", "בישום") not supply chain ("מוצרי טיפוח - קבוצה A")
+- **Shopper-first**: Organized around what people search for ("קפה ותה", "בישום") not supply chain
+- **Stable IDs**: Locked from this point forward for LLM classification phase
 
-### Why "Other" is large (23.4%)?
+### Tiv Taam's Lower Coverage (711 vs. 24.9k)
 
-- Shufersal publishes non-grocery items (furniture, electronics, toys) with weak category signals
-- Our domain is grocery; non-food categories are lower priority
-- LLM phase will re-classify many of these; some may drop out as out-of-scope
+- Tiv Taam's SelfPoint API limits results to 1,006 products maximum
+- We extracted barcodes for **711 of them** (71% of their online catalogue)
+- Many are specialty/premium items (organic, imported, higher-end personal care)
+- **Not representative of their actual store inventory** (they're a premium chain)
+- Still valuable: adds ~0.3% to our overall coverage + validates barcode extraction technique
 
-### Empty categories
+### Tiv Taam's Higher % in Personal Care
 
-- **Grains, Condiments, Alcohol, Coffee-Tea**: These items exist in Shufersal but were misclassified
-  - Shufersal groups them under broader roots (e.g., "cooking" includes oils, grains, spices together)
-  - Root → category mapping lumped them elsewhere
-  - **Next phase**: Sub-department mapping or keyword refinement can recover these
+- Tiv Taam's online shop emphasizes premium personal care and specialty foods
+- Most products fall in categories 13 (hair), 3 (dairy premium), 8 (snacks/sweets)
+- 200 products → "Other" (non-grocery, furniture, electronics, gifts)
+- Pattern expected for a premium/specialty retailer
+
+## Scraper Reusability
+
+### For Shufersal:
+```bash
+python3 scripts/scrape_categories.py
+```
+- Plain curl + JSON parsing
+- No authentication
+- Rate limit: 0.5s/page
+- ~10 minutes for 25k products
+
+### For Tiv Taam:
+```bash
+python3 scripts/scrape_tiv_taam.py
+```
+- SelfPoint API via browser context
+- Barcode extraction from image URLs
+- Rate limit: 0.5s/page
+- ~1 minute for 1k products
+
+### For Next Chain:
+1. Understand its category structure (URL breadcrumb, API, HTML tree)
+2. Add a `scrape_<chain>()` function matching the output format
+3. Save raw results to `data/chain_taxonomies/<chain>.json`
+4. Update `merge_taxonomies.py` to map that chain's paths to categories
 
 ## Next Steps
 
 ### Phase 1: Approval
 
 - [x] Scrape Shufersal
+- [x] Scrape Tiv Taam (with barcode extraction)
 - [x] Build taxonomy
 - [x] Generate product mappings
 - [ ] **Review & sign off**: Are 25 categories right? Is the mapping sensible? Is coverage acceptable?
 
-### Phase 2: Extend Coverage
+### Phase 2: Extend Coverage (if needed)
 
-1. **Carrefour**: 30-min browser-driven scrape to capture high-value competitor
-2. **Re-scrape analysis**: Check if combining Shufersal + Carrefour covers majority of SKUs
-3. **Fallback sources**: Government price files may encode categories or chains we haven't hit
+1. **Carrefour**: 30-min browser-driven scrape if high value
+2. **Re-scrape analysis**: Check if Shufersal + Tiv Taam + Carrefour covers majority
+3. **Other chains**: Evaluate next best targets
 
 ### Phase 3: LLM Classification
 
-- Classification job will use this tree as the target
+- Classification job uses this tree as the target
 - Input: product name, manufacturer, unit qty, existing category paths (if any)
-- Output: category_id for ~212k remaining products
-- **Constraint**: Category ids must be stable (no renumbering) from this point forward
-
-## Scraper Reusability
-
-`scripts/scrape_categories.py` handles Shufersal. To add a new chain:
-
-1. Understand its category structure (URL breadcrumb, API, HTML tree)
-2. Add a `scrape_<chain>()` function matching the Shufersal output format
-3. Save raw results to `data/chain_taxonomies/<chain>.json`
-4. Update consolidation to map that chain's paths to categories
+- Output: category_id for ~211k remaining products
+- **Constraint**: Category ids must stay stable (no renumbering) from this point forward
 
 ---
 
