@@ -2,125 +2,173 @@
 """
 Merge Shufersal and Tiv Taam into one product_categories.tsv.
 
-Both chains use our consolidated 25-category taxonomy.
-Tiv Taam's category structure is different but we can map their paths
-to the same categories using keyword matching.
+Conflict resolution strategy:
+- For barcodes in both sources: prefer Shufersal (authoritative, 35x more data)
+- For barcodes only in Tiv Taam: add them to final output
+- Result: All unique barcodes from both sources, with smart conflict resolution
 """
 
 import json
 from collections import defaultdict
-from pathlib import Path
 
 
-def load_tiv_taam():
+def load_shufersal_categories():
+    """Load Shufersal's category assignments."""
+    categories = {}
+    # Rebuild from scratch using consolidate_simple.py mapping
+    with open("data/chain_taxonomies/shufersal.json") as f:
+        data = json.load(f)
+
+    # Simple mapping: root category -> consolidated category (from consolidate_simple.py)
+    root_map = {
+        "פירות-וירקות": 1,
+        "אורגני-ובריאות": 1,
+        "מזון-מהמקרר-ומהמקפיא": 2,
+        "מוצרי-חלב-וביצים": 3,
+        "מוצרי-מקרר-וביצים": 3,
+        "מוצרי-בשר,-עוף-ודגים-": 4,
+        "סלטים-ונקניקים": 4,
+        "בישול-אפיה-ושימורים": 6,
+        "בישול-אפיה-ממרחים-ושימורים": 6,
+        "חטיפים-מתוקים-ודגני-בוקר": 8,
+        "דגנים-חטיפים-מתוקים-ומשקאות": 8,
+        "לחמים-ומוצרי-מאפה": 9,
+        "לחם,-קרקרים-ופריכיות": 9,
+        "יינות-משקאות-כהליים-ותירוש": 10,
+        "פארם-וטיפוח": 13,
+        "טיפוח-הגוף-והשיער": 13,
+        "טיפוח-שיער-מקצועי": 13,
+        "טיפוח-פנים": 14,
+        "בישום": 15,
+        "איפור-": 16,
+        "רחצה-והגיינה": 17,
+        "ויטמינים-ותוספי-תזונה": 19,
+        "ויטמינים-ותוספי-תזונה-": 19,
+        "בית-מרקחת-ואופטיקה": 20,
+        "ילדים-ותינוקות": 21,
+        "תינוקות-וילדים": 21,
+        "בחזרה-לבית-ספר-ולגן": 21,
+        "עולם-התינוקות": 21,
+        "בעלי-חיים": 22,
+        "ניקיון-הבית-וחד-פעמי": 24,
+        "חשמל-לבית": 24,
+    }
+
+    # Map each product to category by extracting root from URL
+    from urllib.parse import unquote
+    for barcode, product in data['products'].items():
+        url = product['url']
+        parts = [p for p in url.split("/") if p]
+
+        cat_id = 25  # default
+        if len(parts) >= 3:
+            root_encoded = parts[2]
+            # Try to match against root_map
+            for root_name, mapped_cat in root_map.items():
+                import urllib.parse
+                encoded = urllib.parse.quote(root_name.encode('utf-8'), safe='')
+                if encoded == root_encoded or root_name.replace("-", "%2D") in url:
+                    cat_id = mapped_cat
+                    break
+
+        categories[barcode] = (cat_id, "shufersal")
+
+    return categories
+
+
+def load_tiv_taam_categories():
+    """Load Tiv Taam's category assignments."""
     with open("data/chain_taxonomies/tiv_taam.json") as f:
-        return json.load(f)
+        data = json.load(f)
 
-
-def build_tiv_taam_root_map():
-    """Map Tiv Taam's top-level categories to our consolidated categories."""
-    return {
-        # Fresh (1-4)
+    root_map = {
         "ירקות ופירות": 1,
         "ירקות": 1,
         "פירות": 1,
-
         "קפואים": 2,
-
         "מקרר חלבי וביצים": 3,
-
         "בשר דגים ועוף": 4,
-
-        # Pantry (5-9)
         "קטניות ודגנים": 5,
         "אורז ופסטה": 5,
-
         "בישול ואפיה": 6,
-
         "שמנים": 7,
-
         "חטיפים ועוגיות": 8,
-
         "לחם ומאפיה": 9,
-
-        # Beverages (10-12)
         "משקאות": 10,
-
-        "פארם ותינוקות": 13,  # mostly personal care/pharmacy
+        "פארם ותינוקות": 13,
         "רחצה": 17,
-
         "ויטמינים ותוספים": 19,
-
         "ניקיון ומוצרי בית": 24,
     }
 
-
-def match_tiv_taam_products():
-    """Match Tiv Taam products to our consolidated categories."""
-    data = load_tiv_taam()
-    root_map = build_tiv_taam_root_map()
-
-    products_by_cat = defaultdict(list)
-
+    categories = {}
     for barcode, product in data['products'].items():
-        cat_id = 25  # Default to Other
-
-        # Extract root from categories list
-        categories = product.get('categories', [])
-        if categories:
-            root = categories[0]
-            # Try to match against our map
+        cat_id = 25  # default
+        product_categories = product.get('categories', [])
+        if product_categories:
+            root = product_categories[0]
             for map_root, mapped_cat in root_map.items():
                 if root.lower() in map_root.lower() or map_root.lower() in root.lower():
                     cat_id = mapped_cat
                     break
 
-        products_by_cat[cat_id].append((barcode, "tiv_taam"))
+        categories[barcode] = (cat_id, "tiv_taam")
 
-    return products_by_cat
+    return categories
 
 
 def main():
-    print("Merging taxonomies...\n")
+    print("Merging taxonomies with conflict resolution...\n")
 
-    # Load existing Shufersal mappings
-    shufersal_lines = []
-    with open("data/product_categories.tsv") as f:
-        shufersal_lines = [line.strip() for line in f if line.strip()]
+    # Load categories from both sources
+    shufersal = load_shufersal_categories()
+    tiv_taam = load_tiv_taam_categories()
 
-    print(f"Loaded {len(shufersal_lines)} Shufersal mappings")
+    print(f"Shufersal: {len(shufersal)} categories")
+    print(f"Tiv Taam: {len(tiv_taam)} categories")
 
-    # Get Tiv Taam mappings
-    tiv_taam_products = match_tiv_taam_products()
+    # Merge with conflict resolution
+    merged = {}
+    conflicts = 0
 
-    tiv_taam_lines = []
-    tiv_taam_cat_counts = defaultdict(int)
-    for cat_id, products in sorted(tiv_taam_products.items()):
-        for barcode, source in sorted(products):
-            tiv_taam_lines.append(f"{barcode}\t{cat_id}\t{source}")
-            tiv_taam_cat_counts[cat_id] += 1
+    # Add all Shufersal
+    merged.update(shufersal)
 
-    print(f"Added {len(tiv_taam_lines)} Tiv Taam mappings\n")
+    # Add Tiv Taam, handling conflicts
+    for barcode, (cat_id, source) in tiv_taam.items():
+        if barcode in merged:
+            existing_cat, existing_source = merged[barcode]
+            if existing_cat != cat_id:
+                conflicts += 1
+                # Keep Shufersal (authoritative)
+        else:
+            # Add new Tiv Taam-only product
+            merged[barcode] = (cat_id, source)
 
-    print("Tiv Taam category coverage:")
-    for cat_id in sorted(tiv_taam_cat_counts.keys()):
-        count = tiv_taam_cat_counts[cat_id]
-        print(f"  {cat_id:2}: {count:3} products")
+    print(f"\nConflicts (same barcode, different categories): {conflicts}")
+    print(f"Resolution: Kept Shufersal assignments\n")
 
-    # Merge and sort by barcode
-    all_lines = shufersal_lines + tiv_taam_lines
-    all_lines.sort()
+    # Build output lines
+    lines = []
+    source_counts = defaultdict(int)
+    for barcode in sorted(merged.keys()):
+        cat_id, source = merged[barcode]
+        lines.append(f"{barcode}\t{cat_id}\t{source}")
+        source_counts[source] += 1
 
     # Write merged file
     with open("data/product_categories.tsv", "w") as f:
-        f.write("\n".join(all_lines) + "\n")
+        f.write("\n".join(lines) + "\n")
 
-    print(f"\nWrote {len(all_lines)} total product-category mappings")
+    print(f"Output statistics:")
+    print(f"  Total mappings: {len(lines)}")
+    print(f"  Unique barcodes: {len(merged)}")
+    for source in sorted(source_counts.keys()):
+        print(f"  From {source}: {source_counts[source]}")
 
     # Calculate coverage
-    total_products = len(set(line.split("\t")[0] for line in all_lines))
-    print(f"Unique barcodes: {total_products}")
-    print(f"Coverage: {total_products / 237155 * 100:.1f}% of ~237k total products")
+    coverage = len(merged) / 237155 * 100
+    print(f"\nCoverage: {len(merged)} products ({coverage:.1f}% of ~237k)")
 
 
 if __name__ == "__main__":
