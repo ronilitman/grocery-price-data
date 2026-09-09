@@ -1,152 +1,142 @@
-[
-  {
-    "id": 1,
-    "slug": "produce",
-    "name_he": "פירות וירקות",
-    "parent_id": null
-  },
-  {
-    "id": 2,
-    "slug": "refrigerated",
-    "name_he": "מוצרים קפואים",
-    "parent_id": null
-  },
-  {
-    "id": 3,
-    "slug": "dairy",
-    "name_he": "מוצרי חלב וביצים",
-    "parent_id": null
-  },
-  {
-    "id": 4,
-    "slug": "meat-fish",
-    "name_he": "בשר, עוף ודגים",
-    "parent_id": null
-  },
-  {
-    "id": 5,
-    "slug": "grains",
-    "name_he": "דגנים ופסטה",
-    "parent_id": null
-  },
-  {
-    "id": 6,
-    "slug": "cooking",
-    "name_he": "חומרי בישול",
-    "parent_id": null
-  },
-  {
-    "id": 7,
-    "slug": "condiments",
-    "name_he": "שמנים ורטבים",
-    "parent_id": null
-  },
-  {
-    "id": 8,
-    "slug": "snacks",
-    "name_he": "חטיפים וממתקים",
-    "parent_id": null
-  },
-  {
-    "id": 9,
-    "slug": "bread",
-    "name_he": "לחמים",
-    "parent_id": null
-  },
-  {
-    "id": 10,
-    "slug": "drinks",
-    "name_he": "משקאות",
-    "parent_id": null
-  },
-  {
-    "id": 11,
-    "slug": "coffee-tea",
-    "name_he": "קפה ותה",
-    "parent_id": null
-  },
-  {
-    "id": 12,
-    "slug": "alcohol",
-    "name_he": "אלכוהול",
-    "parent_id": null
-  },
-  {
-    "id": 13,
-    "slug": "hair",
-    "name_he": "שיער",
-    "parent_id": null
-  },
-  {
-    "id": 14,
-    "slug": "skin",
-    "name_he": "פנים",
-    "parent_id": null
-  },
-  {
-    "id": 15,
-    "slug": "fragrance",
-    "name_he": "בישום",
-    "parent_id": null
-  },
-  {
-    "id": 16,
-    "slug": "makeup",
-    "name_he": "איפור",
-    "parent_id": null
-  },
-  {
-    "id": 17,
-    "slug": "bath",
-    "name_he": "רחצה",
-    "parent_id": null
-  },
-  {
-    "id": 18,
-    "slug": "teeth",
-    "name_he": "פה",
-    "parent_id": null
-  },
-  {
-    "id": 19,
-    "slug": "vitamins",
-    "name_he": "ויטמינים",
-    "parent_id": null
-  },
-  {
-    "id": 20,
-    "slug": "pharmacy",
-    "name_he": "תרופות",
-    "parent_id": null
-  },
-  {
-    "id": 21,
-    "slug": "baby",
-    "name_he": "תינוקות וילדים",
-    "parent_id": null
-  },
-  {
-    "id": 22,
-    "slug": "pets",
-    "name_he": "חיות מחמד",
-    "parent_id": null
-  },
-  {
-    "id": 23,
-    "slug": "organic",
-    "name_he": "אורגני ודיאט",
-    "parent_id": null
-  },
-  {
-    "id": 24,
-    "slug": "household",
-    "name_he": "בית",
-    "parent_id": null
-  },
-  {
-    "id": 25,
-    "slug": "other",
-    "name_he": "אחר",
-    "parent_id": null
+{
+  "version": "2.0",
+  "structure": "2-level hierarchy (consolidated from Shufersal's actual structure)",
+  "consolidated_from": "shufersal",
+  "categories": {
+    "1": {
+      "name": "פירות וירקות",
+      "slug": "produce",
+      "sub_categories": {}
+    },
+    "2": {
+      "name": "מוצרים קפואים",
+      "slug": "frozen",
+      "sub_categories": {}
+    },
+    "3": {
+      "name": "מוצרי חלב וביצים",
+      "slug": "dairy",
+      "sub_categories": {}
+    },
+    "4": {
+      "name": "בשר, עוף ודגים",
+      "slug": "meat",
+      "sub_categories": {}
+    },
+    "5": {
+      "name": "חומרי בישול",
+      "slug": "cooking",
+      "sub_categories": {}
+    },
+    "6": {
+      "name": "לחמים",
+      "slug": "bread",
+      "sub_categories": {}
+    },
+    "7": {
+      "name": "חטיפים וממתקים",
+      "slug": "snacks",
+      "sub_categories": {}
+    },
+    "8": {
+      "name": "משקאות",
+      "slug": "drinks",
+      "sub_categories": {}
+    },
+    "9": {
+      "name": "ויטמינים",
+      "slug": "vitamins",
+      "sub_categories": {}
+    },
+    "10": {
+      "name": "אורגני ובריאות",
+      "slug": "organic",
+      "sub_categories": {}
+    },
+    "11": {
+      "name": "שיער וטיפוח גוף",
+      "slug": "hair",
+      "sub_categories": {}
+    },
+    "12": {
+      "name": "טיפוח פנים",
+      "slug": "skincare",
+      "sub_categories": {}
+    },
+    "13": {
+      "name": "בישום",
+      "slug": "fragrance",
+      "sub_categories": {}
+    },
+    "14": {
+      "name": "איפור",
+      "slug": "makeup",
+      "sub_categories": {}
+    },
+    "15": {
+      "name": "רחצה והגיינה",
+      "slug": "bath",
+      "sub_categories": {}
+    },
+    "16": {
+      "name": "רוקח ותרופות",
+      "slug": "pharmacy",
+      "sub_categories": {}
+    },
+    "17": {
+      "name": "ילדים ותינוקות",
+      "slug": "kids",
+      "sub_categories": {}
+    },
+    "18": {
+      "name": "חיות מחמד",
+      "slug": "pets",
+      "sub_categories": {}
+    },
+    "19": {
+      "name": "בית וניקיון",
+      "slug": "household",
+      "sub_categories": {}
+    },
+    "20": {
+      "name": "מטבח",
+      "slug": "kitchen",
+      "sub_categories": {}
+    },
+    "21": {
+      "name": "חדר שינה",
+      "slug": "bedroom",
+      "sub_categories": {}
+    },
+    "22": {
+      "name": "אמבטיה וכביסה",
+      "slug": "bathroom",
+      "sub_categories": {}
+    },
+    "23": {
+      "name": "סלון",
+      "slug": "living-room",
+      "sub_categories": {}
+    },
+    "24": {
+      "name": "גינה וחוץ",
+      "slug": "garden",
+      "sub_categories": {}
+    },
+    "25": {
+      "name": "טיולים וקמפינג",
+      "slug": "travel",
+      "sub_categories": {}
+    },
+    "26": {
+      "name": "אלקטרוניקה",
+      "slug": "electronics",
+      "sub_categories": {}
+    },
+    "27": {
+      "name": "ביגוד",
+      "slug": "clothing",
+      "sub_categories": {}
+    }
   }
-]
+}
