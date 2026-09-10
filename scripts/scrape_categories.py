@@ -107,6 +107,8 @@ def scrape_shufersal():
 
     return {
         "chain": "shufersal",
+        "note": "GET /online/he/search/results?q=:relevance:&limit=100&page=N - "
+                "plain curl, paginates from 0; sku is a real EAN.",
         "products_count": len(products_by_barcode),
         "distinct_paths": len(category_paths),
         "products": products_by_barcode,
@@ -141,8 +143,11 @@ def main():
 
     # Save raw Shufersal dump
     out_file = data_dir / "shufersal.json"
-    with open(out_file, "w") as f:
-        json.dump(shufersal, f, indent=2, ensure_ascii=False)
+    # indent=1 and no trailing whitespace: the same shape every other dump in
+    # data/chain_taxonomies uses, so a re-scrape diffs against the committed
+    # file instead of rewriting all of it.
+    with open(out_file, "w", encoding="utf-8") as f:
+        json.dump(shufersal, f, indent=1, ensure_ascii=False)
     print(f"\nSaved Shufersal data to {out_file}")
 
     # Summary

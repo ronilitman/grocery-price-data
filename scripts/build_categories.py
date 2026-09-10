@@ -546,11 +546,12 @@ def shufersal(sub_id):
 
 
 def tiv_taam(sub_id):
-    """Tiv Taam's own three-level path, mapped through the same table.
+    """Tiv Taam, through its own table like every other chain.
 
-    Their web shop carries a narrow specialty range, so this adds hundreds of
-    rows rather than thousands - but the barcodes come from the image URL, so
-    they are real EANs and cost nothing to include.
+    Kept separate from other_chains() only because it came first and its table
+    lives in this file. Its web shop carries a narrow specialty range, so this
+    adds hundreds of rows rather than thousands - but the barcodes come from
+    the image URL, so they are real EANs and cost nothing to include.
     """
     path = os.path.join(DATA, "chain_taxonomies", "tiv_taam.json")
     if not os.path.exists(path):
@@ -559,14 +560,13 @@ def tiv_taam(sub_id):
         raw = json.load(handle)["products"]
     out = {}
     for barcode, product in raw.items():
-        cats = product.get("categories") or []
-        if len(cats) < 2:
+        parts = path_of(product)
+        if len(parts) < 2:
             continue
-        slug = TIV.get(cats[0], {}).get(cats[1])
+        slug = TIV.get(parts[0], {}).get(parts[1])
         if slug:
             out[barcode] = sub_id[slug]
     return out
-
 
 
 def other_chains(sub_id):

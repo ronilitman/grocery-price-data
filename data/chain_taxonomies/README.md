@@ -24,7 +24,7 @@ That is what made the first rebuild an hour rather than a day.
 | `carrefour.json` | 0.9 MB | 7,399 | 227 |
 | `yenot_bitan.json` | 0.9 MB | 6,721 | 219 |
 | `keshet_teamim.json` | 0.7 MB | 5,528 | 235 |
-| `tiv_taam.json` | 0.4 MB | 711 | 157 |
+| `tiv_taam.json` | 0.2 MB | 711 | 152 |
 
 All seven share a shape:
 
@@ -98,6 +98,12 @@ python3 scripts/build_categories.py
 
 ### 5. The scrapers - `scripts/scrape_categories.py`, `scripts/scrape_tiv_taam.py`
 
+Both write exactly the shape above - decoded `path`, `name`, `indent=1`, a
+`note` saying how the chain was reached - so re-scraping produces a file that
+diffs against the committed one rather than rewriting all of it. Check that
+before adding a third: a scraper whose output shape drifts from the dumps is
+how the repo stops being able to rebuild itself.
+
 Only Shufersal and Tiv Taam have a committed scraper. **The other five do not.**
 Carrefour, Keshet Teamim and Yenot Bitan sit behind Cloudflare and Hazi Hinam's
 item endpoints refuse curl, so those four were pulled through a browser by hand;
@@ -138,6 +144,24 @@ The SelfPoint `filters` parameter is required; without it the API returns
 Recovery rates vary a lot between the SelfPoint chains - Carrefour 89%, Yenot
 Bitan 83%, Keshet Teamim 55% - because they depend entirely on whether a given
 product was photographed by GS1.
+
+## Re-scraping
+
+```bash
+python3 scripts/scrape_categories.py    # Shufersal, ~4 minutes, plain curl
+python3 scripts/scrape_tiv_taam.py      # Tiv Taam, needs a browser context
+python3 scripts/build_categories.py     # rebuild both outputs from every dump
+```
+
+Each scraper overwrites its own dump and touches nothing else, so one chain can
+be refreshed without disturbing the other six. `build_categories.py` then reads
+whatever is on disk. Expect the product counts to move a little between runs -
+chains add and drop lines - and expect `git diff` on the dump to be small; if it
+is the whole file, the scraper's output shape has drifted from the committed
+one and that is the thing to fix, not the diff.
+
+The other five chains have no scraper, so refreshing them means redoing the
+browser extraction by hand.
 
 ## What does not exist yet
 

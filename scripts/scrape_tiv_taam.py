@@ -96,6 +96,7 @@ def scrape_tiv_taam_categories():
 
     products_by_barcode = {}
     category_paths = defaultdict(int)
+    path_examples = defaultdict(list)
     errors = []
 
     # We'll fetch products in batches - start with a broad query to get all products
@@ -166,17 +167,23 @@ def scrape_tiv_taam_categories():
                             path = " > ".join(path_parts)
                             category_paths[path] += 1
 
-                # Store product info
-                products_by_barcode[barcode] = {
-                    "tiv_taam_id": product.get("id"),
-                    "product_id": product.get("productId"),
-                    "gs1_id": product.get("gs1ProductId"),
-                    "brand": product.get("brand", {}).get("names", {}).get("1", ""),
-                    "name": product.get("names", {}).get("1", {}).get("short", ""),
-                    "image_url": image_url,
-                    "price": product.get("branch", {}).get("regularPrice"),
-                    "categories": [cat.get("names", {}).get("1", "") for cat in family.get("categories", [])],
-                }
+                # Store product info in the shape every dump here shares:
+                # a decoded `path` plus the product name. See
+                # data/chain_taxonomies/README.md.
+                path = ">".join(
+                    c for c in (cat.get("names", {}).get("1", "")
+                                for cat in family.get("categories", []))
+                    if c
+                )
+                name = product.get("names", {}).get("1", {}).get("short", "")
+                row = {"path": path}
+                if name:
+                    row["name"] = name
+                products_by_barcode[barcode] = row
+                if path:
+                    category_paths[path] += 1
+                    if len(path_examples[path]) < 8 and name:
+                        path_examples[path].append(name)
 
             total_fetched += 1
 
@@ -189,11 +196,14 @@ def scrape_tiv_taam_categories():
 
     return {
         "chain": "tiv_taam",
+        "note": "SelfPoint v2 API, retailer 1062 - needs a browser context; the EAN "
+                "comes from the gs1-products CDN image path, the API has no "
+                "barcode field.",
         "products_count": len(products_by_barcode),
         "distinct_paths": len(category_paths),
-        "total_fetched": total_fetched,
         "products": products_by_barcode,
         "category_paths": dict(category_paths),
+        "path_examples": {k: v for k, v in path_examples.items()},
         "errors": errors
     }
 
@@ -277,7 +287,7 @@ def main():
 
     out_file = data_dir / "tiv_taam.json"
     with open(out_file, "w") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+        json.dump(data, f, indent=1, ensure_ascii=False)
     print(f"\nSaved to {out_file}")
 
     # Try to verify coverage
