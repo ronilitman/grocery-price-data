@@ -39,44 +39,70 @@ Expect roughly 237,000 products and 31 chains. If a chain is missing from the
 artifact list its job failed that night - pick an earlier green run rather than
 unifying without it, or the tests will flag it as thin.
 
-## 2. Rebuild
+## 2. There is no builder. Read the rows and decide.
 
-```bash
-python3 scripts/build_produce_units.py --db /tmp/prices.db
+This was first done with match patterns, price bands and a scoring rule. It
+filed fennel as garlic, beef as cherry tomato and a steak as lychee, and it
+merged plain `עגבניה` with `עגבניה מגי` - two different tomatoes at ₪7.9 and
+₪16.9 - which made seven chains look two to four times dearer than they are.
+Patterns cannot tell those apart. Reading can. Do not rebuild the matcher.
+
+Work one product at a time. Dump every weighted row for a head word, with its
+price, for every chain:
+
+```python
+import sqlite3, collections
+C = sqlite3.connect('file:/tmp/prices.db?mode=ro', uri=True)
+CH = dict(C.execute('select chain_id, name from chains'))
+P = {(a, b): p for a, b, p in C.execute('select chain_id,barcode,price from chain_prices')}
+rows = collections.defaultdict(list)
+for a, b, n in C.execute("select chain_id,barcode,name from chain_products "
+                         "where is_weighted=1 and name<>''"):
+    rows[a].append((b, n.strip()))
+term = 'עגבני'
+for cid in sorted(rows, key=lambda c: CH.get(c, '')):
+    hits = [(b, n, P.get((cid, b))) for b, n in rows[cid] if term in n and P.get((cid, b))]
+    if hits:
+        print(CH[cid], ' | '.join(f'{n}=₪{p:g}[{b}]' for b, n, p in sorted(hits, key=lambda x: x[2])))
 ```
 
-It writes `data/produce_units.tsv` and `data/produce_chains.tsv` and prints:
+Then read the list and write one line per chain into `data/produce_units.tsv`.
 
-- `[thin]` - products found in fewer than five chains.
-- `[missing]` - products no chain sells by weight at all. `chard` and `rocket`
-  are genuinely in this list; they are sold in packets, not loose.
-- `[note]` - rows dropped for costing more than four times the median across
-  chains. These are usually a cheese or a jar wearing the product's name, and
-  each one is worth reading.
+**Derive the type structure before deciding anything.** Count what qualifier
+follows the head word, and how many chains use each. Tomato comes out as five
+products, not one - מגי in 18 chains at ₪16.9, שרי in 15 at ₪19.4, plain in 12
+at ₪8.9, תמר in 7, אשכולות in 3. Each gets its own line, and a chain appears in
+whichever lines it stocks.
 
-## 3. Review the picks - this is the part that needs judgement
+What separates a product from a variant, in practice:
+
+- **A price tier is a product.** If two candidates differ by more than roughly
+  two times, they are different things. Kosher certification is a tier of its
+  own: `כרוב לבן` is ₪1.9-4.9, `כרוב לבן מהדרין/חסלט/גלאט` is ₪9.9-17.9.
+- **A colour is a product** for peppers, onions and cabbage - shoppers ask for
+  the colour and the prices differ.
+- **Packaging is not.** `בחוץ`, `תפזורת`, `ארוז`, `ברשת`, `שקיל`, `במשקל`,
+  `בקרטון` all describe how it is sold.
+- **Watch for words that merely contain the head word.** `שומר` is fennel and
+  `שומן` is fat, neither is `שום`. `שריר` is a cut of beef, not `שרי`.
+  `סטוליצני` is a steak, not `ליצ'י`.
+
+Where a chain sells nothing that is the product, it gets no row. That is a real
+answer - 11 chains sell no plain tomato at all, only מגי or שרי.
+
+## 3. Check yourself
+
+Re-read every row against the database before committing: the barcode exists at
+that chain, is still flagged weighted, and the price is what you wrote.
 
 ```bash
-python3 scripts/build_produce_units.py --db /tmp/prices.db --report
+python3 scripts/check_produce_units.py --db /tmp/prices.db
 ```
 
-Read the chosen name for each chain. What goes wrong, in order of how often:
-
-- **A variety instead of the plain thing.** Several chains sell only
-  `עגבניה מגי`, a premium tomato. That is fine - it is their tomato. But if a
-  chain has both, the plain one must win.
-- **A different product sharing the word.** `שריר בננה` is a cut of beef,
-  `בוט בננה` is a peanut, `גבינת שמנת שום שמיר` is cream cheese. Add the word
-  to that entry's `reject` in `scripts/produce_spec.py`.
-- **Hebrew final letters.** `טחון` and `טחונה` share no substring, so a reject
-  written one way silently misses the other. The builder folds ךםןףץ before
-  matching, so write either - but if a reject looks ignored, check this first.
-- **A price that is not that product's price.** Every entry has a band in
-  `PRICE_BAND`. Herbs run to ₪150/kg because they are sold as 20-gram bunches;
-  a vegetable at ₪80 is not a vegetable.
-
-Edit `scripts/produce_spec.py` and re-run until the report reads right. That
-file is the only place judgement lives - the builder does no guessing.
+It catches the mistakes that reading makes - a barcode typed from the wrong
+line, the same product recorded twice for one chain, a price copied from the
+row above. It caught a duplicated lemon block on the run that produced this
+file.
 
 ## 4. Prove it and commit
 
@@ -99,12 +125,21 @@ EOF
 ```
 
 Commit `data/produce_units.tsv`, `data/produce_chains.tsv`, any
-`scripts/produce_spec.py` edits, and the fixture together. Say in the message
+the fixture, and any test changes together. Say in the message
 which chain moved and what the coverage did.
 
 ## Adding a product rather than a chain
 
-Append an entry to `PRODUCE` in `scripts/produce_spec.py` - slug, Hebrew name,
-kind, a `match` regex for the head word, a `reject` regex for everything that
-shares it - and a band in `PRICE_BAND`. Then run steps 2 to 4. If it belongs on
-a normal shopping list, add its slug to `CORE` in the test as well.
+Dump its head word across every chain as in step 2, read the rows, and append
+one line per chain to `data/produce_units.tsv`. Columns are slug, Hebrew name,
+kind (`veg`/`fruit`/`herb`), chain id, chain name, barcode, the chain's own
+name for it, price, and a note where the choice was not obvious. If it belongs
+on a normal shopping list, add its slug to `CORE` in the test as well.
+
+## Still missing
+
+Herbs (`פטרוזיליה`, `כוסברה`, `שמיר`, `נענע`, `בזיליקום`), and the stone and
+soft fruit: `שזיף`, `אפרסק`, `נקטרינה`, `משמש`, `דובדבן`, `תמר`, `תאנה`,
+`תות`, `קיווי`, `אננס`, `פפאיה`, `ליצ'י`, `גויאבה`, `פסיפלורה`. Also
+`ארטישוק`, `במיה`, `שעועית ירוקה`, `אפונה`, `תרד`, `סלרי`, `כרישה`,
+`ג'ינג'ר`, `חזרת`. Same procedure for each.

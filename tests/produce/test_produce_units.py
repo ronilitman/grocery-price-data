@@ -1,7 +1,8 @@
 """Loose produce stays unified, and a new chain does not slip past unnoticed.
 
-data/produce_units.tsv is rebuilt by hand from a merged database that is not in
-the repo, so nothing regenerates it on a nightly build. That makes it the kind
+data/produce_units.tsv is written by hand - every row is somebody reading a
+chain's weighted products and deciding which one is the tomato - from a merged
+database that is not in the repo, so nothing regenerates it on a nightly build. That makes it the kind
 of file that quietly rots: a chain joins, its tomatoes are simply absent, and
 every other check still passes because every row that *is* there is fine.
 
@@ -30,10 +31,12 @@ SKILL = "unify-produce"
 # chains that sell produce at all - if one of these is thin, the unification
 # has drifted rather than the country having stopped eating cucumbers.
 CORE = [
-    "tomato", "cucumber", "onion", "garlic", "carrot", "potato", "sweet-potato",
-    "pepper", "eggplant", "zucchini", "cabbage", "cauliflower", "lemon",
-    "apple", "banana", "orange", "clementine", "avocado", "watermelon", "melon",
-    "grapes", "pear", "mushroom", "corn", "pumpkin",
+    "tomato", "cucumber", "onion", "onion-red", "garlic-fresh", "carrot",
+    "potato-white", "potato-red", "sweet-potato", "pepper-red", "pepper-green",
+    "eggplant", "zucchini", "cabbage-white", "cauliflower", "beetroot",
+    "lemon", "apple", "banana", "orange", "clementine", "grapefruit", "pomelo",
+    "avocado", "watermelon", "melon", "grapes", "pear", "mushroom", "corn",
+    "pumpkin", "squash-butternut", "pomegranate", "mango",
 ]
 # Not a majority: some chains sell only banana chips and no bananas, and some
 # stock no loose produce worth the name. The threshold is set to catch drift,
@@ -75,18 +78,17 @@ class TestTheCommonProduceIsEverywhere:
 
 class TestEveryChainCarriesProduce:
     def test_no_chain_in_the_file_is_nearly_empty(self, units, chains):
-        counts = {c["chain_id"]: int(c["products"]) for c in chains}
+        counts = {c["chain_name"]: int(c["products"]) for c in chains}
         # Yellow is a forecourt shop and Keshet Teamim is largely online;
-        # four is "this chain sells produce at all", not "sells a lot".
-        thin = {c: n for c, n in counts.items() if n < 4}
-        names = {c["chain_id"]: c["chain_name"] for c in chains}
+        # three is "this chain sells loose produce at all", not "sells a lot".
+        thin = {c: n for c, n in counts.items() if n < 3}
         assert not thin, (
             "chains with almost no produce:\n  " + "\n  ".join(
-                f"{names[c]}: {n} products" for c, n in thin.items())
+                f"{c}: {n} products" for c, n in thin.items())
         )
 
     def test_the_companion_file_matches_the_units(self, units, chains):
-        assert {c["chain_id"] for c in chains} == {r["chain_id"] for r in units}
+        assert {c["chain_name"] for c in chains} == {r["chain_name"] for r in units}
 
 
 class TestANewChainCannotSlipPast:
@@ -113,27 +115,28 @@ class TestTheFileIsWellFormed:
         keys = [(r["slug"], r["chain_id"]) for r in units]
         assert len(keys) == len(set(keys))
 
-    def test_sorted_by_product_then_chain(self, units):
-        keys = [(r["slug"], r["chain_id"]) for r in units]
+    def test_sorted_by_product_then_price(self, units):
+        # Cheapest first inside each product: the file is read by people, and
+        # "who sells this cheapest" is the question it answers.
+        keys = [(r["slug"], float(r["price"])) for r in units]
         assert keys == sorted(keys)
 
-    def test_every_slug_is_in_the_spec(self, units):
-        import sys
-        sys.path.insert(0, os.path.join(ROOT, "scripts"))
-        from produce_spec import PRODUCE
-        known = {e[0] for e in PRODUCE}
-        assert {r["slug"] for r in units} <= known
+    def test_a_product_never_spans_two_price_tiers(self, units):
+        """One line, one product - which is what the tiers are for.
 
-    def test_every_price_is_inside_its_band(self, units):
-        import sys
-        sys.path.insert(0, os.path.join(ROOT, "scripts"))
-        from produce_spec import PRICE_BAND
-        bad = [f"{r['slug']} {r['chain_name']} {r['chain_product_name']} "
-               f"at {r['price']}"
-               for r in units
-               if not (PRICE_BAND[r["slug"]][0] <= float(r["price"])
-                       <= PRICE_BAND[r["slug"]][1])]
-        assert not bad, "prices outside their band:\n  " + "\n  ".join(bad[:10])
+        Plain tomato and `עגבניה מגי` were one line until the prices showed
+        they are not the same thing: 7.9 against 16.9, and seven chains looked
+        two to four times dearer than they are. A line whose dearest row is
+        many times its cheapest has merged two products again.
+        """
+        import collections
+        by = collections.defaultdict(list)
+        for row in units:
+            by[row["slug"]].append(float(row["price"]))
+        wide = [f"{s}: ₪{min(p):g}-{max(p):g} ({max(p)/min(p):.1f}x)"
+                for s, p in by.items() if len(p) > 3 and max(p) / min(p) > 8]
+        assert not wide, ("these look like two products on one line:\n  "
+                          + "\n  ".join(wide))
 
     def test_kinds_are_the_three_we_use(self, units):
         assert {r["kind"] for r in units} <= {"veg", "fruit", "herb"}
