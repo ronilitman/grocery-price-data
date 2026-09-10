@@ -1,0 +1,29 @@
+{
+ "total_rows": 38555,
+ "by_top_category": {
+  "baby-kids": 1059,
+  "beverages": 2361,
+  "bread-bakery": 472,
+  "dairy-eggs": 1494,
+  "deli": 663,
+  "frozen": 1527,
+  "health-diet": 2096,
+  "household": 3048,
+  "meat-fish": 655,
+  "non-grocery": 7301,
+  "pantry": 4392,
+  "personal-care": 9292,
+  "pets": 396,
+  "produce": 926,
+  "snacks-sweets": 2873
+ },
+ "by_source_chain": {
+  "carrefour": 5020,
+  "hazi_hinam": 4291,
+  "keshet_teamim": 2266,
+  "rami_levy": 2158,
+  "shufersal": 24233,
+  "tiv_taam": 353,
+  "yenot_bitan": 234
+ }
+}
