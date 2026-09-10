@@ -34,8 +34,11 @@ CORE = [
     "tomato", "cucumber", "onion", "onion-red", "garlic-fresh", "carrot",
     "potato-white", "potato-red", "sweet-potato", "pepper-red", "pepper-green",
     "eggplant", "zucchini", "cabbage-white", "cauliflower", "beetroot",
-    "lemon", "apple", "banana", "orange", "clementine", "grapefruit", "pomelo",
+    "lemon", "banana", "orange", "clementine", "grapefruit", "pomelo",
     "avocado", "watermelon", "melon", "grapes", "pear", "mushroom", "corn",
+    # Apple is sold by variety - `apple` is only the rows where the chain did
+    # not name one, so the family lines are what has to be everywhere.
+    "apple-gala", "apple-hermon", "apple-smith", "apple-golden", "apple-pink",
     "pumpkin", "squash-butternut", "pomegranate", "mango",
 ]
 # Not a majority: some chains sell only banana chips and no bananas, and some

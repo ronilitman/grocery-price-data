@@ -69,10 +69,14 @@ for cid in sorted(rows, key=lambda c: CH.get(c, '')):
 Then read the list and write one line per chain into `data/produce_units.tsv`.
 
 **Derive the type structure before deciding anything.** Count what qualifier
-follows the head word, and how many chains use each. Tomato comes out as five
-products, not one - מגי in 18 chains at ₪16.9, שרי in 15 at ₪19.4, plain in 12
-at ₪8.9, תמר in 7, אשכולות in 3. Each gets its own line, and a chain appears in
-whichever lines it stocks.
+follows the head word, and how many chains use each, and at what price. Tomato
+comes out as three products: `מגי` in 18 chains at ₪16.9, `שרי` in 15 at ₪19.4,
+and plain in 15 at ₪8.9 - where `תמר` and `אשכולות` sit inside plain, because
+they price like it. Apple comes out as six varieties plus a generic line for
+the chains that name none.
+
+Two spellings of one thing are one thing: `גאלה`/`גלה`, `זהוב`/`מוזהב`, and
+`חרמון`/`סטרקינג` - Dor Alon writes `תפוח עץ חרמון סטרקי`, which settles it.
 
 What separates a product from a variant, in practice:
 
