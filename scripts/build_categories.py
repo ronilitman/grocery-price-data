@@ -643,12 +643,15 @@ def main():
     shuf, misses, scraped = shufersal(sub_id)
     tiv = tiv_taam(sub_id)
     others, other_misses = other_chains(sub_id)
-    # Shufersal wins, then the other chains in the order they were added, and
-    # Tiv Taam last - it is the narrowest catalogue and shelves a specialty
-    # range, so its placements are the least representative.
+    # Shufersal wins, then the other chains in the order they were added, then
+    # Tiv Taam - the narrowest catalogue, shelving a specialty range, so its
+    # placements are the least representative. Seeding lowest-priority first
+    # and letting each higher tier overwrite is the only ordering that says
+    # what it means: an earlier `setdefault` chain silently inverted this and
+    # let Tiv Taam outrank five larger chains on 82 barcodes.
     merged = {b: (c, "tiv_taam") for b, c in tiv.items()}
-    for barcode, (category_id, chain) in others.items():
-        merged.setdefault(barcode, (category_id, chain))
+    # `others` already holds one chain per barcode, picked in BY_CHAIN order.
+    merged.update(others)
     merged.update({b: (c, "shufersal") for b, c in shuf.items()})
 
     out = os.path.join(DATA, "product_categories.tsv")
