@@ -18,7 +18,7 @@ That is what made the first rebuild an hour rather than a day.
 
 | file | size | products | distinct paths |
 |---|---|---|---|
-| `shufersal.json` | 6.1 MB | 24,931 | 935 |
+| `shufersal.json` | 6.2 MB | 25,108 | 935 |
 | `hazi_hinam.json` | 1.1 MB | 10,489 | 171 |
 | `rami_levy.json` | 1.1 MB | 7,554 | 386 |
 | `carrefour.json` | 0.9 MB | 7,399 | 227 |
@@ -36,9 +36,15 @@ All seven share a shape:
   "distinct_paths": 935,
   "products":       { "<barcode>": {"path": "dept>category>sub", "name": "…"} },
   "category_paths": { "dept>category>sub": 121 },
-  "path_examples":  { "dept>category>sub": ["a few product names"] }
+  "path_examples":  { "dept>category>sub": ["a few product names"] },
+  "errors":         []
 }
 ```
+
+`products`, `category_paths` and `path_examples` are **sorted by key**. The APIs
+return products in whatever order they like, so an unsorted dump rewrote most of
+its own lines on every scrape - 58,800 changed lines for 775 changed products.
+Sorted, the diff is what actually changed.
 
 `path` is **already decoded, and the product's own segment is removed**. Both
 matter:
@@ -94,7 +100,7 @@ python3 scripts/build_categories.py
 | file | what it is |
 |---|---|
 | `categories.json` | The tree. 116 rows of `{id, slug, name_he, parent_id}` - 15 top-level, 101 sub-categories. The ids are the stable keys everything downstream points at, so **do not renumber them**. |
-| `product_categories.tsv` | The answer. `barcode <TAB> category_id <TAB> source chain`, 38,378 rows, sorted by barcode so a nightly run's new rows land as a small localised diff instead of rewriting a megabyte. |
+| `product_categories.tsv` | The answer. `barcode <TAB> category_id <TAB> source chain`, 38,555 rows, sorted by barcode so a nightly run's new rows land as a small localised diff instead of rewriting a megabyte. |
 
 ### 5. The scrapers - `scripts/scrape_categories.py`, `scripts/scrape_tiv_taam.py`
 

@@ -135,6 +135,21 @@ def scrape_tiv_taam():
     }
 
 
+
+def _sorted(dump):
+    """Sort the barcode- and path-keyed maps before writing.
+
+    JSON preserves insertion order, and the API returns products in whatever
+    order it likes, so an unsorted dump rewrites most of its own lines on every
+    scrape. Sorted, the diff is the products that actually changed.
+    """
+    out = dict(dump)
+    for key in ("products", "category_paths", "path_examples"):
+        if key in out:
+            out[key] = {k: out[key][k] for k in sorted(out[key])}
+    return out
+
+
 def main():
     data_dir = Path(__file__).parent.parent / "data" / "chain_taxonomies"
     data_dir.mkdir(parents=True, exist_ok=True)
@@ -147,7 +162,7 @@ def main():
     # data/chain_taxonomies uses, so a re-scrape diffs against the committed
     # file instead of rewriting all of it.
     with open(out_file, "w", encoding="utf-8") as f:
-        json.dump(shufersal, f, indent=1, ensure_ascii=False)
+        json.dump(_sorted(shufersal), f, indent=1, ensure_ascii=False)
     print(f"\nSaved Shufersal data to {out_file}")
 
     # Summary

@@ -259,6 +259,21 @@ def verify_against_price_files(tiv_taam_data):
         return None
 
 
+
+def _sorted(dump):
+    """Sort the barcode- and path-keyed maps before writing.
+
+    JSON preserves insertion order, and the API returns products in whatever
+    order it likes, so an unsorted dump rewrites most of its own lines on every
+    scrape. Sorted, the diff is the products that actually changed.
+    """
+    out = dict(dump)
+    for key in ("products", "category_paths", "path_examples"):
+        if key in out:
+            out[key] = {k: out[key][k] for k in sorted(out[key])}
+    return out
+
+
 def main():
     print("=== Tiv Taam Scraper ===\n")
 
@@ -287,7 +302,7 @@ def main():
 
     out_file = data_dir / "tiv_taam.json"
     with open(out_file, "w") as f:
-        json.dump(data, f, indent=1, ensure_ascii=False)
+        json.dump(_sorted(data), f, indent=1, ensure_ascii=False)
     print(f"\nSaved to {out_file}")
 
     # Try to verify coverage
