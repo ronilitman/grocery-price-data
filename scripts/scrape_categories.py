@@ -26,7 +26,8 @@ def scrape_shufersal():
     }
 
     products_by_barcode = {}
-    category_paths = defaultdict(int)  # path → count
+    category_paths = defaultdict(int)   # path -> count
+    path_examples = defaultdict(list)   # path -> a few product names
     errors = []
 
     headers = {
@@ -65,8 +66,7 @@ def scrape_shufersal():
             if not sku:
                 continue
 
-            # Extract category path from URL breadcrumb:
-            #   /קטגוריות/<root>/<dept>/<category>/<sub>/<product-slug>/p/P_<sku>
+            # /קטגוריות/<root>/<dept>/<category>/<sub>/<product-slug>/p/P_<sku>
             #
             # The segment before /p/ is the PRODUCT, not a category. Keeping it
             # turns 24,931 products into 21,647 one-product "categories" and no
@@ -74,22 +74,28 @@ def scrape_shufersal():
             # department/category pairs. Depth varies - a promotion landing
             # page is two segments deep - so take what is there rather than
             # assuming a fixed shape.
-            url = product.get("url", "")
-            if url:
-                parts = [unquote(p) for p in url.split("/") if p]
-                while parts and (parts[-1] == "p" or parts[-1].startswith("P_")):
-                    parts.pop()
-                if parts and parts[0] == "קטגוריות":
-                    parts = parts[1:]
-                if parts[:-1]:
-                    category_paths[" > ".join(parts[:-1])] += 1
+            #
+            # Store the path decoded. Percent-encoded Hebrew costs six
+            # characters per letter, which was 10 MB of this file alone.
+            parts = [unquote(p) for p in product.get("url", "").split("/") if p]
+            while parts and (parts[-1] == "p" or parts[-1].startswith("P_")):
+                parts.pop()
+            if parts and parts[0] == "קטגוריות":
+                parts = parts[1:]
+            path = ">".join(parts[:-1])
+            name = parts[-1].replace("-", " ") if parts else ""
+            if path:
+                category_paths[path] += 1
+                if len(path_examples[path]) < 8 and name:
+                    path_examples[path].append(name)
 
-            products_by_barcode[sku] = {
-                "brand": product.get("brandName", ""),
-                "second_level": product.get("secondLevelCategory", ""),
-                "all_codes": product.get("allCategoryCodes", []),
-                "url": url
-            }
+            row = {"path": path}
+            if name:
+                row["name"] = name
+            second_level = (product.get("secondLevelCategory") or "").strip()
+            if second_level:
+                row["second_level"] = second_level
+            products_by_barcode[sku] = row
 
         print(f"  Page {page}/{max_pages}: {len(results)} products, {len(products_by_barcode)} total")
 
@@ -105,6 +111,7 @@ def scrape_shufersal():
         "distinct_paths": len(category_paths),
         "products": products_by_barcode,
         "category_paths": dict(category_paths),
+        "path_examples": dict(path_examples),
         "errors": errors
     }
 

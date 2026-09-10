@@ -22,7 +22,6 @@ and belongs to the LLM pass with the rest of the catalogue.
 import json
 import os
 from collections import Counter
-from urllib.parse import unquote
 
 DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data")
 
@@ -477,20 +476,15 @@ COLLECTIONS = {
 }
 
 
-def path_of(url):
-    """The category path of a product, with the product's own segment removed.
+def path_of(product):
+    """A product's category path, as a list of segments.
 
-    Shufersal's URLs are `/קטגוריות/<root>/<dept>/<cat>/<sub>/<product>/p/P_<sku>`,
-    but not every product carries every level - a promotion landing page can be
-    two segments deep. Returning what is there and letting the caller decide is
-    safer than assuming a fixed depth, which is the mistake this replaces.
+    The dumps all store `path` already decoded and with the product's own
+    segment removed - see data/chain_taxonomies/README.md. Shufersal's used to
+    keep the raw percent-encoded URL instead, which cost 10 MB of the repo to
+    say the same thing.
     """
-    parts = [unquote(p) for p in url.split("/") if p]
-    while parts and (parts[-1] == "p" or parts[-1].startswith("P_")):
-        parts.pop()
-    if parts and parts[0] == "קטגוריות":
-        parts = parts[1:]
-    return parts[:-1]
+    return [p for p in (product.get("path") or "").split(">") if p]
 
 
 def resolve(parts):
@@ -540,7 +534,7 @@ def shufersal(sub_id):
         raw = json.load(handle)["products"]
     out, misses = {}, Counter()
     for barcode, product in raw.items():
-        parts = path_of(product.get("url", ""))
+        parts = path_of(product)
         slug = resolve(parts)
         if slug is None:
             slug = FALLBACK.get((product.get("second_level") or "").strip())
