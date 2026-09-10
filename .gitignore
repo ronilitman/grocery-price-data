@@ -14,3 +14,6 @@ gha-creds-*.json
 
 # Scraper log, written into the working tree on every local run.
 logging.log
+
+# Claude Code local settings and launch config.
+.claude/
