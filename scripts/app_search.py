@@ -11,8 +11,8 @@ cleared the 1% threshold and vanished from the index, so searching for any
 of them found nothing. FTS5's ``bm25()`` already ranks a document dominated
 by a common word below one where the query term is distinctive, which is
 what filler was trying to approximate by hand - so now every token is
-indexed, and filler only trims a *query* when at least one more distinctive
-token survives alongside it (see ``build_match``).
+indexed, and queries keep every token too (see ``build_match``). The
+``fts_filler`` table is still built; nothing uses it to drop words today.
 
 ``normalise``/``tokens`` mirror two existing rules rather than inventing a
 third: the quote characters stripped here are ``build_catalog.NAME_QUOTES``'s
@@ -74,25 +74,23 @@ def index_text(name):
     return " ".join(tokens(name))
 
 
-def build_match(query, filler):
+def build_match(query, filler=None):
     """An FTS5 ``MATCH`` expression with OR semantics, or ``None``.
 
     Every token is double-quoted (doubling an embedded ``"``) because a raw
     token handed to ``MATCH`` is a syntax error waiting to happen - ``15%``
     raises ``fts5: syntax error near "%"`` unquoted.
 
-    Filler is dropped from the *query* only when at least one non-filler
-    token remains alongside it - ``"במבה 80 גרם"`` searches for במבה and 80,
-    not גרם. When every token is filler (``"שוקולד"``, ``"עוף"``, ``"גרם
-    500"``) dropping them all would leave nothing to search when the words
-    themselves are exactly what the user typed, so all of them are kept
-    instead. ``None`` means there was nothing to search at all - no tokens
-    survived tokenising, not even a filler one.
+    Every token is kept, filler included. Dropping filler even when other
+    words survive made rankings worse on real data: ``"שוקולד חלב"``
+    (chocolate milk) searched only ``חלב`` and put plain milk first, while
+    searching both words puts chocolate milk first. bm25 already weights a
+    common word low, and on the real catalogue the widest query stays under
+    ~20 ms. ``filler`` is accepted so callers don't change, and ignored.
+    ``None`` means the query tokenised to nothing at all.
     """
     toks = tokens(query)
     if not toks:
         return None
-    kept = [t for t in toks if t not in filler]
-    use = kept if kept else toks
-    quoted = ['"{}"'.format(t.replace('"', '""')) for t in use]
+    quoted = ['"{}"'.format(t.replace('"', '""')) for t in toks]
     return " OR ".join(quoted)

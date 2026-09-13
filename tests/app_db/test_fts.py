@@ -199,7 +199,7 @@ def test_fts_all_has_one_row_per_named_product_every_token_indexed(fixture_db, t
     assert len(rows) == total_named_products == FILLER_PRODUCT_COUNT + 2
     assert NO_NAME_BARCODE not in rows
     # גרם is real filler on this fixture (62/62 names) but it is NOT
-    # stripped from the indexed text - only a query can drop it.
+    # stripped from the indexed text (and queries keep it too).
     assert rows[CHEESE_BARCODE] == "גבינה צהובה גרם"
     assert rows[CREAM_BARCODE] == "שמנת גרם"
 
@@ -230,12 +230,11 @@ def test_a_match_against_the_built_fts_all_finds_the_product(fixture_db, tmp_pat
     filler = {row[0] for row in conn.execute("SELECT token FROM fts_filler")}
     match = app_search.build_match("גבינה 500 גרם", filler)
     results = [row[0] for row in conn.execute(
-        "SELECT barcode FROM fts_all WHERE fts_all MATCH ?", (match,))]
+        "SELECT barcode FROM fts_all WHERE fts_all MATCH ? ORDER BY bm25(fts_all)",
+        (match,))]
     conn.close()
 
-    # "גרם" is filler and "גבינה" survives alongside it, so the query drops
-    # only "גרם" ('"גבינה" OR "500"'). "500" never appeared in any product
-    # name (and every row's indexed text still carries its own "גרם" - that
-    # never mattered here since the query no longer asks for it) - only
-    # "גבינה" actually matches, and it still finds the cheese.
-    assert results == [CHEESE_BARCODE]
+    # Every word is searched, filler included, so "גרם" (on every fixture
+    # product) matches the whole catalogue - but bm25 weights it low and
+    # "גבינה" is distinctive, so the cheese still ranks first.
+    assert results[0] == CHEESE_BARCODE
