@@ -1,0 +1,4 @@
+35-255-93-47.sslip.io {
+	encode gzip
+	reverse_proxy 127.0.0.1:8000
+}
