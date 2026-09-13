@@ -201,6 +201,15 @@ def copy_categories(conn, categories):
 def build_store_bits(conn):
     """Assign each chain's branches a 0..n-1 bit, ordered by store_id.
 
+    A branch's only appearance in the source data can be as a
+    ``promo_stores.store_id`` with no matching row in ``stores`` - CITY_MARKET_
+    SHOPS, YELLOW (which has zero ``stores`` rows at all) and a handful of
+    Shufersal/Keshet Teamim branches are all real, on the real prices.db. Each
+    chain's bit space is therefore built from the *union* of ``stores`` and
+    every ``promo_stores`` id its offers reference, not ``stores`` alone - a
+    branch known only from a promotion is still a branch, and build_deals
+    below fails the build rather than silently dropping it from a bitmap.
+
     Chain ids can look like ``7290058160839-001`` (sub-chain splits); they are
     opaque strings here, same as everywhere else - a chain's bit space is
     private to it, so two chains can both use bit 0 for different branches.
@@ -208,13 +217,23 @@ def build_store_bits(conn):
     Returns ``{chain_id: {store_id: bit}}`` for build_deals to pack bitmaps
     against, plus the number of store_bits rows written.
     """
+    chain_ids = [c for (c,) in conn.execute(
+        "SELECT chain_id FROM src.stores "
+        "UNION "
+        "SELECT chain_id FROM src.promo_offers "
+        "ORDER BY chain_id")]
+
     bit_of = {}
     rows = []
-    for (chain_id,) in conn.execute(
-            "SELECT DISTINCT chain_id FROM src.stores ORDER BY chain_id"):
+    for chain_id in chain_ids:
         store_ids = [sid for (sid,) in conn.execute(
-            "SELECT store_id FROM src.stores WHERE chain_id = ? ORDER BY store_id",
-            (chain_id,))]
+            "SELECT store_id FROM src.stores WHERE chain_id = ? "
+            "UNION "
+            "SELECT ps.store_id FROM src.promo_stores ps "
+            "JOIN src.promo_offers o ON o.offer_id = ps.offer_id "
+            "WHERE o.chain_id = ? "
+            "ORDER BY store_id",
+            (chain_id, chain_id))]
         bit_of[chain_id] = {sid: i for i, sid in enumerate(store_ids)}
         rows.extend((chain_id, sid, i) for i, sid in enumerate(store_ids))
     conn.executemany("INSERT INTO store_bits VALUES (?,?,?)", rows)
@@ -243,7 +262,6 @@ def build_deals(conn, bit_of, category_map):
     rows = []
     deal_id = 1
     merged_total = 0
-    unmapped = 0
     for (chain_id,) in conn.execute(
             "SELECT DISTINCT chain_id FROM src.promo_offers"):
         merged, _everywhere = offers_mod.merge_chain(
@@ -261,8 +279,17 @@ def build_deals(conn, bit_of, category_map):
             for store_id in body["where"]:
                 bit = chain_bits.get(store_id)
                 if bit is None:
-                    unmapped += 1
-                    continue
+                    # build_store_bits derives each chain's bit space from the
+                    # union of stores and promo_stores, so this can only mean
+                    # that invariant broke - never silently drop a branch from
+                    # a kept offer's bitmap (that is exactly the bug KAN-7's
+                    # review fix closed: 61,089 real deals losing every
+                    # branch this way).
+                    raise ValueError(
+                        f"store_bits has no bit for chain {chain_id!r} store "
+                        f"{store_id!r}, needed by a kept offer for barcode "
+                        f"{barcode!r} - build_store_bits must cover every "
+                        f"promo_stores branch")
                 branch_bits.append(bit)
             rows.append((
                 deal_id, chain_id, barcode, category_map.get(barcode), name,
@@ -274,10 +301,6 @@ def build_deals(conn, bit_of, category_map):
             deal_id += 1
     conn.executemany(
         "INSERT INTO deals VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", rows)
-    if unmapped:
-        print(f"[build_app_db] {unmapped} offer-branch link(s) named a "
-              f"store_id absent from stores; dropped from the bitmap",
-              file=sys.stderr)
     return len(rows), merged_total
 
 
