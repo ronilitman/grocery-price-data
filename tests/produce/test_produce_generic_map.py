@@ -13,6 +13,7 @@ speed, against a small fixture, per the KAN-9 Definition of Done).
 """
 
 import collections
+import json
 import os
 import sqlite3
 import sys
@@ -23,6 +24,7 @@ ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
 sys.path.insert(0, os.path.join(ROOT, "scripts"))
 
 import build_app_db  # noqa: E402
+import check_produce_tier  # noqa: E402
 import generics as generics_mod  # noqa: E402
 
 UNITS = os.path.join(ROOT, "data", "produce_units.tsv")
@@ -126,11 +128,15 @@ class TestTheFileIsWellFormed:
 
 
 class TestMappedKeysMustExistInTheGenericsBuild:
-    """build_app_db.build_produce raises loudly at real-build time if a
-    mapped key isn't in that build's generics output (see its docstring).
-    These tests exercise the same check against a small, controlled fixture
-    - see the KAN-9 report for the real check, run against the KAN-6 merged
-    prices.db, which is what actually proves the 242 real rows are correct.
+    """A mapped key can go stale on its own - a chain renames or drops a
+    weighed item and generics.py's grouping shifts, with no edit to this
+    repo. build_app_db.build_produce (see its docstring) skips a stale
+    NON-primary row (recording it in meta['produce_map_stale']) so a nightly
+    build never stops over it, but still raises loudly if a slug's PRIMARY
+    key goes stale - that is the one key grocery-list-app's genericKey
+    resolution actually depends on. These tests exercise both paths against
+    a small, controlled fixture - see the KAN-9 report for the real check,
+    run against the KAN-6 merged prices.db.
     """
 
     @staticmethod
@@ -143,6 +149,10 @@ class TestMappedKeysMustExistInTheGenericsBuild:
             CREATE TABLE chain_prices(
                 chain_id TEXT, barcode TEXT, price REAL, store_count INTEGER);
             CREATE TABLE products(barcode TEXT PRIMARY KEY, name TEXT);
+            -- Normally created by build()'s main SCHEMA before build_produce
+            -- runs; supplied directly here since these tests call
+            -- build_produce in isolation.
+            CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT);
         """)
         conn.executemany(
             "INSERT INTO chain_products VALUES (?,?,?,?,?,?)",
@@ -184,7 +194,7 @@ class TestMappedKeysMustExistInTheGenericsBuild:
             self._fixture_conn(), units_tsv=str(units_tsv), map_tsv=str(map_tsv))
         assert counts == (1, 1, 2, 1)
 
-    def test_build_produce_rejects_a_map_row_pointing_at_an_unknown_key(self, tmp_path):
+    def test_a_stale_primary_key_raises(self, tmp_path):
         units_tsv = tmp_path / "produce_units.tsv"
         units_tsv.write_text(
             "slug\tname_he\tkind\tchain_id\tchain_name\tbarcode\t"
@@ -198,6 +208,167 @@ class TestMappedKeysMustExistInTheGenericsBuild:
             "tomato\tלא קיים\tyes\tdeliberately wrong key\n",
             encoding="utf-8",
         )
-        with pytest.raises(ValueError, match="did not produce"):
+        with pytest.raises(ValueError, match="PRIMARY key"):
             build_app_db.build_produce(
                 self._fixture_conn(), units_tsv=str(units_tsv), map_tsv=str(map_tsv))
+
+    def test_a_stale_non_primary_key_is_skipped_and_recorded(self, tmp_path, capsys):
+        units_tsv = tmp_path / "produce_units.tsv"
+        units_tsv.write_text(
+            "slug\tname_he\tkind\tchain_id\tchain_name\tbarcode\t"
+            "chain_product_name\tprice\tnote\n"
+            "tomato\tעגבניה\tveg\tRAMI_LEVY\tRami Levy\t1001\tעגבניה\t6.9\t\n",
+            encoding="utf-8",
+        )
+        map_tsv = tmp_path / "produce_generic_map.tsv"
+        map_tsv.write_text(
+            "slug\tgeneric_key\tprimary\tnote\n"
+            "tomato\tעגבניה\tyes\t\n"
+            "tomato\tלא קיים\t\tchain renamed this one\n",
+            encoding="utf-8",
+        )
+        conn = self._fixture_conn()
+        counts = build_app_db.build_produce(
+            conn, units_tsv=str(units_tsv), map_tsv=str(map_tsv))
+        # The primary row still loaded; the stale non-primary one did not,
+        # so the build kept going instead of raising.
+        assert counts == (1, 1, 2, 1)
+
+        warning = capsys.readouterr().out
+        assert "WARNING" in warning and "לא קיים" in warning
+
+        stale_json = conn.execute(
+            "SELECT value FROM meta WHERE key='produce_map_stale'").fetchone()[0]
+        assert json.loads(stale_json) == [{"slug": "tomato", "generic_key": "לא קיים"}]
+
+    def test_no_stale_rows_records_an_empty_list_in_meta(self, tmp_path):
+        units_tsv = tmp_path / "produce_units.tsv"
+        units_tsv.write_text(
+            "slug\tname_he\tkind\tchain_id\tchain_name\tbarcode\t"
+            "chain_product_name\tprice\tnote\n"
+            "tomato\tעגבניה\tveg\tRAMI_LEVY\tRami Levy\t1001\tעגבניה\t6.9\t\n",
+            encoding="utf-8",
+        )
+        map_tsv = tmp_path / "produce_generic_map.tsv"
+        map_tsv.write_text(
+            "slug\tgeneric_key\tprimary\tnote\ntomato\tעגבניה\tyes\t\n",
+            encoding="utf-8",
+        )
+        conn = self._fixture_conn()
+        build_app_db.build_produce(conn, units_tsv=str(units_tsv), map_tsv=str(map_tsv))
+        stale_json = conn.execute(
+            "SELECT value FROM meta WHERE key='produce_map_stale'").fetchone()[0]
+        assert json.loads(stale_json) == []
+
+
+class TestPriceTiersStayHonest:
+    """The owner's rule: a price tier is a product. A non-primary key priced
+    2x+ away from its slug's primary is probably a different product wearing
+    the same generic key (organic, a pricier cultivar, sold by weight) -
+    KAN-9's review found 33 real examples of this. scripts/check_produce_tier.py
+    is what catches it against a real app.db; these tests exercise the same
+    logic (find_tier_violations) against a small fixture, so CI still fails
+    if a future edit reintroduces a silent price-tier mismatch, and passes
+    once the row is either removed or given a `tier-ok:` note explaining why
+    it really is the same product.
+    """
+
+    @staticmethod
+    def _fixture_conn(prices):
+        """prices: {(key, chain_id, barcode): price}."""
+        conn = sqlite3.connect(":memory:")
+        conn.executescript("""
+            CREATE TABLE generic_members(key TEXT, chain_id TEXT, barcode TEXT);
+            CREATE TABLE chain_prices(chain_id TEXT, barcode TEXT, price REAL);
+        """)
+        for (key, chain_id, barcode), price in prices.items():
+            conn.execute("INSERT INTO generic_members VALUES (?,?,?)",
+                         (key, chain_id, barcode))
+            conn.execute("INSERT INTO chain_prices VALUES (?,?,?)",
+                         (chain_id, barcode, price))
+        conn.commit()
+        return conn
+
+    def test_a_non_primary_key_far_from_the_primary_without_a_note_is_flagged(self):
+        conn = self._fixture_conn({
+            ("plain", "C1", "1"): 6.9,
+            ("organic", "C2", "2"): 15.9,  # 2.3x, no tier-ok note
+        })
+        gmap = [
+            {"slug": "cucumber", "generic_key": "plain", "primary": "yes", "note": ""},
+            {"slug": "cucumber", "generic_key": "organic", "primary": "", "note": "organic"},
+        ]
+        violations = check_produce_tier.find_tier_violations(conn, gmap)
+        assert violations == [("cucumber", "organic", round(15.9 / 6.9, 2))]
+
+    def test_the_same_gap_with_a_tier_ok_note_is_not_flagged(self):
+        conn = self._fixture_conn({
+            ("plain", "C1", "1"): 6.9,
+            ("organic", "C2", "2"): 15.9,
+        })
+        gmap = [
+            {"slug": "cucumber", "generic_key": "plain", "primary": "yes", "note": ""},
+            {"slug": "cucumber", "generic_key": "organic", "primary": "",
+             "note": "tier-ok: confirmed via produce_units X row"},
+        ]
+        assert check_produce_tier.find_tier_violations(conn, gmap) == []
+
+    def test_a_key_within_two_x_is_never_flagged_even_without_a_note(self):
+        conn = self._fixture_conn({
+            ("plain", "C1", "1"): 6.9,
+            ("close", "C2", "2"): 12.9,  # 1.87x - inside the 2x/0.5x guard band
+        })
+        gmap = [
+            {"slug": "cucumber", "generic_key": "plain", "primary": "yes", "note": ""},
+            {"slug": "cucumber", "generic_key": "close", "primary": "", "note": ""},
+        ]
+        assert check_produce_tier.find_tier_violations(conn, gmap) == []
+
+    def test_the_real_checked_in_map_has_no_unexplained_tier_gap_in_this_fixture(self):
+        """Not a substitute for running check_produce_tier.py against a real
+        app.db (see the KAN-9 report) - this only proves the checked-in TSV's
+        rows are self-consistent: every row flagged in the KAN-9 review either
+        isn't in the file any more, or carries a `tier-ok:` note. Real member
+        prices aren't available in this repo, so a live database can't be
+        joined here.
+        """
+        gmap = read_tsv(MAP)
+        by_slug_key = {(r["slug"], r["generic_key"]): r for r in gmap}
+        # The 8 rows the KAN-9 review found genuinely tier-divergent but
+        # confirmed via an exact produce_units chain+barcode match.
+        expected_tier_ok = {
+            ("apple", "בחוץ תפוח"),
+            ("beetroot", "אורגני סלק"),
+            ("broccoli", "ברוקולי תפזורת"),
+            ("lemon", "4 9 לימון"),
+            ("lemon", "לימון שקיל"),
+            ("lettuce", "חסה צבעונית"),
+            ("persimmon", "אפרסמון גדול"),
+            ("persimmon", "אפרסמון מובחר"),
+        }
+        for slug_key in expected_tier_ok:
+            assert slug_key in by_slug_key, f"{slug_key} was removed - update this test too"
+            assert "tier-ok:" in by_slug_key[slug_key]["note"], (
+                f"{slug_key} lost its tier-ok note"
+            )
+        # The 25 rows the review found unconfirmed and removed must stay gone.
+        removed = {
+            ("apple", "פרימיום תפוח"), ("avocado", "BL אבוקדו"),
+            ("carrot", "10 גזר"), ("carrot", "אורגני גזר"), ("carrot", "גזר צבעוני"),
+            ("cauliflower", "כרובית צבעונית"), ("clementine", "אורגנית קלמנטינה"),
+            ("cucumber", "אורגני מלפפון"), ("cucumber", "מלפפון פקוס"),
+            ("garlic-fresh", "צעיר שום"), ("garlic-fresh", "שום"),
+            ("lemon", "אורגני לימון"), ("lettuce", "חסה סלנובה"),
+            ("mango", "במשקל מנגו"), ("melon", "אורגני מלון"), ("melon", "מלון שרנטה"),
+            ("orange", "סיני תפוז"), ("pear", "55 אגס ספדונה"),
+            ("persimmon", "70 אפרסמון"), ("pumpkin", "אורגנית דלעת"),
+            ("quince", "במשקל חבוש"), ("sweet-potato", "בטטה מתוקה"),
+            ("sweet-potato", "בטטה קוסביה"), ("tomato", "לבישול עגבניה"),
+            ("watermelon", "אבטיח אורגני"),
+        }
+        reintroduced = removed & set(by_slug_key)
+        assert not reintroduced, (
+            f"previously-removed unconfirmed price-tier rows are back: "
+            f"{reintroduced} - re-read them (see the KAN-9 report) before "
+            f"re-adding, and add a tier-ok note if they really do belong"
+        )
