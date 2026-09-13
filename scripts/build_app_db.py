@@ -324,6 +324,18 @@ def build_produce(conn, units_tsv=PRODUCE_UNITS_TSV,
     hold a full copy of the source db's rows - produces byte-identical keys
     to what build_catalog.py writes to generics.json, which is the whole
     point: a genericKey already saved in Firestore must keep resolving.
+
+    A mapped key can go stale with no edit to this repo at all: a chain
+    renames or drops a weighed item and generics.py's grouping shifts under
+    it. That is expected to happen over time (KAN-11 will run this nightly),
+    so it must not stop app.db from updating. A stale NON-primary row is
+    skipped and recorded in meta['produce_map_stale'] (a JSON list of
+    ``{"slug", "generic_key"}``), with a loud warning printed - the slug
+    still resolves fine through its other keys or its primary. A stale
+    PRIMARY row still fails the build: that is the one key
+    grocery-list-app's barcode/genericKey resolution actually depends on
+    (KAN-9 step 3), so losing it silently is exactly the orphaned-list-item
+    failure this subtask exists to prevent.
     """
     conn.executescript(SCHEMA_PRODUCE)
 
@@ -352,26 +364,34 @@ def build_produce(conn, units_tsv=PRODUCE_UNITS_TSV,
         "INSERT INTO generic_members (key, chain_id, barcode) VALUES (?,?,?)",
         member_rows)
 
-    # The map was built by reading one specific generics build. If this
-    # prices.db groups produce differently (a chain joined/left, a name
-    # changed), a stale key would silently point at nothing - fail the build
-    # instead, the same way build_deals fails loudly on a store_bits gap.
     known_keys = set(generics)
     gmap = load_tsv(map_tsv)
-    map_rows = []
+    map_rows, stale = [], []
     for r in gmap:
         if r["generic_key"] not in known_keys:
-            raise ValueError(
-                f"produce_generic_map.tsv maps {r['slug']!r} to "
-                f"{r['generic_key']!r}, which this build's generics_mod.from_db "
-                f"did not produce - the map was read against a different "
-                f"prices.db than this one; re-run the unify-produce skill's "
-                f"reading step against a current merged database")
+            if r["primary"] == "yes":
+                raise ValueError(
+                    f"produce_generic_map.tsv's PRIMARY key for "
+                    f"{r['slug']!r} ({r['generic_key']!r}) is not in this "
+                    f"build's generics_mod.from_db output - a genericKey the "
+                    f"app may have saved to Firestore for this slug would "
+                    f"stop resolving. Re-run the unify-produce skill's "
+                    f"reading step for this slug against a current merged "
+                    f"database and pick a new primary.")
+            print(f"[build_produce] WARNING: stale produce_generic_map row "
+                  f"skipped - {r['slug']!r} -> {r['generic_key']!r} is not "
+                  f"in this build's generics output (non-primary, so the "
+                  f"build continues; other keys still cover this slug)")
+            stale.append({"slug": r["slug"], "generic_key": r["generic_key"]})
+            continue
         map_rows.append((r["slug"], r["generic_key"],
                           1 if r["primary"] == "yes" else 0, r["note"]))
     conn.executemany(
         "INSERT INTO produce_generic_map (slug, generic_key, is_primary, note) "
         "VALUES (?,?,?,?)", map_rows)
+    conn.execute(
+        "INSERT INTO meta (key, value) VALUES ('produce_map_stale', ?)",
+        (json.dumps(stale, ensure_ascii=False),))
 
     return len(units), len(generic_rows), len(member_rows), len(map_rows)
 
