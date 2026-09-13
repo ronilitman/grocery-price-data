@@ -4,8 +4,9 @@ prices.db (~958 MB) carries everything the nightly pipeline needs, including
 promo_stores (10.6M rows) and product_tokens (940k rows) that this database
 replaces with a branch bitmap (``store_bits`` + ``deals.branches``, KAN-7) and
 an FTS5 index (KAN-8) respectively. This build copies the core catalogue,
-adds the columns the browse/category pages need, and now the ``deals`` table
-the Discounts page reads. Search comes next; see KAN-8.
+adds the columns the browse/category pages need, the ``deals`` table the
+Discounts page reads, and the ``fts_all``/``fts_deals`` FTS5 search indexes
+(KAN-8). The ``/search`` endpoint that queries them is a later task (KAN-12).
 
 Usage:
     python3 scripts/build_app_db.py --db prices.db --out app.db
@@ -26,6 +27,7 @@ import sqlite3
 import sys
 import time
 
+import app_search
 import bitmap
 import offers as offers_mod
 
@@ -96,6 +98,25 @@ CREATE TABLE deals(
     -- Discounts page is what filters to > 0, not this build step.
     discount_pct REAL,
     branches BLOB NOT NULL);
+-- Words dropped from both indexes below (KAN-8): carried on 1%+ of product
+-- names (same rule as build_catalog.NAME_FILLER_AT), so they describe
+-- packaging rather than product and would dominate every query that
+-- contains them (58ms filtering `fts_all` after a join on filler word
+-- `גרם`, measured). The query-time half of this same rule lives in
+-- scripts/app_search.build_match, which drops the identical tokens from a
+-- user's search.
+CREATE TABLE fts_filler(token TEXT PRIMARY KEY);
+-- One row per product, name normalised and filler-stripped (scripts.
+-- app_search.index_text). No generics grouping here - out of scope for this
+-- table, the API's job per the KAN-8 spec.
+CREATE VIRTUAL TABLE fts_all USING fts5(
+    name, barcode UNINDEXED, tokenize='unicode61 remove_diacritics 2');
+-- Same shape as fts_all, narrowed to the barcodes currently on a real
+-- discount (one row per distinct barcode in `deals` with
+-- `discount_pct > 0`) - the Discounts page's own search never has to look
+-- past a product that isn't discounted (10ms vs 58ms on `גרם`, measured).
+CREATE VIRTUAL TABLE fts_deals USING fts5(
+    name, barcode UNINDEXED, tokenize='unicode61 remove_diacritics 2');
 """
 
 INDEXES = [
@@ -304,6 +325,55 @@ def build_deals(conn, bit_of, category_map):
     return len(rows), merged_total
 
 
+def build_fts(conn):
+    """Populate fts_filler, fts_all and fts_deals (KAN-8).
+
+    Filler is computed once, over every product name, before either index is
+    built, so fts_all, fts_deals and a client's query-time
+    ``app_search.build_match`` can never disagree about which words are
+    dropped. ``deals`` must already be populated (build_deals runs first) -
+    fts_deals reads it directly rather than re-deriving "on offer" itself.
+    """
+    names = [name for (name,) in conn.execute(
+        "SELECT name FROM products WHERE name <> ''")]
+    filler = app_search.compute_filler(names)
+    conn.executemany(
+        "INSERT INTO fts_filler VALUES (?)", [(t,) for t in sorted(filler)])
+
+    all_rows = [
+        (app_search.index_text(name, filler), barcode)
+        for barcode, name in conn.execute(
+            "SELECT barcode, name FROM products WHERE name <> ''")
+    ]
+    conn.executemany("INSERT INTO fts_all (name, barcode) VALUES (?,?)", all_rows)
+    conn.execute("INSERT INTO fts_all(fts_all) VALUES ('optimize')")
+
+    name_of = dict(conn.execute("SELECT barcode, name FROM products"))
+    deal_barcodes = [barcode for (barcode,) in conn.execute(
+        "SELECT DISTINCT barcode FROM deals WHERE discount_pct > 0")]
+    deals_rows = [
+        (app_search.index_text(name_of.get(barcode) or "", filler), barcode)
+        for barcode in deal_barcodes
+    ]
+    conn.executemany("INSERT INTO fts_deals (name, barcode) VALUES (?,?)", deals_rows)
+    conn.execute("INSERT INTO fts_deals(fts_deals) VALUES ('optimize')")
+
+    sizes = {}
+    for table in ("fts_all", "fts_deals"):
+        total, = conn.execute(
+            "SELECT COALESCE(SUM(pgsize), 0) FROM dbstat "
+            "WHERE name = ? OR name GLOB ?", (table, table + "_*")).fetchone()
+        sizes[table] = total
+
+    print(f"[build_app_db] {len(filler)} filler words: {' '.join(sorted(filler))}")
+    print(f"[build_app_db] fts_all: {len(all_rows):,} rows, "
+          f"{sizes['fts_all'] / 1e6:.1f} MB")
+    print(f"[build_app_db] fts_deals: {len(deals_rows):,} rows, "
+          f"{sizes['fts_deals'] / 1e6:.1f} MB")
+
+    return {"fts_all": len(all_rows), "fts_deals": len(deals_rows)}
+
+
 def build(db_path, out_path, categories_json=CATEGORIES_JSON,
           categories_tsv=PRODUCT_CATEGORIES_TSV):
     start = time.perf_counter()
@@ -334,6 +404,9 @@ def build(db_path, out_path, categories_json=CATEGORIES_JSON,
     conn.execute("DETACH DATABASE src")
 
     counts["categories"] = copy_categories(conn, load_categories(categories_json))
+    conn.commit()
+
+    counts.update(build_fts(conn))
     conn.commit()
 
     for statement in INDEXES:
