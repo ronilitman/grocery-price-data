@@ -5,10 +5,9 @@ These exercise the module directly, without building a database, plus one
 end-to-end check that a string build_match produces is actually accepted by
 a real FTS5 MATCH (the ``15%`` syntax-error case the KAN-8 spec calls out).
 
-Filler handling changed on 2026-09-14 (reviewer override): it is no longer
-stripped from indexed text, only ever trimmed from a *query*, and only when
-a non-filler token survives alongside it - see
-test_build_match_keeps_filler_tokens_when_nothing_else_is_left below for why.
+Filler handling changed on 2026-09-14 (reviewer override): it is neither
+stripped from indexed text nor dropped from queries - see
+test_build_match_keeps_filler_in_a_multi_word_query below for why.
 """
 
 import os
@@ -83,10 +82,14 @@ def test_build_match_on_percent_sign_is_accepted_by_real_fts5():
     conn.execute("SELECT * FROM t WHERE t MATCH ?", (match,)).fetchall()
 
 
-def test_build_match_drops_filler_only_when_a_non_filler_token_survives():
-    # "במבה 80 גרם": גרם is filler, במבה and 80 are not - drop only גרם.
-    match = app_search.build_match("במבה 80 גרם", filler={"גרם"})
-    assert match == '"במבה" OR "80"'
+def test_build_match_keeps_filler_in_a_multi_word_query():
+    # Dropping filler here searched "שוקולד חלב" (chocolate milk) as just
+    # "חלב" and ranked plain milk first on the real catalogue. Keeping both
+    # words lets bm25 put chocolate milk first.
+    assert app_search.build_match("שוקולד חלב", filler={"שוקולד"}) == \
+        '"שוקולד" OR "חלב"'
+    assert app_search.build_match("במבה 80 גרם", filler={"גרם"}) == \
+        '"במבה" OR "80" OR "גרם"'
 
 
 def test_build_match_keeps_filler_tokens_when_nothing_else_is_left():
