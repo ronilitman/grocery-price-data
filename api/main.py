@@ -1,9 +1,10 @@
 """FastAPI skeleton for the grocery-price-data catalogue API.
 
-This is KAN-10: the VM, Tailscale Funnel (HTTPS) and a `/health` endpoint
-only. `app.db` is built by `scripts/build_app_db.py` (KAN-6). `/search`,
-`/product` and the nightly build-and-swap are later subtasks (KAN-11, KAN-12,
-KAN-13) and are deliberately not built here.
+This is KAN-10: the VM, Tailscale Funnel (HTTPS) and a `/health` endpoint.
+`app.db` is built by `scripts/build_app_db.py` (KAN-6). `GET /search` is
+KAN-12 (`api/search.py`, included below). `/product` and the nightly
+build-and-swap are later subtasks (KAN-13, KAN-11) and are deliberately not
+built here.
 """
 from __future__ import annotations
 
@@ -158,6 +159,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(RateLimitMiddleware)
+
+from api.search import router as search_router  # noqa: E402  (KAN-12)
+
+app.include_router(search_router)
 
 
 @app.middleware("http")
