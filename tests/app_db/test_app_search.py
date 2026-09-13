@@ -4,6 +4,11 @@ time (build_app_db.build_fts) and query time (the API's /search, KAN-12).
 These exercise the module directly, without building a database, plus one
 end-to-end check that a string build_match produces is actually accepted by
 a real FTS5 MATCH (the ``15%`` syntax-error case the KAN-8 spec calls out).
+
+Filler handling changed on 2026-09-14 (reviewer override): it is no longer
+stripped from indexed text, only ever trimmed from a *query*, and only when
+a non-filler token survives alongside it - see
+test_build_match_keeps_filler_tokens_when_nothing_else_is_left below for why.
 """
 
 import os
@@ -78,12 +83,30 @@ def test_build_match_on_percent_sign_is_accepted_by_real_fts5():
     conn.execute("SELECT * FROM t WHERE t MATCH ?", (match,)).fetchall()
 
 
-def test_build_match_drops_filler_tokens():
-    assert app_search.build_match("גרם 500", filler={"גרם", "500"}) is None
+def test_build_match_drops_filler_only_when_a_non_filler_token_survives():
+    # "במבה 80 גרם": גרם is filler, במבה and 80 are not - drop only גרם.
+    match = app_search.build_match("במבה 80 גרם", filler={"גרם"})
+    assert match == '"במבה" OR "80"'
 
 
-def test_build_match_returns_none_for_all_filler_query():
-    assert app_search.build_match("the", filler={"the"}) is None
+def test_build_match_keeps_filler_tokens_when_nothing_else_is_left():
+    # 2026-09-14 reviewer override: the original rule dropped an all-filler
+    # query down to None, which on real data meant searching שוקולד
+    # (chocolate), עוף (chicken) or גרם found nothing at all - both words
+    # cleared the 1% filler threshold on the real catalogue. Now an
+    # all-filler query still searches every one of its own words.
+    assert app_search.build_match("שוקולד", filler={"שוקולד"}) == '"שוקולד"'
+    assert app_search.build_match("גרם", filler={"גרם"}) == '"גרם"'
+    assert app_search.build_match("גרם 500", filler={"גרם", "500"}) == \
+        '"גרם" OR "500"'
+
+
+def test_build_match_returns_none_only_when_there_are_no_tokens_at_all():
+    # Not "every token is filler" (that case now still searches, see above)
+    # - only a query that tokenises to nothing, filler or otherwise.
+    assert app_search.build_match("!!!", filler=set()) is None
+    assert app_search.build_match("", filler=set()) is None
+    assert app_search.build_match("a", filler=set()) is None  # too short
 
 
 def test_build_match_escapes_embedded_double_quotes():
@@ -93,6 +116,9 @@ def test_build_match_escapes_embedded_double_quotes():
     assert match == '"קג"'
 
 
-def test_index_text_drops_filler_and_joins_remaining_tokens():
-    assert app_search.index_text("גבינה צהובה 15% גרם", {"גרם"}) == \
-        "גבינה צהובה 15"
+def test_index_text_indexes_every_token_filler_included():
+    # 2026-09-14 reviewer override: index_text no longer takes or drops
+    # filler - see the module docstring for why (real words like שוקולד and
+    # עוף were being deleted from the index, not just packaging noise).
+    assert app_search.index_text("גבינה צהובה 15% גרם") == \
+        "גבינה צהובה 15 גרם"

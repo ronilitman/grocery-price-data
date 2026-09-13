@@ -2,16 +2,25 @@
 
 Two layers:
 
-* Direct FTS5 behaviour (ranking, an unmatched token, a filler-only query,
+* Direct FTS5 behaviour (ranking, an unmatched token, an all-filler query,
   gershayim/geresh spelling equivalence) against a small in-memory index
   built straight from ``scripts/app_search`` - the same functions
   ``build_fts`` and, later, the API's ``/search`` (KAN-12) call.
 * Wiring through ``build_app_db.build()`` against a fixture prices.db: that
-  ``fts_filler``/``fts_all``/``fts_deals`` end up populated, that filler
-  computed over the whole corpus is what actually gets stripped from an
-  indexed name, and that ``fts_deals`` is exactly the barcodes with a
-  ``discount_pct > 0`` deal - not every barcode on offer, and not every
-  barcode in the catalogue.
+  ``fts_filler``/``fts_all``/``fts_deals`` end up populated, that every
+  token - filler included - actually lands in the indexed name, and that
+  ``fts_deals`` is exactly the barcodes with a ``discount_pct > 0`` deal -
+  not every barcode on offer, and not every barcode in the catalogue.
+
+2026-09-14 reviewer override: the original spec stripped filler from indexed
+text as well as from queries. On the real catalogue that deleted genuine
+product words - שוקולד (chocolate), עוף (chicken), יין (wine), עוגיות
+(cookies) and סוכריות (sweets) all clear the 1% filler threshold - so
+searching any of them found nothing. Indexing now keeps every token, and
+``build_match`` only trims a *query* down to its filler words when at least
+one more distinctive word survives alongside them; an all-filler query still
+searches every word in it. See ``test_app_search.py`` for the unit-level
+cases and the two tests below for the "chocolate now findable" regression.
 """
 
 import json
@@ -33,14 +42,18 @@ import merge_db  # noqa: E402
 # Direct FTS5 behaviour
 # --------------------------------------------------------------------------
 
-def _make_index(rows, filler=frozenset()):
-    """An in-memory fts_all-shaped table from (barcode, raw_name) pairs."""
+def _make_index(rows):
+    """An in-memory fts_all-shaped table from (barcode, raw_name) pairs.
+
+    Every token is indexed - index_text no longer takes a filler set; only
+    build_match (query time) does.
+    """
     conn = sqlite3.connect(":memory:")
     conn.execute(
         "CREATE VIRTUAL TABLE fts_all USING fts5(name, barcode UNINDEXED, "
         "tokenize='unicode61 remove_diacritics 2')")
     for barcode, name in rows:
-        text = app_search.index_text(name, filler)
+        text = app_search.index_text(name)
         conn.execute(
             "INSERT INTO fts_all (name, barcode) VALUES (?,?)", (text, barcode))
     return conn
@@ -77,8 +90,21 @@ def test_unmatched_token_does_not_eliminate_the_query():
     assert CHEESE in results
 
 
-def test_filler_only_query_returns_none_before_any_query_runs():
-    assert app_search.build_match("500 גרם", filler={"500", "גרם"}) is None
+def test_all_filler_query_still_searches_its_own_words():
+    # 2026-09-14 reviewer override: this used to return None (a first cut of
+    # the spec dropped an all-filler query entirely), which - combined with
+    # index-time stripping - meant "שוקולד" found nothing on the real
+    # catalogue even though products named exactly that exist. Now it
+    # searches every word it has, filler or not.
+    filler = {"שוקולד"}
+    assert app_search.build_match("שוקולד", filler) == '"שוקולד"'
+
+    conn = _make_index([
+        (CHEESE, "גבינה צהובה 15% דק"),
+        ("choc-bar", "שוקולד חלב"),
+    ])
+    results = _search(conn, "שוקולד", filler=filler)
+    assert "choc-bar" in results
 
 
 def test_gershayim_and_geresh_spellings_both_match_the_unquoted_product():
@@ -160,7 +186,7 @@ def test_filler_is_computed_over_the_whole_corpus_and_stored(fixture_db, tmp_pat
     assert filler == {"גרם", "מוצר"}
 
 
-def test_fts_all_has_one_row_per_named_product_with_filler_stripped(fixture_db, tmp_path):
+def test_fts_all_has_one_row_per_named_product_every_token_indexed(fixture_db, tmp_path):
     out_path = str(tmp_path / "app.db")
     build_app_db.build(fixture_db, out_path)
 
@@ -172,8 +198,10 @@ def test_fts_all_has_one_row_per_named_product_with_filler_stripped(fixture_db, 
 
     assert len(rows) == total_named_products == FILLER_PRODUCT_COUNT + 2
     assert NO_NAME_BARCODE not in rows
-    assert rows[CHEESE_BARCODE] == "גבינה צהובה"
-    assert rows[CREAM_BARCODE] == "שמנת"
+    # גרם is real filler on this fixture (62/62 names) but it is NOT
+    # stripped from the indexed text - only a query can drop it.
+    assert rows[CHEESE_BARCODE] == "גבינה צהובה גרם"
+    assert rows[CREAM_BARCODE] == "שמנת גרם"
 
 
 def test_fts_deals_is_exactly_the_barcodes_on_a_real_discount(fixture_db, tmp_path):
@@ -191,7 +219,7 @@ def test_fts_deals_is_exactly_the_barcodes_on_a_real_discount(fixture_db, tmp_pa
     assert deal_barcodes == {CHEESE_BARCODE}
     assert fts_deals_barcodes == deal_barcodes
     assert CREAM_BARCODE not in fts_deals_barcodes
-    assert fts_deals_rows[CHEESE_BARCODE] == "גבינה צהובה"
+    assert fts_deals_rows[CHEESE_BARCODE] == "גבינה צהובה גרם"
 
 
 def test_a_match_against_the_built_fts_all_finds_the_product(fixture_db, tmp_path):
@@ -205,6 +233,9 @@ def test_a_match_against_the_built_fts_all_finds_the_product(fixture_db, tmp_pat
         "SELECT barcode FROM fts_all WHERE fts_all MATCH ?", (match,))]
     conn.close()
 
-    # "500" never appeared in any product name and "גרם" is filler - only
-    # "גבינה" survives to actually match, and it still finds the cheese.
+    # "גרם" is filler and "גבינה" survives alongside it, so the query drops
+    # only "גרם" ('"גבינה" OR "500"'). "500" never appeared in any product
+    # name (and every row's indexed text still carries its own "גרם" - that
+    # never mattered here since the query no longer asks for it) - only
+    # "גבינה" actually matches, and it still finds the cheese.
     assert results == [CHEESE_BARCODE]

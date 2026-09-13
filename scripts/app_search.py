@@ -1,7 +1,18 @@
 """One normaliser, shared by index time (build_app_db.py, KAN-8) and query
-time (the API's ``/search``, KAN-12), so a token that survives filler
-stripping when a name is indexed is tokenised exactly the same way when a
-user types it.
+time (the API's ``/search``, KAN-12), so a query is tokenised exactly the
+same way a name was when it was indexed.
+
+**Filler is a query-time concept only** (reviewer override on the original
+KAN-8 spec, 2026-09-14). The first cut of this module also stripped filler
+tokens from the indexed text; on real data that turned out to delete real
+product words, not just packaging noise - ``שוקולד`` (chocolate), ``עוף``
+(chicken), ``יין`` (wine), ``עוגיות`` (cookies) and ``סוכריות`` (sweets) all
+cleared the 1% threshold and vanished from the index, so searching for any
+of them found nothing. FTS5's ``bm25()`` already ranks a document dominated
+by a common word below one where the query term is distinctive, which is
+what filler was trying to approximate by hand - so now every token is
+indexed, and filler only trims a *query* when at least one more distinctive
+token survives alongside it (see ``build_match``).
 
 ``normalise``/``tokens`` mirror two existing rules rather than inventing a
 third: the quote characters stripped here are ``build_catalog.NAME_QUOTES``'s
@@ -56,14 +67,11 @@ def compute_filler(names, filler_at=FILLER_AT, floor=FILLER_FLOOR):
     return {token for token, count in freq.items() if count >= threshold}
 
 
-def index_text(name, filler):
-    """A product's name, normalised and with filler tokens dropped.
-
-    This is what goes into ``fts_all``/``fts_deals``' indexed ``name``
-    column - never the raw name - so a filler word can't sneak back in via a
-    substring match FTS5's tokenizer would still honour.
+def index_text(name):
+    """A product's name, normalised into the tokens ``fts_all``/``fts_deals``
+    index - every token, filler included (see the module docstring for why).
     """
-    return " ".join(t for t in tokens(name) if t not in filler)
+    return " ".join(tokens(name))
 
 
 def build_match(query, filler):
@@ -71,13 +79,20 @@ def build_match(query, filler):
 
     Every token is double-quoted (doubling an embedded ``"``) because a raw
     token handed to ``MATCH`` is a syntax error waiting to happen - ``15%``
-    raises ``fts5: syntax error near "%"`` unquoted. Filler tokens are
-    dropped the same way they were at index time, and an all-filler (or
-    entirely unindexable) query returns ``None`` so the caller can skip
-    running a query at all rather than asking FTS5 to match nothing.
+    raises ``fts5: syntax error near "%"`` unquoted.
+
+    Filler is dropped from the *query* only when at least one non-filler
+    token remains alongside it - ``"במבה 80 גרם"`` searches for במבה and 80,
+    not גרם. When every token is filler (``"שוקולד"``, ``"עוף"``, ``"גרם
+    500"``) dropping them all would leave nothing to search when the words
+    themselves are exactly what the user typed, so all of them are kept
+    instead. ``None`` means there was nothing to search at all - no tokens
+    survived tokenising, not even a filler one.
     """
-    kept = [t for t in tokens(query) if t not in filler]
-    if not kept:
+    toks = tokens(query)
+    if not toks:
         return None
-    quoted = ['"{}"'.format(t.replace('"', '""')) for t in kept]
+    kept = [t for t in toks if t not in filler]
+    use = kept if kept else toks
+    quoted = ['"{}"'.format(t.replace('"', '""')) for t in use]
     return " OR ".join(quoted)

@@ -98,17 +98,20 @@ CREATE TABLE deals(
     -- Discounts page is what filters to > 0, not this build step.
     discount_pct REAL,
     branches BLOB NOT NULL);
--- Words dropped from both indexes below (KAN-8): carried on 1%+ of product
--- names (same rule as build_catalog.NAME_FILLER_AT), so they describe
--- packaging rather than product and would dominate every query that
--- contains them (58ms filtering `fts_all` after a join on filler word
--- `גרם`, measured). The query-time half of this same rule lives in
--- scripts/app_search.build_match, which drops the identical tokens from a
--- user's search.
+-- Words carried by 1%+ of product names (same rule as
+-- build_catalog.NAME_FILLER_AT). NOT dropped from the indexes below - a
+-- first cut of this table did that and it deleted real product words along
+-- with packaging noise (שוקולד/chocolate, עוף/chicken and יין/wine all
+-- clear 1% on the real catalogue), so searching any of them found nothing.
+-- This is a query-time table only: scripts/app_search.build_match trims a
+-- *query* to its filler words only when every other word in it is also
+-- filler, so bm25() - which already ranks a document dominated by a common
+-- word below a more distinctive match - gets to do the actual work.
 CREATE TABLE fts_filler(token TEXT PRIMARY KEY);
--- One row per product, name normalised and filler-stripped (scripts.
--- app_search.index_text). No generics grouping here - out of scope for this
--- table, the API's job per the KAN-8 spec.
+-- One row per product, every token of its name indexed (scripts.
+-- app_search.index_text) - filler included, see fts_filler above. No
+-- generics grouping here - out of scope for this table, the API's job per
+-- the KAN-8 spec.
 CREATE VIRTUAL TABLE fts_all USING fts5(
     name, barcode UNINDEXED, tokenize='unicode61 remove_diacritics 2');
 -- Same shape as fts_all, narrowed to the barcodes currently on a real
@@ -328,11 +331,15 @@ def build_deals(conn, bit_of, category_map):
 def build_fts(conn):
     """Populate fts_filler, fts_all and fts_deals (KAN-8).
 
-    Filler is computed once, over every product name, before either index is
-    built, so fts_all, fts_deals and a client's query-time
-    ``app_search.build_match`` can never disagree about which words are
-    dropped. ``deals`` must already be populated (build_deals runs first) -
-    fts_deals reads it directly rather than re-deriving "on offer" itself.
+    Every token of every name is indexed, filler included (2026-09-14
+    reviewer override - the original spec stripped filler from the indexed
+    text too, which on real data deleted words like שוקולד/chocolate and
+    עוף/chicken, not just packaging noise). Filler is still computed and
+    stored in fts_filler: it is what ``app_search.build_match`` trims a
+    *query* down to, at query time, when doing so leaves at least one more
+    distinctive token behind. ``deals`` must already be populated
+    (build_deals runs first) - fts_deals reads it directly rather than
+    re-deriving "on offer" itself.
     """
     names = [name for (name,) in conn.execute(
         "SELECT name FROM products WHERE name <> ''")]
@@ -341,7 +348,7 @@ def build_fts(conn):
         "INSERT INTO fts_filler VALUES (?)", [(t,) for t in sorted(filler)])
 
     all_rows = [
-        (app_search.index_text(name, filler), barcode)
+        (app_search.index_text(name), barcode)
         for barcode, name in conn.execute(
             "SELECT barcode, name FROM products WHERE name <> ''")
     ]
@@ -352,7 +359,7 @@ def build_fts(conn):
     deal_barcodes = [barcode for (barcode,) in conn.execute(
         "SELECT DISTINCT barcode FROM deals WHERE discount_pct > 0")]
     deals_rows = [
-        (app_search.index_text(name_of.get(barcode) or "", filler), barcode)
+        (app_search.index_text(name_of.get(barcode) or ""), barcode)
         for barcode in deal_barcodes
     ]
     conn.executemany("INSERT INTO fts_deals (name, barcode) VALUES (?,?)", deals_rows)
