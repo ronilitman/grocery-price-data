@@ -1,0 +1,243 @@
+slug	generic_key	primary	note
+apple	ברשת תפוח	yes	netted, unspecified variety
+apple	בחוץ תפוח		loose, matches Sity Market produce_units row
+apple	יבוא תפוח		imported, unspecified variety
+apple	פרימיום תפוח		premium grade, unspecified variety
+apple-gala	גאלה תפוח	yes	
+apple-gala	גלה תפוח		alt spelling גלה/גאלה (skill note)
+apple-golden	זהוב תפוח	yes	
+apple-hermon	חרמון תפוח	yes	Starking = Hermon (skill note; Shufersal row confirms)
+apple-jonathan	יונתן תפוח	yes	
+apple-pink	פינק תפוח	yes	Pink Lady, short form
+apple-pink	פינקלידי תפוח		Pink Lady, one word
+apple-smith	גרנד תפוח	yes	confirmed via produce_units Dabach row 'תפוח גרנד ברשת'
+avocado	אבוקדו	yes	
+avocado	BL אבוקדו		cultivar code, price fits
+avocado	אבוקדו אטינגר		Ettinger cultivar; confirmed in produce_units
+avocado	אבוקדו בחוץ		loose
+avocado	אבוקדו בקרטון		in carton
+avocado	אבוקדו בקרטונ		in carton, alt form
+avocado	אבוקדו ברשת		
+avocado	אבוקדו האס		Hass cultivar; not split in produce_units
+avocado	אבוקדו הס		alt spelling of Hass
+avocado	אבוקדו ישראלי		confirmed in produce_units (Politzer row)
+avocado	אבוקדו מובחר		select grade
+banana	בננה	yes	
+banana	בננה בקרטון		in carton
+beetroot	סלק	yes	
+beetroot	אדום סלק		beetroot is inherently red; colour split rule is for peppers/onion/cabbage only
+beetroot	אורגני סלק		organic
+beetroot	ישראלי סלק		Israeli
+broccoli	ברוקולי משקל	yes	confirmed via produce_units Politzer row
+broccoli	ברוקולי תפזורת		confirmed via produce_units Dabach row
+cabbage-red	אדום כרוב	yes	
+cabbage-white	כרוב לבן	yes	
+carrot	גזר	yes	
+carrot	10 גזר		bulk pack, same product
+carrot	אורגני גזר		organic
+carrot	בתפזורת גזר		loose/bulk
+carrot	גזר ישראלי		Israeli
+carrot	גזר צבעוני		rainbow carrot, price within range
+carrot	גזר תפזורת		loose/bulk, alt phrasing
+cauliflower	כרובית	yes	
+cauliflower	אורגנית כרובית		organic
+cauliflower	ישראלי כרובית		Israeli
+cauliflower	כרובית לק"ג		per-kg labelling, same product
+cauliflower	כרובית סגולה		purple cauliflower, price within range
+cauliflower	כרובית צבעונית		colourful cauliflower, price close to range
+cauliflower	כרובית שקיל		sold by weight
+clementine	קלמנטינה	yes	
+clementine	65 קלמנטינה		size grade
+clementine	70 קלמנטינה		size grade
+clementine	אור קלמנטינה		Or cultivar
+clementine	אורגנית קלמנטינה		organic
+clementine	ברשת קלמנטינה		netted
+clementine	מנדרינה קלמנטינה		confirmed via produce_units Politzer/Super Yuda rows
+corn	תירס	yes	
+corn	גרעיני תירס		loose corn kernels
+corn	החוף תירס		brand, price fits
+corn	העמק תירס		brand, price fits
+corn	טרי תירס		confirmed via produce_units Rami Levy row
+corn	לבן תירס		white corn, confirmed via produce_units Machsanei HaShuk row
+corn	מתוק תירס		sweet corn descriptor
+corn	שבור תירס		lower grade, price fits
+cucumber	מלפפון	yes	
+cucumber	אורגני מלפפון		organic
+cucumber	ישראלי מלפפון		confirmed via produce_units Politzer row
+cucumber	מובחר מלפפון		select grade
+cucumber	מלפפון פקוס		cultivar, price fits
+cucumber-baby	ביבי מלפפון	yes	
+cucumber-baladi	בלדי מלפפון	yes	
+eggplant	חציל	yes	
+eggplant	איטלקי חציל		Italian variety, price fits
+eggplant	בקרטון חציל		in carton
+eggplant	בתירי חציל		cut form, price fits
+eggplant	חממה חציל		confirmed via produce_units Dabach row
+eggplant	חציל ישראלי		confirmed via produce_units Politzer row
+eggplant	חציל מנומר		spotted/variegated, price fits
+eggplant	חציל ננסי		Nancy/dwarf cultivar, price fits
+eggplant	חציל קטן		small size
+eggplant-baladi	בלדי חציל	yes	confirmed via produce_units (13 chains split across two spellings)
+eggplant-baladi	בלאדי חציל		confirmed via produce_units (alt spelling)
+fennel	שומר	yes	
+garlic-fresh	טרי שום	yes	
+garlic-fresh	במשקל שום		confirmed via produce_units Dor Alon row
+garlic-fresh	בתפזורת שום		confirmed via produce_units Osher Ad row
+garlic-fresh	יבש שום		confirmed via produce_units King Store row
+garlic-fresh	ירוק שום		confirmed via produce_units Fresh Market row
+garlic-fresh	צעיר שום		confirmed via produce_units Sity Market row
+garlic-fresh	שום		confirmed via produce_units Sity Market row
+garlic-fresh	שום תפזורת		confirmed via produce_units Dabach row
+garlic-peeled	גבישי שום	yes	
+garlic-peeled	שום שיני		loose peeled cloves, price fits
+grapefruit	אדומה אשכולית	yes	all produce_units rows are red grapefruit
+grapefruit	אשכולית ברשת		netted, price fits
+kohlrabi	קולורבי	yes	
+kohlrabi	סגול קולורבי		purple kohlrabi, price fits
+lemon	לימון	yes	
+lemon	4 9 לימון		confirmed via produce_units City Market row (literal name 'לימון 4.9')
+lemon	אורגני לימון		organic
+lemon	בחוץ לימון		loose
+lemon	ברשת לימון		confirmed via produce_units Osher Ad row
+lemon	לימון סיני		confirmed via produce_units Politzer/Hatzi Hinam rows
+lemon	לימון שקיל		confirmed via produce_units Machsanei HaShuk row
+lettuce	דרלן חסה	yes	confirmed via produce_units Carrefour row
+lettuce	חסה סלנובה		Salanova cultivar, price fits
+lettuce	חסה צבעונית		confirmed via produce_units City Market row
+loquat	שסק	yes	
+loquat	שסק שקיל		sold by weight
+mango	מנגו	yes	
+mango	במשקל מנגו		sold by weight
+mango	בקרטונ מנגו		in carton
+mango	מאיה מנגו		Maya cultivar; not split per produce_units treatment of Shelly
+mango	מנגו שלי		Shelly cultivar, confirmed via produce_units Hatzi Hinam row
+melon	מלון	yes	
+melon	אורגני מלון		organic
+melon	ארומה מלון		confirmed via produce_units Hatzi Hinam row
+melon	בוכרי מלון		Bukhari cultivar
+melon	בקרטון מלון		in carton
+melon	גולדן מלון		Golden cultivar
+melon	חרבוזה מלון		Kharbuza, synonym
+melon	כתום מלון		confirmed via produce_units King Store row
+melon	מובחר מלון		confirmed via produce_units Shufersal row
+melon	מלון ספרדי		Spanish cultivar
+melon	מלון פונטו		confirmed via produce_units Carrefour row
+melon	מלון קנרי		Canary cultivar
+melon	מלון שרנטה		Charentais cultivar
+melon	מלון שרנתיה		alt spelling of Charentais
+onion	בצל יבש	yes	
+onion	בצל		confirmed via produce_units Osher Ad row
+onion	בצל יבוא		imported
+onion	בצל לאש		use/cut descriptor, price fits
+onion	בצל פנינה		pearl onion, same species, small cultivar
+onion	בצל קטן		small
+onion	בצל שיפוד		skewer-cut onion
+onion-red	אדום בצל	yes	
+onion-red	בצל סגול		purple = red onion, confirmed via produce_units Hatzi Hinam/Dabach/Super Yuda rows
+orange	תפוז	yes	
+orange	אדום תפוז		colour descriptor
+orange	ברשת תפוז		confirmed via produce_units multiple rows
+orange	גדול תפוז		size grade
+orange	דם תפוז		blood orange, price overlaps plain range
+orange	סיני תפוז		confirmed via produce_units City Market/Machsanei HaShuk rows
+orange	רשת תפוז		alt phrasing of netted
+pear	אגס	yes	
+pear	50 אגס ספדונה		size grade
+pear	50 אגס קוסטיה		size grade
+pear	55 אגס ספדונה		size grade
+pear	55 אגס קוסטיה		size grade
+pear	60 אגס ספדונה		size grade
+pear	אגס אדום		colour variant; colour split rule is for peppers/onion/cabbage only
+pear	אגס אורגני		organic
+pear	אגס ארגנטינאי		confirmed via produce_units Hatzi Hinam row
+pear	אגס חום		confirmed via produce_units Politzer row (אגסים חומים)
+pear	אגס חומ		same, alt inflection
+pear	אגס יבוא		imported
+pear	אגס ישראלי		Israeli
+pear	אגס כוס"יה		confirmed via produce_units Rami Levy row
+pear	אגס נאשי		Nashi/apple-pear, confirmed via produce_units Stop Market row
+pear	אגס נשי		alt spelling of Nashi
+pear	אגס ספדונה		Spadona cultivar
+pear	אגס ספרד		Spanish origin
+pear	אגס קוסטיה		Costia cultivar, confirmed via produce_units Osher Ad row
+pear	אגס תפוח		apple-pear/Nashi, confirmed via produce_units Fresh Market/City Market rows
+pepper-green	ירוק פלפל	yes	
+pepper-green	בהיר פלפל		light green, confirmed via produce_units Osher Ad row (פלפל ירוק בהיר)
+pepper-hot	חריף פלפל	yes	
+pepper-red	אדום פלפל	yes	
+pepper-yellow	פלפל צהוב	yes	
+persimmon	אפרסמון	yes	
+persimmon	70 אפרסמון		size grade
+persimmon	אפרסמון גדול		confirmed via produce_units Politzer row
+persimmon	אפרסמון ישראלי		Israeli
+persimmon	אפרסמון מובחר		confirmed via produce_units Shufersal row
+persimmon	אפרסמון קרמבו		Sharon-fruit cultivar, confirmed via produce_units Super Yuda row
+pomegranate	רימון	yes	
+pomegranate	אדום רימון		confirmed via produce_units Rami Levy row
+pomegranate	בקרטון רימון		in carton
+pomegranate	טרי רימון		confirmed via produce_units Politzer row
+pomelo	פומלה	yes	
+pumpkin	דלעת	yes	
+pumpkin	אדמה דלעת		'א.אדמה' designation, price fits
+pumpkin	אורגנית דלעת		organic
+pumpkin	אישית דלעת		personal size
+pumpkin	אקזוטי דלעת		exotic variety, price fits
+pumpkin	אקזוטית דלעת		same, feminine form
+pumpkin	דלעת חתוכה		confirmed via produce_units Carrefour/Hatzi Hinam rows
+pumpkin	דלעת יונית		Greek origin, price fits
+pumpkin	דלעת יפנית		kabocha, common eating pumpkin, price fits
+pumpkin	דלעת ישראלי		Israeli
+pumpkin	דלעת מיני		confirmed via produce_units Victory row (their only pumpkin SKU)
+pumpkin	דלעת ערמונים		chestnut/kabocha squash, most common eating pumpkin, price fits
+pumpkin	דלעת פלחי		cut wedges, price fits
+pumpkin	דלעת שקיל		sold by weight
+quince	חבוש	yes	
+quince	במשקל חבוש		sold by weight, higher grade
+quince	חבוש יון		Greek origin
+quince	חבוש ספרד		Spanish origin
+radish	צנון	yes	
+radish	בלדי צנון		price fits
+radish	גדול צנון		confirmed via produce_units Super Yuda row
+radish	ישראלי צנון		Israeli
+radish	צנון שחור		black radish, price fits
+squash-butternut	דלורית	yes	
+squash-butternut	אורגנית דלורית		organic
+squash-butternut	דלורית ישראלי		confirmed via produce_units Politzer row
+squash-butternut	דלורית מנומר		spotted/variegated, price fits
+sweet-potato	בטטה	yes	
+sweet-potato	בטטה ביבי		baby size, price fits
+sweet-potato	בטטה לבנה		white-fleshed variety, price fits
+sweet-potato	בטטה מובחרת		select grade
+sweet-potato	בטטה מיני		mini size
+sweet-potato	בטטה מתוקה		confirmed via produce_units King Store row
+sweet-potato	בטטה סגולה		purple/Okinawan variety, price fits
+sweet-potato	בטטה קוסביה		cultivar, price close to range
+tomato	עגבניה	yes	
+tomato	אשכול עגבניה		same as plain tomato per spec
+tomato	בחוץ עגבניה		loose
+tomato	בקרטון עגבניה		in carton
+tomato	ירדן עגבניה		Jordan origin, price fits
+tomato	ישראלי עגבניה		Israeli
+tomato	לבישול עגבניה		cooking tomatoes
+tomato	מובחרת עגבניה		select grade
+tomato	עגבניה תמר		same as plain tomato per spec
+tomato-cherry	עגבניה שרי	yes	
+tomato-maggie	מגי עגבניה	yes	
+turnip	לפת	yes	
+watermelon	אבטיח	yes	
+watermelon	אבטיח אורגני		organic
+watermelon	אבטיח אישי		personal size
+watermelon	אבטיח ביבי		baby size
+watermelon	אבטיח במיכל		in container
+watermelon	אבטיח ג'ולי		Julie cultivar, price fits
+watermelon	אבטיח גולי		confirmed via produce_units YELLOW row
+watermelon	אבטיח מיני		mini size
+watermelon	אבטיח שלם		whole, confirmed via produce_units Shufersal/Hatzi Hinam rows
+zucchini	קישוא	yes	
+zucchini	בקרטון קישוא		confirmed via produce_units Shufersal row
+zucchini	זוקיני קישוא		redundant naming of the same vegetable
+zucchini	זיקוני קישוא		alt spelling
+zucchini	חממה קישוא		confirmed via produce_units Dabach row
+zucchini	ירוק קישוא		green (redundant colour descriptor)
+zucchini	ישראלי קישוא		confirmed via produce_units Politzer row
+zucchini	מובחר קישוא		select grade, price fits

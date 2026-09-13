@@ -29,11 +29,15 @@ import time
 
 import app_search
 import bitmap
+import generics as generics_mod
 import offers as offers_mod
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CATEGORIES_JSON = os.path.join(ROOT, "data", "categories.json")
 PRODUCT_CATEGORIES_TSV = os.path.join(ROOT, "data", "product_categories.tsv")
+# KAN-9
+PRODUCE_UNITS_TSV = os.path.join(ROOT, "data", "produce_units.tsv")
+PRODUCE_GENERIC_MAP_TSV = os.path.join(ROOT, "data", "produce_generic_map.tsv")
 
 # Same shape as merge_db.SCHEMA for every table we carry over, plus three new
 # columns on products and the deals/store_bits pair. promo_offers,
@@ -122,6 +126,30 @@ CREATE VIRTUAL TABLE fts_deals USING fts5(
     name, barcode UNINDEXED, tokenize='unicode61 remove_diacritics 2');
 """
 
+# KAN-9: loose produce, layered on top of the algorithmic generics grouping.
+# Its own schema block and its own call site (build_produce, below) so it
+# stays self-contained next to KAN-8's search work in this same file.
+SCHEMA_PRODUCE = """
+CREATE TABLE produce_units(
+    slug TEXT NOT NULL, name_he TEXT, kind TEXT, chain_id TEXT NOT NULL,
+    chain_name TEXT, barcode TEXT NOT NULL, chain_product_name TEXT,
+    price REAL, note TEXT);
+-- One row per generics.json key (scripts/generics.py's build_catalog.py
+-- output), so a genericKey already saved in Firestore keeps resolving.
+CREATE TABLE generics(
+    key TEXT PRIMARY KEY, name TEXT, weighted INTEGER, unit TEXT,
+    image_id TEXT, aliases_json TEXT);
+-- One row per (key, chain_id) pair from a generics.json entry's "p" map -
+-- the member barcode that chain prices under this generic.
+CREATE TABLE generic_members(
+    key TEXT NOT NULL, chain_id TEXT NOT NULL, barcode TEXT NOT NULL);
+-- data/produce_generic_map.tsv, decided by reading (see .claude/skills/
+-- unify-produce/SKILL.md and the KAN-9 report) - never by pattern or score.
+CREATE TABLE produce_generic_map(
+    slug TEXT NOT NULL, generic_key TEXT NOT NULL, is_primary INTEGER NOT NULL,
+    note TEXT);
+"""
+
 INDEXES = [
     "CREATE INDEX idx_products_category_sort "
     "ON products(category_id, sort_key, barcode)",
@@ -131,6 +159,13 @@ INDEXES = [
     "CREATE INDEX idx_deals_chain_cat_discount "
     "ON deals(chain_id, category_id, discount_pct DESC, deal_id)",
     "CREATE INDEX idx_deals_barcode ON deals(barcode)",
+    # KAN-9
+    "CREATE INDEX idx_produce_units_barcode ON produce_units(barcode)",
+    "CREATE INDEX idx_produce_units_slug ON produce_units(slug)",
+    "CREATE INDEX idx_generic_members_key ON generic_members(key)",
+    "CREATE INDEX idx_generic_members_barcode ON generic_members(chain_id, barcode)",
+    "CREATE INDEX idx_produce_generic_map_slug ON produce_generic_map(slug)",
+    "CREATE INDEX idx_produce_generic_map_key ON produce_generic_map(generic_key)",
 ]
 
 # Tables copied verbatim from the source. products is handled separately
@@ -262,6 +297,83 @@ def build_store_bits(conn):
         rows.extend((chain_id, sid, i) for i, sid in enumerate(store_ids))
     conn.executemany("INSERT INTO store_bits VALUES (?,?,?)", rows)
     return bit_of, len(rows)
+
+
+def load_tsv(path):
+    """A no-frills TSV reader: header row names the columns, everything else
+    is a plain dict. Used for both produce_units.tsv and
+    produce_generic_map.tsv, which are hand-edited files, not build output.
+    """
+    with open(path, encoding="utf-8") as handle:
+        head = handle.readline().rstrip("\n").split("\t")
+        return [dict(zip(head, line.rstrip("\n").split("\t")))
+                for line in handle if line.strip()]
+
+
+def build_produce(conn, units_tsv=PRODUCE_UNITS_TSV,
+                   map_tsv=PRODUCE_GENERIC_MAP_TSV):
+    """KAN-9: loose produce, on top of the algorithmic generics grouping.
+
+    Loads data/produce_units.tsv verbatim, runs generics_mod.from_db(conn) -
+    the exact function build_catalog.py calls - and loads
+    data/produce_generic_map.tsv, the hand-read slug<->key map.
+
+    Must run after the COPY step above has populated THIS connection's own
+    chain_products/chain_prices/products tables: generics_mod.from_db reads
+    those unqualified (no ``src.`` prefix), so calling it here - after they
+    hold a full copy of the source db's rows - produces byte-identical keys
+    to what build_catalog.py writes to generics.json, which is the whole
+    point: a genericKey already saved in Firestore must keep resolving.
+    """
+    conn.executescript(SCHEMA_PRODUCE)
+
+    units = load_tsv(units_tsv)
+    conn.executemany(
+        "INSERT INTO produce_units "
+        "(slug, name_he, kind, chain_id, chain_name, barcode, "
+        " chain_product_name, price, note) VALUES (?,?,?,?,?,?,?,?,?)",
+        [(r["slug"], r["name_he"], r["kind"], r["chain_id"], r["chain_name"],
+          r["barcode"], r["chain_product_name"], float(r["price"]), r["note"])
+         for r in units])
+
+    generics, _of_barcode = generics_mod.from_db(conn)
+    generic_rows, member_rows = [], []
+    for key, entry in generics.items():
+        generic_rows.append((
+            key, entry["n"], entry.get("w", 0), entry.get("u"),
+            entry.get("i"), json.dumps(entry.get("a", []), ensure_ascii=False),
+        ))
+        for chain_id, (_price, _count, barcode) in entry["p"].items():
+            member_rows.append((key, chain_id, barcode))
+    conn.executemany(
+        "INSERT INTO generics (key, name, weighted, unit, image_id, aliases_json) "
+        "VALUES (?,?,?,?,?,?)", generic_rows)
+    conn.executemany(
+        "INSERT INTO generic_members (key, chain_id, barcode) VALUES (?,?,?)",
+        member_rows)
+
+    # The map was built by reading one specific generics build. If this
+    # prices.db groups produce differently (a chain joined/left, a name
+    # changed), a stale key would silently point at nothing - fail the build
+    # instead, the same way build_deals fails loudly on a store_bits gap.
+    known_keys = set(generics)
+    gmap = load_tsv(map_tsv)
+    map_rows = []
+    for r in gmap:
+        if r["generic_key"] not in known_keys:
+            raise ValueError(
+                f"produce_generic_map.tsv maps {r['slug']!r} to "
+                f"{r['generic_key']!r}, which this build's generics_mod.from_db "
+                f"did not produce - the map was read against a different "
+                f"prices.db than this one; re-run the unify-produce skill's "
+                f"reading step against a current merged database")
+        map_rows.append((r["slug"], r["generic_key"],
+                          1 if r["primary"] == "yes" else 0, r["note"]))
+    conn.executemany(
+        "INSERT INTO produce_generic_map (slug, generic_key, is_primary, note) "
+        "VALUES (?,?,?,?)", map_rows)
+
+    return len(units), len(generic_rows), len(member_rows), len(map_rows)
 
 
 def build_deals(conn, bit_of, category_map):
@@ -401,6 +513,14 @@ def build(db_path, out_path, categories_json=CATEGORIES_JSON,
 
     category_map = load_category_map(categories_tsv)
     counts["products"] = copy_products(conn, category_map)
+
+    # KAN-9: needs chain_products/chain_prices/products already populated
+    # above (unqualified - no src. prefix - see build_produce's docstring).
+    # Passed explicitly (not via build_produce's own defaults) so a test can
+    # monkeypatch the module-level paths and have it take effect here.
+    (counts["produce_units"], counts["generics"],
+     counts["generic_members"], counts["produce_generic_map"]) = build_produce(
+        conn, units_tsv=PRODUCE_UNITS_TSV, map_tsv=PRODUCE_GENERIC_MAP_TSV)
 
     bit_of, store_bits_rows = build_store_bits(conn)
     counts["store_bits"] = store_bits_rows
