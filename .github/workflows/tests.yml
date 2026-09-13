@@ -27,8 +27,10 @@ jobs:
       # from git and takes minutes. The tests import scripts/ directly and need
       # nothing but the standard library - except requests, which scripts/
       # netiv.py imports at module scope and which installs in a second.
+      # api/requirements.txt is small (fastapi + uvicorn) and installed too,
+      # since tests/api exercises the FastAPI app.
       - name: Install pytest
-        run: pip install pytest requests
+        run: pip install pytest requests -r api/requirements.txt
 
       - name: Run the tests
         run: python -m pytest tests/ -v
