@@ -101,9 +101,12 @@ def client_ip_for(request: Request) -> str:
     if peer in LOOPBACK_HOSTS:
         forwarded = request.headers.get("x-forwarded-for")
         if forwarded:
-            # Leftmost entry is the original client (Funnel appends, it
-            # doesn't prepend a trusted proxy's own address here).
-            return forwarded.split(",")[0].strip()
+            # Rightmost entry, not leftmost: the leftmost is whatever the
+            # caller sent, so behind a proxy that appends, every request could
+            # claim a fresh address and dodge the limit. Funnel currently
+            # replaces the header (a burst with forged values still hits 429),
+            # and the rightmost entry is the real client either way.
+            return forwarded.split(",")[-1].strip()
     return peer
 
 

@@ -1,15 +1,25 @@
+import math
+import time
+
 from fastapi.testclient import TestClient
 
-from api.main import RATE_LIMIT_BURST, app
+from api.main import RATE_LIMIT_BURST, RATE_LIMIT_PER_SECOND, app
 
 
 def test_burst_past_the_limit_gets_429s(monkeypatch, fixture_db):
     monkeypatch.setenv("APP_DB", str(fixture_db))
     client = TestClient(app)
 
+    started = time.monotonic()
     statuses = [client.get("/health").status_code for _ in range(int(RATE_LIMIT_BURST) + 20)]
+    elapsed = time.monotonic() - started
 
-    assert statuses.count(200) <= RATE_LIMIT_BURST
+    # The bucket keeps refilling while the burst runs, so a slower machine
+    # legitimately lets a few more through than the burst size. Allowing for
+    # exactly that refill keeps the test honest without making it flaky: it
+    # still fails if the limiter lets the whole burst through.
+    allowed = RATE_LIMIT_BURST + math.ceil(RATE_LIMIT_PER_SECOND * elapsed)
+    assert statuses.count(200) <= allowed
     assert 429 in statuses
 
 
@@ -64,3 +74,20 @@ def test_x_forwarded_for_ignored_when_peer_is_not_loopback(monkeypatch, fixture_
 
     assert 429 in statuses_a
     assert status_b == 429
+
+
+def test_forged_leftmost_forwarded_entry_does_not_dodge_the_limit(monkeypatch, fixture_db):
+    """If a proxy appends to a client-supplied X-Forwarded-For, the leftmost
+    entry is attacker-controlled. Rotating it on every request must not give
+    each request a fresh bucket - only the rightmost, proxy-added entry counts."""
+    monkeypatch.setenv("APP_DB", str(fixture_db))
+    client = _client_with_peer("127.0.0.1")
+    statuses = [
+        client.get(
+            "/health",
+            headers={"X-Forwarded-For": f"10.9.0.{i % 250}, 100.64.1.1"},
+        ).status_code
+        for i in range(int(RATE_LIMIT_BURST) + 20)
+    ]
+
+    assert 429 in statuses
