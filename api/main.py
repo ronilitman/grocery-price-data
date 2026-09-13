@@ -1,9 +1,9 @@
 """FastAPI skeleton for the grocery-price-data catalogue API.
 
-This is KAN-10: the VM, TLS and a `/health` endpoint only. `app.db` itself is
-KAN-6 (parallel, not available yet - see api/README.md for how `live.db` was
-seeded for this subtask). `/search`, `/product` and the nightly swap are later
-subtasks (KAN-11, KAN-12, KAN-13) and are deliberately not built here.
+This is KAN-10: the VM, Tailscale Funnel (HTTPS) and a `/health` endpoint
+only. `app.db` is built by `scripts/build_app_db.py` (KAN-6). `/search`,
+`/product` and the nightly build-and-swap are later subtasks (KAN-11, KAN-12,
+KAN-13) and are deliberately not built here.
 """
 from __future__ import annotations
 
@@ -86,6 +86,27 @@ class _Bucket:
         self.last = last
 
 
+# Funnel proxies every request through the tailnet, so the TCP peer FastAPI
+# sees is always 127.0.0.1 - keying the bucket on request.client.host would
+# put every real client in one shared bucket. Funnel sets X-Forwarded-For to
+# the actual client's tailnet IP, but that header is a client-supplied string
+# to anything that can reach the box directly, so it is only trusted when the
+# TCP peer is loopback - i.e. it can only have been added by something
+# running on the VM itself.
+LOOPBACK_HOSTS = {"127.0.0.1", "::1"}
+
+
+def client_ip_for(request: Request) -> str:
+    peer = request.client.host if request.client else "unknown"
+    if peer in LOOPBACK_HOSTS:
+        forwarded = request.headers.get("x-forwarded-for")
+        if forwarded:
+            # Leftmost entry is the original client (Funnel appends, it
+            # doesn't prepend a trusted proxy's own address here).
+            return forwarded.split(",")[0].strip()
+    return peer
+
+
 class RateLimitMiddleware(BaseHTTPMiddleware):
     def __init__(
         self,
@@ -100,7 +121,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self._lock = asyncio.Lock()
 
     async def dispatch(self, request: Request, call_next):
-        client_ip = request.client.host if request.client else "unknown"
+        client_ip = client_ip_for(request)
         now = time.monotonic()
         async with self._lock:
             bucket = self._buckets.get(client_ip)
@@ -163,13 +184,18 @@ def health(v: Optional[str] = None):
     try:
         conn = get_connection()
         try:
-            row = conn.execute("SELECT built_at, chain_as_of FROM meta").fetchone()
-            if row is None:
+            meta = dict(
+                conn.execute(
+                    "SELECT key, value FROM meta WHERE key IN ('built_at', 'chain_as_of')"
+                ).fetchall()
+            )
+            built_at = meta.get("built_at")
+            if built_at is None:
                 return JSONResponse(
                     status_code=503,
                     content={"error": f"meta table is empty: {path}"},
                 )
-            built_at, chain_as_of_raw = row
+            chain_as_of_raw = meta.get("chain_as_of")
             chain_as_of = json.loads(chain_as_of_raw) if chain_as_of_raw else {}
             (products,) = conn.execute("SELECT COUNT(*) FROM products").fetchone()
         finally:

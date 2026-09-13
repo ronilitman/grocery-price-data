@@ -16,10 +16,15 @@ FIXTURE_PRODUCTS = [
 def _build_fixture_db(path: Path) -> None:
     conn = sqlite3.connect(path)
     try:
-        conn.execute("CREATE TABLE meta (built_at TEXT, chain_as_of TEXT)")
-        conn.execute(
-            "INSERT INTO meta (built_at, chain_as_of) VALUES (?, ?)",
-            (FIXTURE_BUILT_AT, json.dumps(FIXTURE_CHAIN_AS_OF)),
+        # key/value, matching scripts/build_app_db.py's real meta table -
+        # not a single row with built_at/chain_as_of columns.
+        conn.execute("CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT)")
+        conn.executemany(
+            "INSERT INTO meta (key, value) VALUES (?, ?)",
+            [
+                ("built_at", FIXTURE_BUILT_AT),
+                ("chain_as_of", json.dumps(FIXTURE_CHAIN_AS_OF)),
+            ],
         )
         conn.execute("CREATE TABLE products (barcode TEXT PRIMARY KEY, name TEXT)")
         conn.executemany(
