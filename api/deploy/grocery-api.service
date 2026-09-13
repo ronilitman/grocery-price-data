@@ -1,0 +1,19 @@
+[Unit]
+Description=grocery-price-data catalogue API
+After=network.target
+
+[Service]
+User=grocery
+Group=grocery
+WorkingDirectory=/srv/grocery/app
+Environment=APP_DB=/srv/grocery/data/live.db
+ExecStart=/srv/grocery/venv/bin/uvicorn api.main:app --host 127.0.0.1 --port 8000 --workers 1
+Restart=always
+RestartSec=2
+
+# The box has 969 MB RAM total - one worker only.
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,5 @@
+# Test-only deps, not installed on the VM. `httpx` is what FastAPI's
+# TestClient needs under the hood.
+-r requirements.txt
+httpx==0.28.1
+pytest==8.3.4
