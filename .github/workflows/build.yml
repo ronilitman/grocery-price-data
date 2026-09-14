@@ -359,7 +359,15 @@ jobs:
         id: push
         run: |
           set +e
-          scp -o StrictHostKeyChecking=accept-new \
+          # ConnectTimeout matters here: tested against the real VM before
+          # the owner's tailnet ACL/SSH rule existed, a blocked connection
+          # doesn't get refused - it hangs until TCP's own timeout, which
+          # took over 2 minutes. Without this the step (and the whole publish
+          # job, since nothing after it needs to wait) would sit idle for
+          # however long the runner's TCP stack allows, every single night,
+          # until the owner finishes the prerequisites below.
+          SSH_OPTS="-o StrictHostKeyChecking=accept-new -o ConnectTimeout=15"
+          scp $SSH_OPTS \
             "$RUNNER_TEMP/app.db.zst" "$RUNNER_TEMP/app.db.json" \
             grocery@grocery-api.tail1b4121.ts.net:/srv/grocery/data/incoming/
           if [ $? -ne 0 ]; then
@@ -371,7 +379,7 @@ jobs:
           # a keypair. swap-app-db.sh (KAN-11's Step 1) does the rest:
           # decompress, verify, swap, restart, poll /health, roll back on
           # failure.
-          ssh -o StrictHostKeyChecking=accept-new grocery@grocery-api.tail1b4121.ts.net \
+          ssh $SSH_OPTS grocery@grocery-api.tail1b4121.ts.net \
             sudo /srv/grocery/bin/swap-app-db.sh
           if [ $? -eq 0 ]; then
             echo "result=swapped on the VM" >> "$GITHUB_OUTPUT"
