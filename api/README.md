@@ -43,10 +43,17 @@ One-time VM setup (packages, the `grocery` user, `/srv/grocery/{app,venv,data}`,
 the venv) - idempotent, safe to re-run:
 
 ```bash
+gcloud compute scp api/deploy/swap-app-db.sh api/deploy/grocery-swap-app-db.sudoers \
+  grocery-api:/tmp/ --project gen-lang-client-0902689301 \
+  --zone us-central1-a --tunnel-through-iap
 gcloud compute ssh grocery-api --project gen-lang-client-0902689301 \
   --zone us-central1-a --tunnel-through-iap --command "sudo bash -s" \
   < api/deploy/install.sh
 ```
+
+(install.sh runs entirely over stdin, so it has no access to sibling repo
+files - the swap script and its sudoers grant are staged at fixed `/tmp`
+paths by the `scp` first. Both commands are idempotent.)
 
 Shipping code (and every redeploy after) - run from the Mac, from the repo
 root:
@@ -76,25 +83,155 @@ none are stale), matching the shape already published in the JSON contract's
 `index.json` (see the root `CLAUDE.md`). `GET /health` reads both keys and
 decodes `chain_as_of`.
 
-## Seeding / updating `live.db`
+## Nightly app.db push and swap (KAN-11)
 
 The API reads `/srv/grocery/data/live.db` (override with the `APP_DB` env
-var - the tests do this to point at a fixture). It is built with
-`scripts/build_app_db.py` from a merged `prices.db` and copied up with
-`gcloud compute scp --tunnel-through-iap`:
+var - the tests do this to point at a fixture). Every night, after
+`.github/workflows/build.yml`'s `publish` job has already deployed the JSON
+shards to Pages, it also:
+
+1. Builds `app.db` from the same `prices.db` (`scripts/build_app_db.py`) and
+   a manifest describing it (`scripts/app_db_manifest.py` - `built_at`,
+   `sha256` of the uncompressed file, byte size, row counts for `products`,
+   `chain_prices` and `deals`).
+2. Compresses it with `zstd -19 --long -T0` (see the workflow for why zstd
+   over gzip: mainly `--long`'s cross-file matching on a ~500 MB SQLite file
+   with a lot of repetition - roughly 5x smaller than the uncompressed file,
+   markedly better than gzip on the same data. The VM's `install.sh` installs
+   the same `zstd` so decompression uses the identical tool/flags).
+3. Joins the tailnet as an ephemeral `tag:ci` node (`tailscale/github-action`)
+   and `scp`s `app.db.zst` + `app.db.json` to
+   `grocery@grocery-api.tail1b4121.ts.net:/srv/grocery/data/incoming/` over
+   Tailscale SSH - no key, authorised by the tailnet policy (see "Owner
+   prerequisites" below).
+4. Runs `ssh grocery@grocery-api.tail1b4121.ts.net sudo /srv/grocery/bin/swap-app-db.sh`,
+   which does the actual swap (see "The swap script" below).
+
+Every step from "Build app.db" onward runs **after** `deploy-pages` and is
+`continue-on-error: true`, and `prices.db` is moved to `$RUNNER_TEMP` rather
+than deleted before app.db is built - a broken build or an unreachable VM can
+never turn tonight's shard publish red. Until the owner has added the two
+`TS_OAUTH_*` repository secrets (see below), the credentials-check step
+prints a `::notice::` and every push step is skipped - the workflow change is
+safe to merge before that happens. The job summary always records whether
+app.db was published, its sizes and the swap result.
+
+### The swap script
+
+`api/deploy/swap-app-db.sh`, installed at `/srv/grocery/bin/swap-app-db.sh`
+(root-owned, mode 0755, **not** writable by `grocery`) by `api/deploy/install.sh`.
+`grocery` may run it as root, and only it, via the sudoers drop-in
+`api/deploy/grocery-swap-app-db.sudoers` (installed at
+`/etc/sudoers.d/grocery-swap-app-db`) - so the nightly SSH session can trigger
+a swap without ever having a real root shell.
+
+Given `/srv/grocery/data/incoming/app.db.zst` + `app.db.json`, it:
+
+1. Exits early ("already current") if the manifest's `sha256` matches
+   `/srv/grocery/data/live.sha256` - a re-run changes nothing.
+2. Decompresses to `next.db` and verifies, in order: `sha256`,
+   `PRAGMA quick_check = ok`, `products > 200,000`, and that `meta.built_at`
+   is newer than `live.db`'s (ISO-8601 strings compare correctly as plain
+   text - see the `meta` table section above). Any failure here deletes
+   `next.db` and leaves `live.db` completely untouched.
+3. Only once everything above passes: `live.db` -> `prev.db`, `next.db` ->
+   `live.db`, writes `live.sha256`, `chown`s to `grocery`, restarts
+   `grocery-api`, and polls `/health` for up to 60s until its `built_at`
+   matches. A poll timeout rolls back to `prev.db`, restarts again, and exits
+   non-zero.
+
+Every decision is logged with `logger -t swap-app-db` - see "Logs" below. A
+`flock` on `/srv/grocery/data/.swap-app-db.lock` keeps a manual run and a
+nightly run from ever racing each other.
+
+### Running a swap manually (over IAP)
 
 ```bash
+# Build + describe an app.db, from the repo root:
 python3 scripts/build_app_db.py --db prices.db --out app.db
-gcloud compute scp app.db grocery-api:/tmp/app.db \
+python3 scripts/app_db_manifest.py --db app.db --out app.db.json
+zstd -19 --long -T0 app.db -o app.db.zst
+
+# Land both files in incoming/ (scp can't write there directly as your own
+# gcloud/IAP identity - it isn't `grocery` - so stage via /tmp and move+chown
+# as root; the nightly job instead scp's directly as `grocery` over
+# Tailscale SSH, which owns that directory):
+gcloud compute scp app.db.zst app.db.json grocery-api:/tmp/ \
   --project gen-lang-client-0902689301 --zone us-central1-a --tunnel-through-iap
 gcloud compute ssh grocery-api --project gen-lang-client-0902689301 \
   --zone us-central1-a --tunnel-through-iap --command "
-    sudo chmod 644 /tmp/app.db
-    sudo -u grocery mv /tmp/app.db /srv/grocery/data/live.db
+    sudo mv /tmp/app.db.zst /tmp/app.db.json /srv/grocery/data/incoming/
+    sudo chown grocery:grocery /srv/grocery/data/incoming/app.db.zst /srv/grocery/data/incoming/app.db.json
+    sudo -u grocery sudo /srv/grocery/bin/swap-app-db.sh"
+```
+
+Then check `https://grocery-api.tail1b4121.ts.net/health` for the new
+`built_at`, and `sudo journalctl -t swap-app-db -n 30` for the decision log.
+
+### Rolling back to `prev.db`
+
+A failed health poll already does this automatically. To do it by hand (e.g.
+a bad build that still passed every check):
+
+```bash
+gcloud compute ssh grocery-api --project gen-lang-client-0902689301 \
+  --zone us-central1-a --tunnel-through-iap --command "
+    sudo mv /srv/grocery/data/live.db /tmp/bad.db
+    sudo mv /srv/grocery/data/prev.db /srv/grocery/data/live.db
+    sudo mv /tmp/bad.db /srv/grocery/data/prev.db
+    sudo rm -f /srv/grocery/data/live.sha256
+    sudo chown grocery:grocery /srv/grocery/data/live.db /srv/grocery/data/prev.db
     sudo systemctl restart grocery-api"
 ```
 
-The nightly automated pull-and-swap is KAN-11 - out of scope here.
+`live.sha256` is removed because it would otherwise still name the bad
+build's hash, and swap-app-db.sh's "already current" check (step 1 above)
+would then wrongly treat a retry of that same bad manifest as a no-op.
+
+### Owner prerequisites
+
+Three things only the owner can do; the workflow change is written to be
+safe to merge before any of them exist (see above).
+
+**1. Tailnet policy** - two tags and an access + SSH rule, in the Tailscale
+admin console's Access Controls (policy file):
+
+```json
+{
+  "tagOwners": {
+    "tag:ci": ["autogroup:admin"],
+    "tag:server": ["autogroup:admin"]
+  },
+  "acls": [
+    {"action": "accept", "src": ["tag:ci"], "dst": ["tag:server:*"]}
+  ],
+  "ssh": [
+    {
+      "action": "accept",
+      "src": ["tag:ci"],
+      "dst": ["tag:server"],
+      "users": ["grocery"]
+    }
+  ]
+}
+```
+
+Merge these into the existing policy JSON rather than replacing it.
+
+**2. Tag the VM** as `tag:server` - either in the admin Machines page, or by
+approving `sudo tailscale up --advertise-tags=tag:server --ssh` run on the
+VM (this repo does not do this).
+
+**3. An OAuth client** - Tailscale admin console, Settings -> OAuth clients ->
+Generate. Scope: write access to Auth Keys. Tag: `tag:ci`. Add its client ID
+and secret as GitHub repository secrets (Settings -> Secrets and variables ->
+Actions) named exactly:
+
+- `TS_OAUTH_CLIENT_ID`
+- `TS_OAUTH_SECRET`
+
+Once all three are done, the next `workflow_dispatch` (or nightly cron) run
+pushes and swaps app.db automatically - no further change needed here.
 
 ## Tailscale Funnel
 
@@ -112,9 +249,14 @@ extra service to enable.
 ## Logs
 
 ```bash
-sudo journalctl -u grocery-api -f     # the API
-sudo journalctl -u tailscaled -f      # Tailscale / Funnel
+sudo journalctl -u grocery-api -f       # the API
+sudo journalctl -u tailscaled -f        # Tailscale / Funnel
+sudo journalctl -t swap-app-db -n 30    # the last nightly/manual swap decision log
 ```
+
+CI's own job summary (the "Job summary - nightly app.db push" step) records
+whether app.db was built, its sizes and the swap outcome for every run,
+without needing to SSH in at all.
 
 ## Tests
 

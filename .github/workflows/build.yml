@@ -263,10 +263,14 @@ jobs:
           # no 407 MB download. prices.db stays on the Release for anyone who
           # wants to run arbitrary SQL against it.
           cp client/index.html dist/index.html
-          # prices.db is built and verified but no longer published: it has
-          # outgrown GitHub's 2 GB release-asset limit, and the site reads the
-          # JSON shards regardless. Nothing consumed the release copy.
-          rm -f dist/prices.db
+          # prices.db is built and verified but no longer published as a
+          # Pages file: it has outgrown GitHub's 2 GB release-asset limit and
+          # the site reads the JSON shards regardless. Moved rather than
+          # deleted (KAN-11): the nightly app.db build further down reads it
+          # from here, *after* Pages has already published, so a problem
+          # building or pushing app.db can never hold up tonight's shard
+          # publish - the one thing this job exists to do reliably.
+          mv dist/prices.db "$RUNNER_TEMP/prices.db"
           du -sh dist dist/catalog
           ls -1 dist
 
@@ -294,4 +298,103 @@ jobs:
           path: dist
       - id: pages
         uses: actions/deploy-pages@v4
+
+      # --- Nightly app.db build + push (KAN-11) --------------------------
+      #
+      # Everything below runs *after* deploy-pages and is continue-on-error:
+      # true, so a bug here can never turn tonight's shard publish red. The
+      # VM has no public IPv4 and cannot reach GitHub (see api/README.md),
+      # so CI pushes app.db to it instead of the VM pulling - over a
+      # Tailscale connection this runner joins just for that push.
+      - name: Build app.db
+        id: build_app_db
+        continue-on-error: true
+        run: |
+          python scripts/build_app_db.py --db "$RUNNER_TEMP/prices.db" --out "$RUNNER_TEMP/app.db"
+          python scripts/app_db_manifest.py --db "$RUNNER_TEMP/app.db" --out "$RUNNER_TEMP/app.db.json"
+          cat "$RUNNER_TEMP/app.db.json"
+          # zstd -19 --long: this is a ~500 MB SQLite file with a lot of
+          # long-range repetition (many near-duplicate price rows) - -long
+          # lets zstd match across the whole file instead of a small window,
+          # which is where most of the win over gzip comes from here. -T0
+          # uses all runner cores; -19 is slow (~1 min) but this step already
+          # can't block Pages, and a smaller upload matters more than a
+          # faster CI job on a box with no public IPv4 to push to. The VM's
+          # install.sh installs zstd too, so the same tool decompresses it.
+          command -v zstd >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq zstd)
+          zstd -19 --long -T0 -f "$RUNNER_TEMP/app.db" -o "$RUNNER_TEMP/app.db.zst"
+          ls -lh "$RUNNER_TEMP"/app.db "$RUNNER_TEMP"/app.db.zst "$RUNNER_TEMP"/app.db.json
+
+      # Safe to merge before the owner sets these: with no secrets, this
+      # writes a ::notice:: and every step below is skipped rather than
+      # failing (the same pattern grocery-list-app/.github/workflows/
+      # deploy.yml uses for its Firebase secret).
+      - name: Are Tailscale push credentials configured?
+        id: ts_creds
+        if: always()
+        env:
+          TS_OAUTH_CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          TS_OAUTH_SECRET: ${{ secrets.TS_OAUTH_SECRET }}
+        run: |
+          if [ -n "$TS_OAUTH_CLIENT_ID" ] && [ -n "$TS_OAUTH_SECRET" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::app.db built, push to the VM skipped: add TS_OAUTH_CLIENT_ID and TS_OAUTH_SECRET repo secrets to turn it on (see api/README.md, 'Owner prerequisites')."
+          fi
+
+      - name: Join the tailnet (tag:ci)
+        if: steps.ts_creds.outputs.ready == 'true'
+        continue-on-error: true
+        id: ts_join
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
+      - name: Push app.db and swap it in on the VM
+        if: steps.ts_creds.outputs.ready == 'true' && steps.ts_join.outcome == 'success'
+        continue-on-error: true
+        id: push
+        run: |
+          set +e
+          scp -o StrictHostKeyChecking=accept-new \
+            "$RUNNER_TEMP/app.db.zst" "$RUNNER_TEMP/app.db.json" \
+            grocery@grocery-api.tail1b4121.ts.net:/srv/grocery/data/incoming/
+          if [ $? -ne 0 ]; then
+            echo "result=scp to the VM failed" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # No key needed - this is Tailscale SSH, authorised by the tailnet
+          # policy's ACL/SSH rule (tag:ci -> tag:server, user grocery), not by
+          # a keypair. swap-app-db.sh (KAN-11's Step 1) does the rest:
+          # decompress, verify, swap, restart, poll /health, roll back on
+          # failure.
+          ssh -o StrictHostKeyChecking=accept-new grocery@grocery-api.tail1b4121.ts.net \
+            sudo /srv/grocery/bin/swap-app-db.sh
+          if [ $? -eq 0 ]; then
+            echo "result=swapped on the VM" >> "$GITHUB_OUTPUT"
+          else
+            echo "result=swap-app-db.sh failed on the VM (see its journal there)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Job summary - nightly app.db push
+        if: always()
+        run: |
+          {
+            echo "### Nightly app.db push (KAN-11)"
+            if [ "${{ steps.build_app_db.outcome }}" = "success" ]; then
+              echo "- app.db built: $(du -h "$RUNNER_TEMP/app.db" 2>/dev/null | cut -f1), compressed: $(du -h "$RUNNER_TEMP/app.db.zst" 2>/dev/null | cut -f1)"
+            else
+              echo "- app.db build **failed** - see the 'Build app.db' step, Pages was unaffected"
+            fi
+            if [ "${{ steps.ts_creds.outputs.ready }}" != "true" ]; then
+              echo "- push to the VM: skipped, Tailscale secrets not configured (see the notice above)"
+            elif [ "${{ steps.ts_join.outcome }}" != "success" ]; then
+              echo "- push to the VM: skipped, could not join the tailnet"
+            else
+              echo "- push to the VM: ${{ steps.push.outputs.result || 'no result recorded' }}"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
