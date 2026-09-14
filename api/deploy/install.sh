@@ -68,6 +68,15 @@ passwd -l deploy >/dev/null
 
 mkdir -p /srv/grocery/app /srv/grocery/venv /srv/grocery/data
 chown grocery:grocery /srv/grocery/app /srv/grocery/venv
+# /srv/grocery itself must be root-owned too. It is grocery's home, and a
+# directory's owner can rename any entry in it - even a root-owned one - so
+# while grocery owned it, it could move data/ (or the swap script's
+# .swap-work) aside and put its own directory full of symlinks in its place,
+# undoing every permission below. pip's cache stays writable in ~/.cache.
+chown root:root /srv/grocery
+chmod 0755 /srv/grocery
+mkdir -p /srv/grocery/.cache
+chown grocery:grocery /srv/grocery/.cache
 # root:grocery 0750, not grocery:grocery - 'grocery' (the API) only ever
 # needs to *read* live.db (a read-only sqlite connection); it must not be
 # able to write here at all. This directory, and only this directory
