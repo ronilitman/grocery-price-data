@@ -1,0 +1,17 @@
+# Lets the dedicated 'deploy' account run exactly one command as root, with
+# no password prompt: the nightly app.db swap (KAN-11), triggered by CI over
+# Tailscale SSH as `ssh deploy@grocery-api.tail1b4121.ts.net sudo /srv/grocery/bin/swap-app-db.sh`.
+#
+# 'deploy' is a login-capable account created solely for this (shell
+# /bin/bash, no password - see install.sh) and is deliberately NOT the
+# 'grocery' service account that runs the API: 'grocery' has shell
+# /usr/sbin/nologin (Tailscale SSH cannot run commands as it at all) and,
+# more importantly, is the account an API RCE would land in - it must never
+# gain a path to root. 'deploy' owns nothing but its own upload directory
+# (/srv/grocery/incoming, 0700) and has no other sudo rights.
+#
+# Installed by api/deploy/install.sh at /etc/sudoers.d/deploy-swap-app-db,
+# root:root, mode 0440. The target script is root-owned and not writable by
+# 'deploy' (see install.sh), so this grant cannot be used to run anything
+# but that exact, reviewed file.
+deploy ALL=(root) NOPASSWD: /srv/grocery/bin/swap-app-db.sh

@@ -344,7 +344,7 @@ jobs:
           fi
 
       - name: Join the tailnet (tag:ci)
-        if: steps.ts_creds.outputs.ready == 'true'
+        if: steps.build_app_db.outcome == 'success' && steps.ts_creds.outputs.ready == 'true'
         continue-on-error: true
         id: ts_join
         uses: tailscale/github-action@v3
@@ -354,7 +354,7 @@ jobs:
           tags: tag:ci
 
       - name: Push app.db and swap it in on the VM
-        if: steps.ts_creds.outputs.ready == 'true' && steps.ts_join.outcome == 'success'
+        if: steps.build_app_db.outcome == 'success' && steps.ts_creds.outputs.ready == 'true' && steps.ts_join.outcome == 'success'
         continue-on-error: true
         id: push
         run: |
@@ -367,19 +367,23 @@ jobs:
           # however long the runner's TCP stack allows, every single night,
           # until the owner finishes the prerequisites below.
           SSH_OPTS="-o StrictHostKeyChecking=accept-new -o ConnectTimeout=15"
+          # 'deploy', not 'grocery' (the API's service account, which has
+          # shell /usr/sbin/nologin and can't run commands over SSH at all -
+          # see the KAN-11 rework notes in api/README.md). incoming/ is
+          # deploy's own directory now, a sibling of data/, not under it.
           scp $SSH_OPTS \
             "$RUNNER_TEMP/app.db.zst" "$RUNNER_TEMP/app.db.json" \
-            grocery@grocery-api.tail1b4121.ts.net:/srv/grocery/data/incoming/
+            deploy@grocery-api.tail1b4121.ts.net:/srv/grocery/incoming/
           if [ $? -ne 0 ]; then
             echo "result=scp to the VM failed" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           # No key needed - this is Tailscale SSH, authorised by the tailnet
-          # policy's ACL/SSH rule (tag:ci -> tag:server, user grocery), not by
+          # policy's ACL/SSH rule (tag:ci -> tag:server, user deploy), not by
           # a keypair. swap-app-db.sh (KAN-11's Step 1) does the rest:
-          # decompress, verify, swap, restart, poll /health, roll back on
-          # failure.
-          ssh $SSH_OPTS grocery@grocery-api.tail1b4121.ts.net \
+          # quarantine + verify the untrusted upload, decompress, verify,
+          # swap, restart, poll /health, roll back on failure.
+          ssh $SSH_OPTS deploy@grocery-api.tail1b4121.ts.net \
             sudo /srv/grocery/bin/swap-app-db.sh
           if [ $? -eq 0 ]; then
             echo "result=swapped on the VM" >> "$GITHUB_OUTPUT"
@@ -397,7 +401,9 @@ jobs:
             else
               echo "- app.db build **failed** - see the 'Build app.db' step, Pages was unaffected"
             fi
-            if [ "${{ steps.ts_creds.outputs.ready }}" != "true" ]; then
+            if [ "${{ steps.build_app_db.outcome }}" != "success" ]; then
+              echo "- push to the VM: skipped, app.db build failed"
+            elif [ "${{ steps.ts_creds.outputs.ready }}" != "true" ]; then
               echo "- push to the VM: skipped, Tailscale secrets not configured (see the notice above)"
             elif [ "${{ steps.ts_join.outcome }}" != "success" ]; then
               echo "- push to the VM: skipped, could not join the tailnet"

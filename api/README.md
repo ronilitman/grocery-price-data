@@ -39,11 +39,12 @@ gcloud compute ssh grocery-api --project gen-lang-client-0902689301 \
 
 ## Deploying
 
-One-time VM setup (packages, the `grocery` user, `/srv/grocery/{app,venv,data}`,
-the venv) - idempotent, safe to re-run:
+One-time VM setup (packages, the `grocery` service account, the `deploy`
+account, `/srv/grocery/{app,venv,data,bin}` + `/srv/grocery/incoming`, the
+venv) - idempotent, safe to re-run:
 
 ```bash
-gcloud compute scp api/deploy/swap-app-db.sh api/deploy/grocery-swap-app-db.sudoers \
+gcloud compute scp api/deploy/swap-app-db.sh api/deploy/deploy-swap-app-db.sudoers \
   grocery-api:/tmp/ --project gen-lang-client-0902689301 \
   --zone us-central1-a --tunnel-through-iap
 gcloud compute ssh grocery-api --project gen-lang-client-0902689301 \
@@ -101,11 +102,14 @@ shards to Pages, it also:
    the same `zstd` so decompression uses the identical tool/flags).
 3. Joins the tailnet as an ephemeral `tag:ci` node (`tailscale/github-action`)
    and `scp`s `app.db.zst` + `app.db.json` to
-   `grocery@grocery-api.tail1b4121.ts.net:/srv/grocery/data/incoming/` over
+   `deploy@grocery-api.tail1b4121.ts.net:/srv/grocery/incoming/` over
    Tailscale SSH - no key, authorised by the tailnet policy (see "Owner
    prerequisites" below).
-4. Runs `ssh grocery@grocery-api.tail1b4121.ts.net sudo /srv/grocery/bin/swap-app-db.sh`,
+4. Runs `ssh deploy@grocery-api.tail1b4121.ts.net sudo /srv/grocery/bin/swap-app-db.sh`,
    which does the actual swap (see "The swap script" below).
+
+`deploy` (not `grocery`, the API's own service account) is who this SSH
+session logs in as - see "Two accounts, two trust levels" below for why.
 
 Every step from "Build app.db" onward runs **after** `deploy-pages` and is
 `continue-on-error: true`, and `prices.db` is moved to `$RUNNER_TEMP` rather
@@ -116,17 +120,48 @@ prints a `::notice::` and every push step is skipped - the workflow change is
 safe to merge before that happens. The job summary always records whether
 app.db was published, its sizes and the swap result.
 
+### Two accounts, two trust levels
+
+A KAN-11 review found that the first version of this design let a
+compromised `grocery` (the API's own service account - the account an API
+RCE lands in) escalate to root: `grocery` owned `/srv/grocery/data`
+entirely, so it could replace `live.db` with a symlink (say, to
+`/etc/sudoers`) and have the root-run swap script follow it via `mv`/`chown`.
+Fixed by splitting the one account into two, with different jobs and
+different trust:
+
+|  | `grocery` | `deploy` |
+| --- | --- | --- |
+| Runs | the API (`uvicorn`) | nothing - exists only for CI's nightly SSH session |
+| Shell | `/usr/sbin/nologin` - **cannot run commands at all**, even locally | `/bin/bash`, password login disabled (Tailscale SSH's tailnet-identity auth is the only way in) |
+| Owns | `/srv/grocery/{app,venv}` | `/srv/grocery/incoming` only (`0700`) |
+| Write access to `/srv/grocery/data` | **none** (`root:grocery 0750` - group-**read** only, for the API's read-only sqlite connection) | **none** |
+| sudo rights | none | `NOPASSWD: /srv/grocery/bin/swap-app-db.sh`, nothing else |
+
+Neither account can write to `/srv/grocery/data` at all - only root
+(running `swap-app-db.sh`) can. That's what closes the escalation: there is
+no path left from either account to a symlink the swap script would follow.
+
 ### The swap script
 
 `api/deploy/swap-app-db.sh`, installed at `/srv/grocery/bin/swap-app-db.sh`
-(root-owned, mode 0755, **not** writable by `grocery`) by `api/deploy/install.sh`.
-`grocery` may run it as root, and only it, via the sudoers drop-in
-`api/deploy/grocery-swap-app-db.sudoers` (installed at
-`/etc/sudoers.d/grocery-swap-app-db`) - so the nightly SSH session can trigger
+(root-owned, mode 0755, **not** writable by `deploy` or `grocery`) by
+`api/deploy/install.sh`. `deploy` may run it as root, and only it, via the
+sudoers drop-in `api/deploy/deploy-swap-app-db.sudoers` (installed at
+`/etc/sudoers.d/deploy-swap-app-db`) - so the nightly SSH session can trigger
 a swap without ever having a real root shell.
 
-Given `/srv/grocery/data/incoming/app.db.zst` + `app.db.json`, it:
+Given `/srv/grocery/incoming/app.db.zst` + `app.db.json` (owned by `deploy`,
+a lower-privilege account - **untrusted input**), it:
 
+0. **Quarantines first, validates second.** Renames both files into a
+   root-only work directory (`/srv/grocery/.swap-work`, `root:root 0700`)
+   *before* looking at them at all - `mv`/`rename()` doesn't dereference its
+   source, so if `deploy` planted a symlink (e.g. `app.db.json` ->
+   `/etc/shadow`), it arrives here still as a symlink, and once moved
+   `deploy` can no longer swap the underlying file out from under the check
+   below. Anything that isn't a plain regular file (`[ -L ]`/`[ -f ]`) is
+   refused outright. `incoming/` is never read from again this run.
 1. Exits early ("already current") if the manifest's `sha256` matches
    `/srv/grocery/data/live.sha256` - a re-run changes nothing.
 2. Decompresses to `next.db` and verifies, in order: `sha256`,
@@ -135,14 +170,15 @@ Given `/srv/grocery/data/incoming/app.db.zst` + `app.db.json`, it:
    text - see the `meta` table section above). Any failure here deletes
    `next.db` and leaves `live.db` completely untouched.
 3. Only once everything above passes: `live.db` -> `prev.db`, `next.db` ->
-   `live.db`, writes `live.sha256`, `chown`s to `grocery`, restarts
+   `live.db`, writes `live.sha256`, `chown root:grocery` + `chmod 0640`
+   (readable by the API, writable by nothing but root), restarts
    `grocery-api`, and polls `/health` for up to 60s until its `built_at`
    matches. A poll timeout rolls back to `prev.db`, restarts again, and exits
    non-zero.
 
 Every decision is logged with `logger -t swap-app-db` - see "Logs" below. A
-`flock` on `/srv/grocery/data/.swap-app-db.lock` keeps a manual run and a
-nightly run from ever racing each other.
+`flock` on `/srv/grocery/data/.swap-app-db.lock` (root-owned) keeps a manual
+run and a nightly run from ever racing each other.
 
 ### Running a swap manually (over IAP)
 
@@ -153,16 +189,16 @@ python3 scripts/app_db_manifest.py --db app.db --out app.db.json
 zstd -19 --long -T0 app.db -o app.db.zst
 
 # Land both files in incoming/ (scp can't write there directly as your own
-# gcloud/IAP identity - it isn't `grocery` - so stage via /tmp and move+chown
-# as root; the nightly job instead scp's directly as `grocery` over
+# gcloud/IAP identity - it isn't `deploy` - so stage via /tmp and move+chown
+# as root; the nightly job instead scp's directly as `deploy` over
 # Tailscale SSH, which owns that directory):
 gcloud compute scp app.db.zst app.db.json grocery-api:/tmp/ \
   --project gen-lang-client-0902689301 --zone us-central1-a --tunnel-through-iap
 gcloud compute ssh grocery-api --project gen-lang-client-0902689301 \
   --zone us-central1-a --tunnel-through-iap --command "
-    sudo mv /tmp/app.db.zst /tmp/app.db.json /srv/grocery/data/incoming/
-    sudo chown grocery:grocery /srv/grocery/data/incoming/app.db.zst /srv/grocery/data/incoming/app.db.json
-    sudo -u grocery sudo /srv/grocery/bin/swap-app-db.sh"
+    sudo mv /tmp/app.db.zst /tmp/app.db.json /srv/grocery/incoming/
+    sudo chown deploy:deploy /srv/grocery/incoming/app.db.zst /srv/grocery/incoming/app.db.json
+    sudo -u deploy sudo /srv/grocery/bin/swap-app-db.sh"
 ```
 
 Then check `https://grocery-api.tail1b4121.ts.net/health` for the new
@@ -180,7 +216,8 @@ gcloud compute ssh grocery-api --project gen-lang-client-0902689301 \
     sudo mv /srv/grocery/data/prev.db /srv/grocery/data/live.db
     sudo mv /tmp/bad.db /srv/grocery/data/prev.db
     sudo rm -f /srv/grocery/data/live.sha256
-    sudo chown grocery:grocery /srv/grocery/data/live.db /srv/grocery/data/prev.db
+    sudo chown root:grocery /srv/grocery/data/live.db /srv/grocery/data/prev.db
+    sudo chmod 0640 /srv/grocery/data/live.db /srv/grocery/data/prev.db
     sudo systemctl restart grocery-api"
 ```
 
@@ -210,7 +247,7 @@ admin console's Access Controls (policy file):
       "action": "accept",
       "src": ["tag:ci"],
       "dst": ["tag:server"],
-      "users": ["grocery"]
+      "users": ["deploy"]
     }
   ]
 }
