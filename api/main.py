@@ -3,8 +3,10 @@
 This is KAN-10: the VM, Tailscale Funnel (HTTPS) and a `/health` endpoint.
 `app.db` is built by `scripts/build_app_db.py` (KAN-6). `GET /search` is
 KAN-12 (`api/search.py`). `/meta`, `/product`, `/generic` and `POST
-/products` are KAN-13 (`api/products.py`). The nightly build-and-swap
-(KAN-11) is a separate subtask and deliberately not built here.
+/products` are KAN-13 (`api/products.py`). `GET /categories` and `GET
+/categories/{id}/products` are KAN-17 (`api/categories.py`). The nightly
+build-and-swap (KAN-11) is a separate subtask and deliberately not built
+here.
 """
 from __future__ import annotations
 
@@ -35,11 +37,14 @@ def db_path() -> str:
     return os.environ.get("APP_DB", DEFAULT_DB_PATH)
 
 # grocery-list-app's origins (Firebase Hosting + its firebaseapp.com alias)
-# plus the Vite dev server. Nothing else - see KAN-10's spec.
+# plus the Vite dev servers. Nothing else - see KAN-10's spec.
 ALLOWED_ORIGINS = [
     "https://gen-lang-client-0902689301.web.app",
     "https://gen-lang-client-0902689301.firebaseapp.com",
     "http://localhost:5173",
+    # KAN-17's own dev server (Categories page), run on its own port per the
+    # 2026-09-14 spec update so it doesn't collide with KAN-15's 5173/5175.
+    "http://localhost:5174",
 ]
 
 # Nothing caches this response today. Sending the header from day one is
@@ -163,10 +168,12 @@ app.add_middleware(RateLimitMiddleware)
 from api.search import router as search_router  # noqa: E402  (KAN-12)
 from api.products import router as products_router  # noqa: E402  (KAN-13)
 from api.deals import router as deals_router  # noqa: E402  (KAN-15)
+from api.categories import router as categories_router  # noqa: E402  (KAN-17)
 
 app.include_router(search_router)
 app.include_router(products_router)
 app.include_router(deals_router)
+app.include_router(categories_router)
 
 
 @app.middleware("http")

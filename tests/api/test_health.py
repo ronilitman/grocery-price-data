@@ -70,3 +70,14 @@ def test_cors_header_absent_for_disallowed_origin(monkeypatch, fixture_db):
     resp = client.get("/health", headers={"Origin": "https://example.com"})
 
     assert "access-control-allow-origin" not in resp.headers
+
+
+def test_cors_header_present_for_kan17_dev_server(monkeypatch, fixture_db):
+    """KAN-17's Categories page runs its dev server on its own port (5174,
+    per the 2026-09-14 spec update) so it doesn't collide with KAN-15's."""
+    monkeypatch.setenv("APP_DB", str(fixture_db))
+    client = TestClient(app)
+
+    resp = client.get("/health", headers={"Origin": "http://localhost:5174"})
+
+    assert resp.headers.get("access-control-allow-origin") == "http://localhost:5174"

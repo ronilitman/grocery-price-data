@@ -26,6 +26,7 @@ import re
 import sqlite3
 import sys
 import time
+from collections import defaultdict
 
 import app_search
 import bitmap
@@ -63,7 +64,19 @@ CREATE TABLE products(
     -- `products` orders by this instead of `name` so a run of raw double
     -- spaces or leading/trailing junk in the source data can't split a
     -- product's neighbours across pages differently between two builds.
-    sort_key TEXT);
+    sort_key TEXT,
+    -- KAN-17: whether this row appears in a category browse listing at all.
+    -- 1 for every categorised product except a loose-produce generic's
+    -- non-head members (see build_category_browse) - those barcodes still
+    -- carry category_id (nothing else here depends on that changing) but are
+    -- collapsed into their generic's single row instead of appearing twice.
+    browse_visible INTEGER NOT NULL DEFAULT 1,
+    -- KAN-17: set on exactly one member barcode per generic key that has a
+    -- categorised member - the one build_category_browse chose to stand at
+    -- the generic's position in category sort order. The category API reads
+    -- this to know when a row in `products` should render as its generic
+    -- (barcode null, generic_key set) instead of as itself.
+    browse_generic_key TEXT);
 CREATE TABLE chain_prices(
     chain_id TEXT NOT NULL, barcode TEXT NOT NULL, price REAL NOT NULL,
     store_count INTEGER, PRIMARY KEY (chain_id, barcode));
@@ -163,6 +176,13 @@ CREATE VIRTUAL TABLE fts_all USING fts5(
 -- past a product that isn't discounted (10ms vs 58ms on `גרם`, measured).
 CREATE VIRTUAL TABLE fts_deals USING fts5(
     name, barcode UNINDEXED, tokenize='unicode61 remove_diacritics 2');
+-- KAN-17: one row per category (top-level and sub), precomputed at build
+-- time so /categories never counts per request. A sub-category's count is
+-- distinct browse-visible products (a collapsed generic counts once, see
+-- build_category_browse); a top-level category's is the sum of its
+-- children's. Every category gets a row, including count-0 ones - the API
+-- filters those out, this table just answers "how many" for any id.
+CREATE TABLE category_counts(category_id INTEGER PRIMARY KEY, count INTEGER NOT NULL);
 """
 
 # KAN-9: loose produce, layered on top of the algorithmic generics grouping.
@@ -311,6 +331,9 @@ def copy_products(conn, category_map):
         "VALUES (?,?,?,?,?,?,?,?,?,?)",
         rows,
     )
+    # browse_visible defaults to 1 and browse_generic_key to NULL for every
+    # row via the CREATE TABLE - build_category_browse (after build_produce
+    # has populated generic_barcodes) is what may flip a handful of them.
     return len(rows)
 
 
@@ -466,6 +489,112 @@ def build_produce(conn, units_tsv=PRODUCE_UNITS_TSV,
 
     return (len(units), len(generic_rows), len(member_rows), len(map_rows),
             len(barcode_rows))
+
+
+def build_category_browse(conn):
+    """KAN-17: collapse a loose-produce generic's categorised members into a
+    single row for the category browse listing.
+
+    Most categorised barcodes are not generic members at all and are simply
+    browse_visible=1, browse_generic_key=NULL - the defaults set at insert
+    time. This only touches the barcodes that both (a) belong to some
+    generic key (``generic_barcodes``' full per-key barcode list, same set
+    KAN-13's ``/generic`` and ``/search`` treat as "this barcode resolves to
+    this key") and (b) are individually categorised in
+    ``data/product_categories.tsv``. On the real catalogue that is a couple
+    dozen barcodes, not a couple hundred: category coverage (38,555 curated
+    barcodes) and produce coverage (750 rows, 61 slugs) overlap only where a
+    curator separately categorised a loose-produce item.
+
+    For each such generic key: every one of ITS categorised members is
+    expected to share one category_id (a person tagged "tomato" as
+    vegetables at every chain they saw it) - the ``max`` below is a
+    deterministic tie-break for the case it doesn't (a barcode COLLISION,
+    not a disagreement: the same short internal code names an unrelated
+    product at a different chain and picked up that chain's category by
+    accident, e.g. one generic key's members split 1 "ירקות טריים" / 1
+    "חמאה ושמנת" on the real catalogue). Only the largest category cluster
+    for that key gets collapsed; a member outside it is left exactly as an
+    ordinary standalone product, not silently reassigned to a category
+    nothing curated it into.
+
+    The one row that survives per key/category - "the generic's row" - is
+    whichever candidate sorts first by (sort_key, barcode), because that is
+    the position build_category_browse's caller (the /categories/{id}/
+    products keyset walk) will encounter it at; every other candidate is
+    marked browse_visible=0 so the walk (and category_counts) sees it
+    exactly once.
+    """
+    cat_of = dict(conn.execute(
+        "SELECT barcode, category_id FROM products WHERE category_id IS NOT NULL"))
+    sort_of = dict(conn.execute("SELECT barcode, sort_key FROM products"))
+
+    members_of_key = defaultdict(list)
+    for key, barcode in conn.execute("SELECT key, barcode FROM generic_barcodes"):
+        members_of_key[key].append(barcode)
+
+    head_rows = []
+    hidden_barcodes = []
+    for key, barcodes in members_of_key.items():
+        by_category = defaultdict(list)
+        for barcode in barcodes:
+            category_id = cat_of.get(barcode)
+            if category_id is not None:
+                by_category[category_id].append(barcode)
+        if not by_category:
+            continue
+        if len(by_category) > 1:
+            print(f"[build_category_browse] WARNING: generic key {key!r} has "
+                  f"categorised members split across {sorted(by_category)} - "
+                  f"almost certainly a barcode collision (see docstring); "
+                  f"collapsing only the largest cluster, the rest stay as "
+                  f"ordinary standalone rows")
+        chosen_category = max(by_category, key=lambda c: (len(by_category[c]), -c))
+        candidates = by_category[chosen_category]
+        head = min(candidates, key=lambda b: (sort_of.get(b) or "", b))
+        head_rows.append((key, head))
+        hidden_barcodes.extend(b for b in candidates if b != head)
+
+    conn.executemany(
+        "UPDATE products SET browse_generic_key = ? WHERE barcode = ?",
+        [(key, barcode) for key, barcode in head_rows])
+    conn.executemany(
+        "UPDATE products SET browse_visible = 0 WHERE barcode = ?",
+        [(barcode,) for barcode in hidden_barcodes])
+    return len(head_rows), len(hidden_barcodes)
+
+
+def build_category_counts(conn):
+    """KAN-17: one row per category in ``categories``, precomputed so
+    /categories never runs a COUNT(*) per request.
+
+    A sub-category's count is its browse-visible categorised products
+    (build_category_browse has already collapsed generics by the time this
+    runs); a top-level category's is the sum of its children's - matches
+    ``build_category_browse``'s promise that a collapsed generic is counted
+    exactly once, since it counts once in its one sub-category and that
+    total is all a parent ever sums.
+    """
+    sub_counts = dict(conn.execute(
+        "SELECT category_id, COUNT(*) FROM products "
+        "WHERE category_id IS NOT NULL AND browse_visible = 1 "
+        "GROUP BY category_id"))
+    parent_of = dict(conn.execute("SELECT id, parent_id FROM categories"))
+
+    rows = []
+    top_totals = defaultdict(int)
+    for category_id, parent_id in parent_of.items():
+        if parent_id is None:
+            continue
+        count = sub_counts.get(category_id, 0)
+        rows.append((category_id, count))
+        top_totals[parent_id] += count
+    for category_id, parent_id in parent_of.items():
+        if parent_id is None:
+            rows.append((category_id, top_totals.get(category_id, 0)))
+
+    conn.executemany("INSERT INTO category_counts VALUES (?,?)", rows)
+    return len(rows)
 
 
 def build_deals(conn, bit_of, category_map):
@@ -676,6 +805,11 @@ def build(db_path, out_path, categories_json=CATEGORIES_JSON,
      counts["produce_generic_map"], counts["generic_barcodes"]) = build_produce(
         conn, units_tsv=PRODUCE_UNITS_TSV, map_tsv=PRODUCE_GENERIC_MAP_TSV)
 
+    # KAN-17: needs generic_barcodes (just populated above) and
+    # products.category_id (populated by copy_products above that).
+    (counts["category_browse_heads"],
+     counts["category_browse_hidden"]) = build_category_browse(conn)
+
     bit_of, store_bits_rows = build_store_bits(conn)
     counts["store_bits"] = store_bits_rows
     deals_rows, merged_total = build_deals(conn, bit_of, category_map)
@@ -688,6 +822,11 @@ def build(db_path, out_path, categories_json=CATEGORIES_JSON,
     conn.execute("DETACH DATABASE src")
 
     counts["categories"] = copy_categories(conn, load_categories(categories_json))
+    conn.commit()
+
+    # KAN-17: needs categories (just copied above) and products.browse_visible
+    # (build_category_browse, above).
+    counts["category_counts"] = build_category_counts(conn)
     conn.commit()
 
     counts.update(build_fts(conn))
