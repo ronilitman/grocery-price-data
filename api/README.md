@@ -4,9 +4,12 @@ A small FastAPI service that serves the catalogue (`app.db`, built by
 `scripts/build_app_db.py`, KAN-6) read-only, over HTTPS, from the free GCP
 `e2-micro` box `grocery-api`. Full design: KAN-4.
 
-This subtask (KAN-10) only builds the VM, HTTPS via Tailscale Funnel, and
-`GET /health`. `/search`, `/product` and the rest are later subtasks
-(KAN-12, KAN-13); the nightly build-and-swap is KAN-11.
+KAN-10 built the VM, HTTPS via Tailscale Funnel, and `GET /health`. KAN-12
+added `GET /search` (`api/search.py`). KAN-13 added `GET /meta`,
+`GET /product/{barcode}`, `GET /generic/{key}` and `POST /products`
+(`api/products.py`, `api/catalog.py`) - everything grocery-list-app's
+`src/prices.js` reads from the published JSON shards except name search.
+The nightly build-and-swap is KAN-11.
 
 ## Architecture
 
