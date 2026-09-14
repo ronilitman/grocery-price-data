@@ -156,6 +156,23 @@ CREATE TABLE generics(
 -- the member barcode that chain prices under this generic.
 CREATE TABLE generic_members(
     key TEXT NOT NULL, chain_id TEXT NOT NULL, barcode TEXT NOT NULL);
+-- One row per (key, barcode) pair from a generics.json entry's full "b"
+-- list (KAN-13 post-merge fix) - every barcode a scan of it should resolve
+-- to this generic, not just the one representative barcode per chain
+-- `generic_members` carries. A barcode can legitimately appear under more
+-- than one key (different chains name the same colliding barcode
+-- differently); `is_resolved` marks the one row
+-- generics_mod.from_db's `of_barcode` map actually picks for that barcode
+-- (the group with the most chains behind it - see generics.py's `build()`)
+-- - at most one per barcode. The API reads this instead of calling
+-- generics_mod.from_db() itself at request time: that call needs
+-- data/produce_words.txt and data/pricez_images.json, which
+-- api/deploy/deploy.sh does not ship to the VM (api/ and scripts/ only),
+-- and it is too slow (3.8s measured on the real box) to redo per process
+-- restart on top of that.
+CREATE TABLE generic_barcodes(
+    key TEXT NOT NULL, barcode TEXT NOT NULL, is_resolved INTEGER NOT NULL,
+    PRIMARY KEY (key, barcode));
 -- data/produce_generic_map.tsv, decided by reading (see .claude/skills/
 -- unify-produce/SKILL.md and the KAN-9 report) - never by pattern or score.
 CREATE TABLE produce_generic_map(
@@ -179,6 +196,11 @@ INDEXES = [
     "CREATE INDEX idx_generic_members_barcode ON generic_members(chain_id, barcode)",
     "CREATE INDEX idx_produce_generic_map_slug ON produce_generic_map(slug)",
     "CREATE INDEX idx_produce_generic_map_key ON produce_generic_map(generic_key)",
+    # generic_barcodes' PRIMARY KEY (key, barcode) already covers "every
+    # barcode for a key" (the `b` list); this covers the reverse direction -
+    # "which key(s) name this barcode, and which one is resolved" (the `g`
+    # field on /product).
+    "CREATE INDEX idx_generic_barcodes_barcode ON generic_barcodes(barcode)",
 ]
 
 # Tables copied verbatim from the source. products is handled separately
@@ -361,8 +383,8 @@ def build_produce(conn, units_tsv=PRODUCE_UNITS_TSV,
           r["barcode"], r["chain_product_name"], float(r["price"]), r["note"])
          for r in units])
 
-    generics, _of_barcode = generics_mod.from_db(conn)
-    generic_rows, member_rows = [], []
+    generics, of_barcode = generics_mod.from_db(conn)
+    generic_rows, member_rows, barcode_rows = [], [], []
     for key, entry in generics.items():
         generic_rows.append((
             key, entry["n"], entry.get("w", 0), entry.get("u"),
@@ -370,12 +392,18 @@ def build_produce(conn, units_tsv=PRODUCE_UNITS_TSV,
         ))
         for chain_id, (_price, _count, barcode) in entry["p"].items():
             member_rows.append((key, chain_id, barcode))
+        for barcode in entry.get("b", []):
+            is_resolved = 1 if of_barcode.get(barcode) == key else 0
+            barcode_rows.append((key, barcode, is_resolved))
     conn.executemany(
         "INSERT INTO generics (key, name, weighted, unit, image_id, aliases_json) "
         "VALUES (?,?,?,?,?,?)", generic_rows)
     conn.executemany(
         "INSERT INTO generic_members (key, chain_id, barcode) VALUES (?,?,?)",
         member_rows)
+    conn.executemany(
+        "INSERT INTO generic_barcodes (key, barcode, is_resolved) VALUES (?,?,?)",
+        barcode_rows)
 
     known_keys = set(generics)
     gmap = load_tsv(map_tsv)
@@ -406,7 +434,8 @@ def build_produce(conn, units_tsv=PRODUCE_UNITS_TSV,
         "INSERT INTO meta (key, value) VALUES ('produce_map_stale', ?)",
         (json.dumps(stale, ensure_ascii=False),))
 
-    return len(units), len(generic_rows), len(member_rows), len(map_rows)
+    return (len(units), len(generic_rows), len(member_rows), len(map_rows),
+            len(barcode_rows))
 
 
 def build_deals(conn, bit_of, category_map):
@@ -566,8 +595,8 @@ def build(db_path, out_path, categories_json=CATEGORIES_JSON,
     # above (unqualified - no src. prefix - see build_produce's docstring).
     # Passed explicitly (not via build_produce's own defaults) so a test can
     # monkeypatch the module-level paths and have it take effect here.
-    (counts["produce_units"], counts["generics"],
-     counts["generic_members"], counts["produce_generic_map"]) = build_produce(
+    (counts["produce_units"], counts["generics"], counts["generic_members"],
+     counts["produce_generic_map"], counts["generic_barcodes"]) = build_produce(
         conn, units_tsv=PRODUCE_UNITS_TSV, map_tsv=PRODUCE_GENERIC_MAP_TSV)
 
     bit_of, store_bits_rows = build_store_bits(conn)

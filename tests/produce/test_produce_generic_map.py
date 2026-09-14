@@ -192,7 +192,11 @@ class TestMappedKeysMustExistInTheGenericsBuild:
         )
         counts = build_app_db.build_produce(
             self._fixture_conn(), units_tsv=str(units_tsv), map_tsv=str(map_tsv))
-        assert counts == (1, 1, 2, 1)
+        # (produce_units, generics, generic_members, produce_generic_map,
+        # generic_barcodes) - the last is KAN-13's post-merge fix: the full
+        # `b` list for the one key here spans both RAMI_LEVY's and
+        # SHUFERSAL's barcodes (1001, 1002).
+        assert counts == (1, 1, 2, 1, 2)
 
     def test_a_stale_primary_key_raises(self, tmp_path):
         units_tsv = tmp_path / "produce_units.tsv"
@@ -232,7 +236,7 @@ class TestMappedKeysMustExistInTheGenericsBuild:
             conn, units_tsv=str(units_tsv), map_tsv=str(map_tsv))
         # The primary row still loaded; the stale non-primary one did not,
         # so the build kept going instead of raising.
-        assert counts == (1, 1, 2, 1)
+        assert counts == (1, 1, 2, 1, 2)
 
         warning = capsys.readouterr().out
         assert "WARNING" in warning and "לא קיים" in warning

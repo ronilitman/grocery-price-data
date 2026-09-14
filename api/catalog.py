@@ -12,6 +12,21 @@ root already being on sys.path - true wherever ``api.main`` itself is
 importable (tests, and the VM's ``uvicorn api.main:app`` run from
 ``/srv/grocery/app``, which ``api/deploy/deploy.sh`` deploys ``scripts/``
 alongside as a sibling directory).
+
+This module deliberately imports only ``scripts.bitmap`` and
+``scripts.offers`` - never ``scripts.generics`` (KAN-13 post-merge fix).
+``generics.from_db()`` needs ``data/produce_words.txt`` and
+``data/pricez_images.json``, which live under ``data/`` - a directory
+``api/deploy/deploy.sh`` never ships to the VM (only ``api/`` and
+``scripts/`` are tarred up), and CI's full checkout never notices the gap.
+On the real box this was a 500 on every one of these endpoints
+(``FileNotFoundError`` reaching for a file that was never deployed), and
+even with the file present, ``from_db()`` took 3.8s on the first request
+after a restart and drove free memory on the 969 MB box down to 72 MB -
+both an OOM risk and a slow first request every night after the nightly
+swap. Everything ``generics.from_db()`` used to supply at request time is
+now persisted at build time instead (``scripts/build_app_db.py``'s
+``generic_barcodes`` table) and read here like any other table.
 """
 from __future__ import annotations
 
@@ -20,7 +35,6 @@ import re
 from collections import defaultdict
 
 from scripts import bitmap
-from scripts import generics as generics_mod
 from scripts import offers as offers_mod
 
 _DIGITS = re.compile(r"\D")
@@ -275,29 +289,76 @@ def promos_for(conn, barcodes, today):
 # build_catalog.py's generics.json always has.
 # ---------------------------------------------------------------------------
 
-_GENERICS_CACHE = {"built_at": None, "entries": None, "of_barcode": None}
-
-
-def generics_full(conn, built_at):
-    """The full generics.json-equivalent {key: entry} and the barcode ->
-    key reverse map, recomputed with the exact function build_catalog.py
-    calls (generics_mod.from_db), against app.db's own copy of
-    chain_products/chain_prices/products (build_app_db.py's COPY step
-    carries those over verbatim) - so this is guaranteed byte-identical to
-    what build_catalog.py wrote for the same prices.db, without app.db
-    having to also carry generics.json's full per-key member-barcode list
-    (`b`) - KAN-9's `generic_members` table only carries one representative
-    barcode per chain (`p`), matching what a generic actually prices.
-
-    Cached in-process, invalidated only when `built_at` changes (i.e. once
-    per nightly app.db swap): from_db() joins chain_products to chain_prices
-    over the whole catalogue and is too slow to redo per request.
+def resolved_generic_keys_for_barcodes(conn, barcodes):
+    """{barcode: generic_key} - the one key generics_mod.from_db's
+    `of_barcode` map picks for each barcode (the group with the most chains
+    behind it - see generics.py's `build()`), persisted at build time as
+    `generic_barcodes.is_resolved` (KAN-13 post-merge fix). A barcode can
+    legitimately appear under more than one key (different chains name the
+    same colliding barcode differently); at most one row per barcode has
+    `is_resolved = 1`.
     """
-    if _GENERICS_CACHE["built_at"] != built_at:
-        entries, of_barcode = generics_mod.from_db(conn)
-        _GENERICS_CACHE.update(
-            built_at=built_at, entries=entries, of_barcode=of_barcode)
-    return _GENERICS_CACHE["entries"], _GENERICS_CACHE["of_barcode"]
+    out = {}
+    if not barcodes:
+        return out
+    placeholders = ",".join("?" * len(barcodes))
+    for barcode, key in conn.execute(
+            f"SELECT barcode, key FROM generic_barcodes "
+            f"WHERE barcode IN ({placeholders}) AND is_resolved = 1",
+            list(barcodes)):
+        out[barcode] = key
+    return out
+
+
+def generic_barcodes_for_keys(conn, keys):
+    """{key: [barcode, ...]} - the full `b` list for each key, persisted at
+    build time in `generic_barcodes` (KAN-13 post-merge fix) rather than
+    recomputed from generics_mod.from_db() at request time."""
+    out = defaultdict(list)
+    if not keys:
+        return out
+    placeholders = ",".join("?" * len(keys))
+    for key, barcode in conn.execute(
+            f"SELECT key, barcode FROM generic_barcodes "
+            f"WHERE key IN ({placeholders})", list(keys)):
+        out[key].append(barcode)
+    return out
+
+
+def generic_members_for_keys(conn, keys):
+    """{key: {chain_id: [price, store_count, barcode]}} for UNMAPPED generic
+    keys - one representative barcode per chain (`generic_members`, KAN-9),
+    priced fresh from `chain_prices` rather than a build-time snapshot -
+    the same live-price pattern produce_members_for_slugs uses for mapped
+    keys.
+    """
+    if not keys:
+        return {}
+    placeholders = ",".join("?" * len(keys))
+    chain_barcode_of_key = defaultdict(dict)   # key -> {chain_id: barcode}
+    for key, chain_id, barcode in conn.execute(
+            f"SELECT key, chain_id, barcode FROM generic_members "
+            f"WHERE key IN ({placeholders})", list(keys)):
+        chain_barcode_of_key[key][chain_id] = barcode
+
+    pair_to_key = {}
+    all_barcodes = set()
+    for key, by_chain in chain_barcode_of_key.items():
+        for chain_id, barcode in by_chain.items():
+            pair_to_key[(chain_id, barcode)] = key
+            all_barcodes.add(barcode)
+
+    p_of_key = defaultdict(dict)
+    if all_barcodes:
+        ph = ",".join("?" * len(all_barcodes))
+        for chain_id, barcode, price, store_count in conn.execute(
+                f"SELECT chain_id, barcode, price, store_count FROM chain_prices "
+                f"WHERE barcode IN ({ph})", sorted(all_barcodes)):
+            key = pair_to_key.get((chain_id, barcode))
+            if key is not None:
+                p_of_key[key][chain_id] = [price, store_count or 0, barcode]
+
+    return {key: p_of_key.get(key, {}) for key in keys}
 
 
 def produce_slugs_for_barcodes(conn, barcodes):
@@ -326,22 +387,22 @@ def primary_keys_for_slugs(conn, slugs):
     return out
 
 
-def generic_keys_for_barcodes(conn, barcodes, meta):
+def generic_keys_for_barcodes(conn, barcodes):
     """{barcode: generic_key_or_None} - the `g` field for a batch of
     resolved product barcodes. A barcode produce_units knows about resolves
     to its slug's primary key (KAN-9 step 3), overriding whatever the
     algorithmic generics grouping would say for the same barcode; anything
-    else falls back to generics_mod's own barcode->key map, exactly as
-    published today.
+    else falls back to the persisted `generic_barcodes.is_resolved` map,
+    exactly as published today.
     """
     slug_of = produce_slugs_for_barcodes(conn, barcodes)
     primary_of_slug = primary_keys_for_slugs(conn, set(slug_of.values()))
-    _entries, of_barcode = generics_full(conn, meta.get("built_at"))
+    resolved = resolved_generic_keys_for_barcodes(conn, barcodes)
     out = {}
     for barcode in barcodes:
         slug = slug_of.get(barcode)
         out[barcode] = (primary_of_slug.get(slug) if slug is not None
-                         else of_barcode.get(barcode))
+                         else resolved.get(barcode))
     return out
 
 
@@ -412,7 +473,7 @@ def produce_members_for_slugs(conn, slugs):
             for slug in slugs}
 
 
-def resolve_generics(conn, keys, meta):
+def resolve_generics(conn, keys):
     """{key: {"n","w","u","i","a","p","b"} or None} for a batch of generic
     keys, applying KAN-9's precedence. None means the key never existed in
     this build's generics output at all (404 territory); everything else
@@ -420,10 +481,13 @@ def resolve_generics(conn, keys, meta):
     today's generics.json must resolve").
     """
     rows = generic_rows(conn, keys)
-    slug_of_key = mapped_slugs_for_keys(conn, [k for k in keys if k in rows])
+    known_keys = [k for k in keys if k in rows]
+    slug_of_key = mapped_slugs_for_keys(conn, known_keys)
     produce_by_slug = produce_members_for_slugs(
         conn, sorted(set(slug_of_key.values())))
-    entries, _of_barcode = generics_full(conn, meta.get("built_at"))
+    unmapped_keys = [k for k in known_keys if k not in slug_of_key]
+    members_by_key = generic_members_for_keys(conn, unmapped_keys)
+    barcodes_by_key = generic_barcodes_for_keys(conn, known_keys)
 
     out = {}
     for key in keys:
@@ -441,7 +505,7 @@ def resolve_generics(conn, keys, meta):
         if slug is not None:
             p, b = produce_by_slug.get(slug, ({}, []))
         else:
-            entry = entries.get(key, {})
-            p, b = entry.get("p", {}), entry.get("b", [])
+            p = members_by_key.get(key, {})
+            b = barcodes_by_key.get(key, [])
         out[key] = {**base, "p": p, "b": b}
     return out

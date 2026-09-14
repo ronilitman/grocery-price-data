@@ -96,7 +96,7 @@ def _product_response(conn, resolved_barcode, meta, stores_filter):
     detail = catalog.price_exceptions_for(
         conn, [resolved_barcode], stores_filter).get(resolved_barcode, {})
     promo = catalog.promos_for(conn, [resolved_barcode], today).get(resolved_barcode, {})
-    g = catalog.generic_keys_for_barcodes(conn, [resolved_barcode], meta).get(resolved_barcode)
+    g = catalog.generic_keys_for_barcodes(conn, [resolved_barcode]).get(resolved_barcode)
     return {
         "barcode": resolved_barcode,
         "n": name,
@@ -150,7 +150,7 @@ def get_generic(key: str, v: Optional[str] = None):
     conn = _open_conn()
     try:
         meta = _meta_or_503(conn)
-        resolved = catalog.resolve_generics(conn, [key], meta).get(key)
+        resolved = catalog.resolve_generics(conn, [key]).get(key)
         if resolved is None:
             raise HTTPException(status_code=404, detail="unknown generic key")
         return _generic_response(conn, key, resolved, meta)
@@ -196,10 +196,10 @@ def post_products(body: BatchRequest):
         prices = catalog.chain_prices_for(conn, resolved_barcodes)
         details = catalog.price_exceptions_for(conn, resolved_barcodes, stores_filter)
         promos = catalog.promos_for(conn, resolved_barcodes, today)
-        generic_keys = catalog.generic_keys_for_barcodes(conn, resolved_barcodes, meta)
+        generic_keys = catalog.generic_keys_for_barcodes(conn, resolved_barcodes)
 
         # --- generics: resolve KAN-9 precedence, then batch their members -
-        generics_resolved = catalog.resolve_generics(conn, generic_items, meta)
+        generics_resolved = catalog.resolve_generics(conn, generic_items)
         all_member_barcodes = sorted({
             v[2] for base in generics_resolved.values() if base is not None
             for v in base["p"].values()
