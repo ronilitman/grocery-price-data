@@ -1,0 +1,10 @@
+# Lets the 'grocery' service account run exactly one command as root, with
+# no password prompt: the nightly app.db swap (KAN-11), triggered by CI over
+# Tailscale SSH as `ssh grocery@grocery-api sudo /srv/grocery/bin/swap-app-db.sh`.
+#
+# Installed by api/deploy/install.sh at /etc/sudoers.d/grocery-swap-app-db,
+# root:root, mode 0440. The target script is also root-owned and not
+# writable by grocery (see install.sh), so this grant cannot be used to run
+# anything but that exact, reviewed file - grocery can't edit it and then
+# have sudo run the edited version.
+grocery ALL=(root) NOPASSWD: /srv/grocery/bin/swap-app-db.sh
