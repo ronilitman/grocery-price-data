@@ -2,9 +2,9 @@
 
 This is KAN-10: the VM, Tailscale Funnel (HTTPS) and a `/health` endpoint.
 `app.db` is built by `scripts/build_app_db.py` (KAN-6). `GET /search` is
-KAN-12 (`api/search.py`, included below). `/product` and the nightly
-build-and-swap are later subtasks (KAN-13, KAN-11) and are deliberately not
-built here.
+KAN-12 (`api/search.py`). `/meta`, `/product`, `/generic` and `POST
+/products` are KAN-13 (`api/products.py`). The nightly build-and-swap
+(KAN-11) is a separate subtask and deliberately not built here.
 """
 from __future__ import annotations
 
@@ -161,8 +161,10 @@ app.add_middleware(
 app.add_middleware(RateLimitMiddleware)
 
 from api.search import router as search_router  # noqa: E402  (KAN-12)
+from api.products import router as products_router  # noqa: E402  (KAN-13)
 
 app.include_router(search_router)
+app.include_router(products_router)
 
 
 @app.middleware("http")
