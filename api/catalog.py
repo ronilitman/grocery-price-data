@@ -25,6 +25,27 @@ from scripts import offers as offers_mod
 
 _DIGITS = re.compile(r"\D")
 
+# Same placeholder build_catalog.py's UNKNOWN_UNIT uses for "no real unit on
+# file" - duplicated, not imported: build_catalog.py's own bare sibling
+# imports (`import generics as generics_mod`) only resolve when scripts/
+# itself is on sys.path, which this module deliberately doesn't add (KAN-12's
+# `from scripts import X` convention, see the module docstring).
+UNKNOWN_UNIT = "לא ידוע"  # "unknown" - what a chain publishes when it has no unit
+
+
+def display_unit(is_weighted, unit_qty):
+    """The `u` field's value: None unless the product is weighed AND has a
+    real unit on file - matches build_catalog.py's own rule for "u" exactly
+    (see UNKNOWN_UNIT above), so a non-weighed product's unit_qty (a raw
+    package size like "750", meaningless as a unit) never leaks into `u`.
+    """
+    if not is_weighted:
+        return None
+    unit = (unit_qty or "").strip()
+    if not unit or unit == UNKNOWN_UNIT:
+        return None
+    return unit
+
 
 # ---------------------------------------------------------------------------
 # Barcode candidates - server-side mirror of grocery-list-app's
