@@ -162,9 +162,11 @@ app.add_middleware(RateLimitMiddleware)
 
 from api.search import router as search_router  # noqa: E402  (KAN-12)
 from api.products import router as products_router  # noqa: E402  (KAN-13)
+from api.deals import router as deals_router  # noqa: E402  (KAN-15)
 
 app.include_router(search_router)
 app.include_router(products_router)
+app.include_router(deals_router)
 
 
 @app.middleware("http")
