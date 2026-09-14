@@ -115,6 +115,32 @@ CREATE TABLE deals(
     -- Discounts page is what filters to > 0, not this build step.
     discount_pct REAL,
     branches BLOB NOT NULL);
+-- KAN-15: one row per product currently on a real discount - the Discounts
+-- page's card list. "One card per product, represented by its best (lowest
+-- unit_price) deal" is a GROUP BY barcode over every deals row with
+-- discount_pct > 0 (~426k on the real catalogue), and the representative's
+-- own discount_pct - not the group's max - decides the card's sort
+-- position, so it cannot be found by walking `deals` in discount order and
+-- stopping early: the cheapest-unit-price offer for a barcode can sit
+-- anywhere in that order. Materialising it here (build_deal_products)
+-- turns every /deals request into an index range read over ~94k rows
+-- (matching fts_deals' own "distinct barcode with discount_pct > 0" count,
+-- KAN-8) instead of a per-request scan of the full deals table - the same
+-- trade discount_pct itself already makes, one table up.
+CREATE TABLE deal_products(
+    barcode TEXT PRIMARY KEY,
+    -- The representative deal's id: lowest unit_price wins, ties broken by
+    -- the lowest deal_id, so the pick (and the page's sort) is stable.
+    deal_id INTEGER NOT NULL,
+    chain_id TEXT NOT NULL, category_id INTEGER,
+    name TEXT, base_price REAL,
+    unit_price REAL NOT NULL, price REAL NOT NULL, min_qty REAL NOT NULL,
+    club INTEGER NOT NULL, coupon INTEGER NOT NULL,
+    ends TEXT, description TEXT,
+    discount_pct REAL NOT NULL,
+    -- Distinct chains with a discount_pct > 0 deal on this barcode - never
+    -- counts a chain whose only offer here is <= 0 or NULL.
+    chains_on_deal INTEGER NOT NULL);
 -- Words carried by 1%+ of product names (same rule as
 -- build_catalog.NAME_FILLER_AT). NOT dropped from the indexes below - a
 -- first cut of this table did that and it deleted real product words along
@@ -189,6 +215,10 @@ INDEXES = [
     "CREATE INDEX idx_deals_chain_cat_discount "
     "ON deals(chain_id, category_id, discount_pct DESC, deal_id)",
     "CREATE INDEX idx_deals_barcode ON deals(barcode)",
+    # KAN-15
+    "CREATE INDEX idx_deal_products_discount ON deal_products(discount_pct DESC, deal_id)",
+    "CREATE INDEX idx_deal_products_chain_cat "
+    "ON deal_products(chain_id, category_id, discount_pct DESC, deal_id)",
     # KAN-9
     "CREATE INDEX idx_produce_units_barcode ON produce_units(barcode)",
     "CREATE INDEX idx_produce_units_slug ON produce_units(slug)",
@@ -517,6 +547,53 @@ def build_deals(conn, bit_of, category_map):
     return len(rows), merged_total
 
 
+def build_deal_products(conn):
+    """KAN-15: one deal_products row per barcode with a real (> 0) discount,
+    representing it by the deal with the lowest unit_price (owner's rule:
+    rank by the promotion's per-unit price regardless of minimum quantity),
+    ties broken by the lowest deal_id. Must run after build_deals - it reads
+    `deals` directly rather than re-deriving offers.
+
+    Ordering the source rows by (barcode, unit_price, deal_id) and keeping
+    the first row seen per barcode is the same "first-seen wins" trick
+    build_catalog.py's own candidate-resolution code uses elsewhere - no
+    window function needed, and it is O(rows) with rows already sorted by
+    SQLite's own index, not O(rows^2).
+
+    Expiry is not re-checked here: scripts/offers.py's merge_chain already
+    drops `ends < today` (the build's "today") before a row ever reaches
+    `deals`, so nothing in `deals` is expired to begin with - see build_deals.
+    """
+    rows = conn.execute(
+        "SELECT deal_id, chain_id, barcode, category_id, name, base_price, "
+        "unit_price, price, min_qty, club, coupon, ends, description, "
+        "discount_pct FROM deals WHERE discount_pct > 0 "
+        "ORDER BY barcode, unit_price ASC, deal_id ASC"
+    ).fetchall()
+
+    best = {}
+    chains = {}
+    for row in rows:
+        barcode, chain_id = row[2], row[1]
+        chains.setdefault(barcode, set()).add(chain_id)
+        best.setdefault(barcode, row)
+
+    out = []
+    for barcode, row in best.items():
+        (deal_id, chain_id, _barcode, category_id, name, base_price,
+         unit_price, price, min_qty, club, coupon, ends, description,
+         discount_pct) = row
+        out.append((
+            barcode, deal_id, chain_id, category_id, name, base_price,
+            unit_price, price, min_qty, club, coupon, ends, description,
+            discount_pct, len(chains[barcode]),
+        ))
+    conn.executemany(
+        "INSERT INTO deal_products VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        out)
+    return len(out)
+
+
 def build_fts(conn):
     """Populate fts_filler, fts_all and fts_deals (KAN-8).
 
@@ -605,6 +682,7 @@ def build(db_path, out_path, categories_json=CATEGORIES_JSON,
     counts["deals"] = deals_rows
     counts["promo_everywhere"] = conn.execute(
         "SELECT COUNT(*) FROM promo_everywhere").fetchone()[0]
+    counts["deal_products"] = build_deal_products(conn)
 
     conn.commit()
     conn.execute("DETACH DATABASE src")
