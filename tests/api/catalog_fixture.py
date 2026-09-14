@@ -70,9 +70,26 @@ TOMATO_C = "2000000000003"       # Shufersal, produce_units member only
 CUCUMBER_A = "2000000000011"
 CUCUMBER_B = "2000000000012"
 
+# KAN-22: PEPPER_SHARED is the SAME barcode at the SAME chain (RAMI_LEVY) in
+# BOTH the pepper-hot and pepper-red produce_units rows - the real-world
+# collision (chain 7290700100008 / barcode 7290000012872 under both
+# pepper-hot and pepper-red). Each slug also has its own distinct SHUFERSAL
+# barcode, so the fix must keep the shared RAMI_LEVY price on both slugs
+# while leaving each slug's independent SHUFERSAL member untouched.
+PEPPER_SHARED = "2000000000021"    # RAMI_LEVY, named by BOTH pepper slugs
+PEPPER_HOT_SHUF = "2000000000022"  # SHUFERSAL, pepper-hot only
+PEPPER_RED_SHUF = "2000000000023"  # SHUFERSAL, pepper-red only
+
 TOMATO_KEY = "עגבניה"
 CUCUMBER_KEY = "מלפפון"
+# generics.py's Namer.key() sorts a name's identifying words, so the actual
+# generic key is NOT the literal chain_products name - "פלפל חריף" keys as
+# "חריף פלפל" (protected word first, alphabetically before "פלפל").
+PEPPER_HOT_KEY = "חריף פלפל"
+PEPPER_RED_KEY = "אדום פלפל"
 TOMATO_SLUG = "tomato"
+PEPPER_HOT_SLUG = "pepper-hot"
+PEPPER_RED_SLUG = "pepper-red"
 CUCUMBER_SLUG_UNMAPPED = None  # cucumber is deliberately left unmapped
 
 
@@ -128,6 +145,9 @@ def build_prices_db(path):
             (TOMATO_C, "עגבניה", "Acme", "1", 1.0, "kg", 1),
             (CUCUMBER_A, "מלפפון", "Acme", "1", 1.0, "kg", 1),
             (CUCUMBER_B, "מלפפון", "Acme", "1", 1.0, "kg", 1),
+            (PEPPER_SHARED, "פלפל", "Acme", "1", 1.0, "kg", 1),
+            (PEPPER_HOT_SHUF, "פלפל חריף", "Acme", "1", 1.0, "kg", 1),
+            (PEPPER_RED_SHUF, "פלפל אדום", "Acme", "1", 1.0, "kg", 1),
         ],
     )
 
@@ -146,6 +166,9 @@ def build_prices_db(path):
             ("SHUFERSAL", TOMATO_C, 14.90, 2),
             ("SHUFERSAL", CUCUMBER_A, 5.90, 2),
             ("RAMI_LEVY", CUCUMBER_B, 4.90, 4),
+            ("RAMI_LEVY", PEPPER_SHARED, 9.90, 3),
+            ("SHUFERSAL", PEPPER_HOT_SHUF, 11.90, 2),
+            ("SHUFERSAL", PEPPER_RED_SHUF, 12.90, 2),
         ],
     )
 
@@ -168,6 +191,9 @@ def build_prices_db(path):
             ("SHUFERSAL", TOMATO_C, "עגבניה", "1", "kg", 1),
             ("RAMI_LEVY", CUCUMBER_B, "מלפפון", "1", "kg", 1),
             ("SHUFERSAL", CUCUMBER_A, "מלפפון", "1", "kg", 1),
+            ("RAMI_LEVY", PEPPER_SHARED, "פלפל", "1", "kg", 1),
+            ("SHUFERSAL", PEPPER_HOT_SHUF, "פלפל חריף", "1", "kg", 1),
+            ("SHUFERSAL", PEPPER_RED_SHUF, "פלפל אדום", "1", "kg", 1),
         ],
     )
 
@@ -236,9 +262,26 @@ def write_produce_tsvs(dir_path):
                      f"{TOMATO_A}\tעגבניה\t6.9\t\n")
         handle.write(f"{TOMATO_SLUG}\tעגבניה\tvegetable\tSHUFERSAL\tShufersal\t"
                      f"{TOMATO_C}\tעגבניה\t14.9\t\n")
+        # KAN-22: pepper-hot and pepper-red both name PEPPER_SHARED for
+        # RAMI_LEVY - the same (chain_id, barcode) pair claimed by two
+        # different slugs, which is exactly the real collision (chain
+        # 7290700100008 / barcode 7290000012872 under both pepper-hot and
+        # pepper-red). Each slug also has its own distinct SHUFERSAL member
+        # so a batch of both keys must show BOTH the shared RAMI_LEVY price
+        # and each slug's own independent SHUFERSAL price.
+        handle.write(f"{PEPPER_HOT_SLUG}\tפלפל חריף\tvegetable\tRAMI_LEVY\tRami Levy\t"
+                     f"{PEPPER_SHARED}\tפלפל\t9.9\t\n")
+        handle.write(f"{PEPPER_HOT_SLUG}\tפלפל חריף\tvegetable\tSHUFERSAL\tShufersal\t"
+                     f"{PEPPER_HOT_SHUF}\tפלפל חריף\t11.9\t\n")
+        handle.write(f"{PEPPER_RED_SLUG}\tפלפל אדום\tvegetable\tRAMI_LEVY\tRami Levy\t"
+                     f"{PEPPER_SHARED}\tפלפל\t9.9\t\n")
+        handle.write(f"{PEPPER_RED_SLUG}\tפלפל אדום\tvegetable\tSHUFERSAL\tShufersal\t"
+                     f"{PEPPER_RED_SHUF}\tפלפל אדום\t12.9\t\n")
     with open(map_path, "w", encoding="utf-8") as handle:
         handle.write("slug\tgeneric_key\tprimary\tnote\n")
         handle.write(f"{TOMATO_SLUG}\t{TOMATO_KEY}\tyes\tfixture primary\n")
+        handle.write(f"{PEPPER_HOT_SLUG}\t{PEPPER_HOT_KEY}\tyes\tfixture primary\n")
+        handle.write(f"{PEPPER_RED_SLUG}\t{PEPPER_RED_KEY}\tyes\tfixture primary\n")
     return units_path, map_path
 
 

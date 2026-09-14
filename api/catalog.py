@@ -454,10 +454,16 @@ def produce_members_for_slugs(conn, slugs):
         chain_barcode_of_slug[slug].setdefault(chain_id, barcode)
 
     every_barcode = sorted({b for bs in all_barcodes.values() for b in bs})
-    pair_to_slug_chain = {}
+    # KAN-22: a (chain_id, barcode) pair can belong to more than one slug -
+    # e.g. chain 7290700100008's barcode 7290000012872 is named by both
+    # pepper-hot and pepper-red in produce_units. A single slug per pair
+    # silently dropped that chain's price from whichever slug lost the
+    # last-write-wins race, only inside a batch (GET /generic/{key} resolves
+    # one slug at a time and was never affected).
+    pair_to_slugs = defaultdict(list)
     for slug, by_chain in chain_barcode_of_slug.items():
         for chain_id, barcode in by_chain.items():
-            pair_to_slug_chain[(chain_id, barcode)] = slug
+            pair_to_slugs[(chain_id, barcode)].append(slug)
 
     p_of_slug = defaultdict(dict)
     if every_barcode:
@@ -465,8 +471,7 @@ def produce_members_for_slugs(conn, slugs):
         for chain_id, barcode, price, store_count in conn.execute(
                 f"SELECT chain_id, barcode, price, store_count FROM chain_prices "
                 f"WHERE barcode IN ({ph})", every_barcode):
-            slug = pair_to_slug_chain.get((chain_id, barcode))
-            if slug is not None:
+            for slug in pair_to_slugs.get((chain_id, barcode), ()):
                 p_of_slug[slug][chain_id] = [price, store_count or 0, barcode]
 
     return {slug: (p_of_slug.get(slug, {}), sorted(all_barcodes.get(slug, ())))
