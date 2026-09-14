@@ -65,7 +65,7 @@ def test_meta_shape(client):
         "built_at", "chain_as_of", "chains", "stores", "products", "promo_products"}
     assert body["chains"] == {"RAMI_LEVY": "Rami Levy", "SHUFERSAL": "Shufersal"}
     assert body["stores"]["RAMI_LEVY"]["10"] == ["Rami Levy A", "3000", 100]
-    assert body["products"] == 12
+    assert body["products"] == 15  # +3: KAN-22's PEPPER_SHARED/HOT_SHUF/RED_SHUF
     # Distinct barcodes with a live offer in `deals`: CLUB_OFFER, COUPON_OFFER,
     # EXPIRED_TRAP (its live survivor) - the expired-only offer is not one.
     assert body["promo_products"] == 3
@@ -144,3 +144,68 @@ def test_post_products_built_at_matches_meta(client):
     meta = client.get("/meta").json()
     resp = client.post("/products", json={"items": []})
     assert resp.json()["built_at"] == meta["built_at"]
+
+
+# ------------------------------------------------------------------- KAN-22
+
+def test_batch_of_colliding_produce_generics_both_keep_shared_chain(client):
+    """KAN-22: pepper-hot and pepper-red both name the SAME RAMI_LEVY
+    barcode (PEPPER_SHARED) in produce_units.tsv - the real-world collision
+    (chain 7290700100008 / barcode 7290000012872 under both pepper-hot and
+    pepper-red). produce_members_for_slugs's `pair_to_slug_chain` used to
+    map one (chain_id, barcode) pair to a single slug, so whichever slug
+    was processed last in a batch stole RAMI_LEVY's price from the other.
+
+    A single-key GET /generic/{key} is unaffected (each key is resolved on
+    its own), so it is the oracle: POST /products with BOTH keys in one
+    batch must return, for each key, exactly what its own single-key
+    /generic call returns - RAMI_LEVY included for both.
+    """
+    single_hot = client.get(f"/generic/{cf.PEPPER_HOT_KEY}").json()
+    single_red = client.get(f"/generic/{cf.PEPPER_RED_KEY}").json()
+
+    # The oracle itself must actually exercise the collision, or this test
+    # proves nothing.
+    assert "RAMI_LEVY" in single_hot["p"]
+    assert "RAMI_LEVY" in single_red["p"]
+    assert single_hot["p"]["RAMI_LEVY"] == single_red["p"]["RAMI_LEVY"]
+
+    body = {"items": [
+        {"generic_key": cf.PEPPER_HOT_KEY},
+        {"generic_key": cf.PEPPER_RED_KEY},
+    ]}
+    resp = client.post("/products", json=body)
+    assert resp.status_code == 200
+    results = resp.json()["results"]
+
+    assert results[cf.PEPPER_HOT_KEY] == single_hot
+    assert results[cf.PEPPER_RED_KEY] == single_red
+    assert "RAMI_LEVY" in results[cf.PEPPER_HOT_KEY]["p"]
+    assert "RAMI_LEVY" in results[cf.PEPPER_RED_KEY]["p"]
+
+
+def test_batch_of_colliding_produce_generics_mixed_with_unrelated_items(client):
+    """Same collision, but batched alongside unrelated barcodes/keys, to
+    guard against a fix that only works when the colliding pair is the
+    whole batch."""
+    single_hot = client.get(f"/generic/{cf.PEPPER_HOT_KEY}").json()
+    single_red = client.get(f"/generic/{cf.PEPPER_RED_KEY}").json()
+    single_dairy = client.get(f"/product/{cf.DAIRY}").json()
+    single_cucumber = client.get(f"/generic/{cf.CUCUMBER_KEY}").json()
+
+    body = {"items": [
+        {"barcode": cf.DAIRY},
+        {"generic_key": cf.PEPPER_HOT_KEY},
+        {"generic_key": cf.CUCUMBER_KEY},
+        {"generic_key": cf.PEPPER_RED_KEY},
+    ]}
+    resp = client.post("/products", json=body)
+    assert resp.status_code == 200
+    results = resp.json()["results"]
+
+    assert results[cf.DAIRY] == single_dairy
+    assert results[cf.CUCUMBER_KEY] == single_cucumber
+    assert results[cf.PEPPER_HOT_KEY] == single_hot
+    assert results[cf.PEPPER_RED_KEY] == single_red
+    assert "RAMI_LEVY" in results[cf.PEPPER_HOT_KEY]["p"]
+    assert "RAMI_LEVY" in results[cf.PEPPER_RED_KEY]["p"]
