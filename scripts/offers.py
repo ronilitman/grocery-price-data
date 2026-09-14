@@ -6,6 +6,14 @@ turn a chain's raw ``promo_offers``/``promo_stores`` rows into "the offers
 worth showing, each with its final branch set". This module is that logic,
 factored out once so the two outputs can never drift apart - build_catalog.py
 proves it stays byte-identical after this split (see the KAN-7 report).
+
+``emit_chain`` (KAN-13) is the third piece: turning a chain's surviving
+offers into the published entry shape (``u``/``d``/``e``/``q``/``t``/``c``/
+``k``/``b``/``s``/``x``). It used to be a private helper inside
+build_catalog.py; it moved here so the API's ``/product`` and ``/generic``
+endpoints can build the exact same ``promo`` shape from ``deals`` rows at
+request time, instead of re-deriving the encoding rules from scratch and
+risking the two disagreeing about, say, when ``s`` beats ``x``.
 """
 
 from collections import defaultdict
@@ -116,3 +124,44 @@ def prune_dominated(merged):
             covered |= body["where"]
             kept[key] = body
     return kept
+
+
+def emit_chain(chain_id, kept, everywhere, offers, today):
+    """Encode one chain's surviving offers (``merge_chain`` + ``prune_dominated``
+    output) into the published entry shape, appending into
+    ``offers[barcode][chain_id]``.
+
+    ``everywhere`` is the denominator ``s``/``x`` are chosen against: every
+    branch that counts as "all branches" for this call. build_catalog.py
+    passes ``merge_chain``'s own ``everywhere`` (every branch that ever
+    published any promotion for the chain). The API (KAN-13) has no
+    ``promo_stores`` to recompute that from at request time - ``deals`` and
+    ``store_bits`` are all app.db carries - so it passes the chain's full
+    ``store_bits`` branch set instead. The two denominators coincide for
+    every chain checked on real data (a chain's promotional footprint is
+    within a handful of branches of its full store count); see KAN-13's
+    report for the real-data comparison.
+    """
+    n = 0
+    for (barcode, club, coupon, min_qty, unit_price), body in kept.items():
+        entry = {"u": unit_price, "d": body["description"], "e": body["ends"]}
+        if min_qty and min_qty != 1:
+            entry["q"] = min_qty
+            entry["t"] = body["price"]      # the headline "2 for 34"
+        if club:
+            entry["c"] = 1
+        if coupon:
+            entry["k"] = 1
+        if body["starts"] and body["starts"] > today:
+            entry["b"] = body["starts"]     # announced, not yet live
+        missing = everywhere - body["where"]
+        if missing:
+            # Whichever list is shorter says the same thing: an offer
+            # running at 300 of 305 branches should not carry 300 ids.
+            if len(missing) < len(body["where"]):
+                entry["x"] = sorted(missing)
+            else:
+                entry["s"] = sorted(body["where"])
+        offers[barcode][chain_id].append(entry)
+        n += 1
+    return n

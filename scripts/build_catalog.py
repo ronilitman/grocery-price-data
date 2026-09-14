@@ -147,35 +147,6 @@ def write_detail(conn, out_dir):
     return len(shards)
 
 
-def _emit_chain(chain_id, kept, everywhere, offers, today):
-    """Encode each surviving offer (scripts/offers.py's merge and
-    domination-prune, shared with build_app_db.py's deals table) into the
-    published JSON shape."""
-    n = 0
-    for (barcode, club, coupon, min_qty, unit_price), body in kept.items():
-        entry = {"u": unit_price, "d": body["description"], "e": body["ends"]}
-        if min_qty and min_qty != 1:
-            entry["q"] = min_qty
-            entry["t"] = body["price"]      # the headline "2 for 34"
-        if club:
-            entry["c"] = 1
-        if coupon:
-            entry["k"] = 1
-        if body["starts"] and body["starts"] > today:
-            entry["b"] = body["starts"]     # announced, not yet live
-        missing = everywhere - body["where"]
-        if missing:
-            # Whichever list is shorter says the same thing: an offer
-            # running at 300 of 305 branches should not carry 300 ids.
-            if len(missing) < len(body["where"]):
-                entry["x"] = sorted(missing)
-            else:
-                entry["s"] = sorted(body["where"])
-        offers[barcode][chain_id].append(entry)
-        n += 1
-    return n
-
-
 def write_promos(conn, out_dir, today):
     """Promotions: barcode -> chain -> [offer, ...], sharded like detail/.
 
@@ -201,7 +172,7 @@ def write_promos(conn, out_dir, today):
         merged, everywhere = offers_mod.merge_chain(conn, chain_id, today)
         total_merged += len(merged)
         survivors = offers_mod.prune_dominated(merged)
-        kept += _emit_chain(chain_id, survivors, everywhere, offers, today)
+        kept += offers_mod.emit_chain(chain_id, survivors, everywhere, offers, today)
 
     promo_dir = os.path.join(out_dir, "promo")
     os.makedirs(promo_dir, exist_ok=True)

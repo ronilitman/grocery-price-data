@@ -82,6 +82,19 @@ CREATE TABLE categories(
 CREATE TABLE store_bits(
     chain_id TEXT NOT NULL, store_id TEXT NOT NULL, bit INTEGER NOT NULL,
     PRIMARY KEY (chain_id, store_id));
+-- One row per chain with any promo_offers row at all: the "everywhere" set
+-- scripts/offers.py's merge_chain returns alongside its merged offers - every
+-- branch that ever published ANY promotion for the chain, expired or not
+-- (unioned before merge_chain's `ends < today` skip). build_catalog.py's
+-- promo/*.json needs exactly this set to choose `s` vs `x` vs neither
+-- (KAN-13); it is NOT reconstructable from `deals` alone, which holds only
+-- kept, unexpired offers - a branch whose only offer expired would be
+-- missing from any union-of-deals reconstruction, silently turning a
+-- would-be `x` (or "runs everywhere") into a wrong `s`. Bit order matches
+-- store_bits for the same chain, so a caller decodes both bitmaps the same
+-- way.
+CREATE TABLE promo_everywhere(
+    chain_id TEXT PRIMARY KEY, branches BLOB NOT NULL);
 -- One row per kept offer, after the same merge-and-domination-prune
 -- build_catalog.py's promo/ JSON uses (scripts/offers.py, KAN-7) - so the two
 -- outputs can never disagree about which offers survive. discount_pct is
@@ -401,8 +414,16 @@ def build_deals(conn, bit_of, category_map):
     domination-prune - the same function build_catalog.py's promo/ JSON goes
     through, so the two can never disagree about which offers survive.
 
+    Also writes ``promo_everywhere``: each chain's ``everywhere`` set from
+    ``merge_chain`` (KAN-13) - every branch that ever published ANY
+    promotion for the chain, expired or not. build_catalog.py needs exactly
+    that set, not ``deals``' kept-only branches, to choose ``s``/``x``/
+    neither the same way it always has - a branch whose only offer expired
+    is in ``everywhere`` but would be invisible to anything reconstructed
+    from ``deals`` alone.
+
     ``bit_of`` is build_store_bits' ``{chain_id: {store_id: bit}}``, used to
-    pack each offer's branch set into ``deals.branches``.
+    pack both ``deals.branches`` and ``promo_everywhere.branches``.
     """
     base_price = {(c, b): p for c, b, p in conn.execute(
         "SELECT chain_id, barcode, price FROM src.chain_prices")}
@@ -416,47 +437,54 @@ def build_deals(conn, bit_of, category_map):
     today = (meta.get("built_at") or "")[:10] or "0000-00-00"
 
     rows = []
+    everywhere_rows = []
     deal_id = 1
     merged_total = 0
     for (chain_id,) in conn.execute(
             "SELECT DISTINCT chain_id FROM src.promo_offers"):
-        merged, _everywhere = offers_mod.merge_chain(
+        merged, everywhere = offers_mod.merge_chain(
             conn, chain_id, today, table_prefix="src.")
         merged_total += len(merged)
         kept = offers_mod.prune_dominated(merged)
         chain_bits = bit_of.get(chain_id, {})
         n = len(chain_bits)
+
+        def pack_branches(store_ids, chain_id=chain_id, chain_bits=chain_bits, n=n):
+            bits = []
+            for store_id in store_ids:
+                bit = chain_bits.get(store_id)
+                if bit is None:
+                    # build_store_bits derives each chain's bit space from the
+                    # union of stores and promo_stores, so this can only mean
+                    # that invariant broke - never silently drop a branch
+                    # (that is exactly the bug KAN-7's review fix closed:
+                    # 61,089 real deals losing every branch this way).
+                    raise ValueError(
+                        f"store_bits has no bit for chain {chain_id!r} store "
+                        f"{store_id!r} - build_store_bits must cover every "
+                        f"promo_stores branch")
+                bits.append(bit)
+            return bitmap.pack(bits, n)
+
+        everywhere_rows.append((chain_id, pack_branches(everywhere)))
+
         for (barcode, club, coupon, min_qty, unit_price), body in kept.items():
             bp = base_price.get((chain_id, barcode))
             discount_pct = (round((1 - unit_price / bp) * 100, 1)
                             if bp and bp > 0 else None)
             name = chain_name.get((chain_id, barcode)) or product_name.get(barcode)
-            branch_bits = []
-            for store_id in body["where"]:
-                bit = chain_bits.get(store_id)
-                if bit is None:
-                    # build_store_bits derives each chain's bit space from the
-                    # union of stores and promo_stores, so this can only mean
-                    # that invariant broke - never silently drop a branch from
-                    # a kept offer's bitmap (that is exactly the bug KAN-7's
-                    # review fix closed: 61,089 real deals losing every
-                    # branch this way).
-                    raise ValueError(
-                        f"store_bits has no bit for chain {chain_id!r} store "
-                        f"{store_id!r}, needed by a kept offer for barcode "
-                        f"{barcode!r} - build_store_bits must cover every "
-                        f"promo_stores branch")
-                branch_bits.append(bit)
             rows.append((
                 deal_id, chain_id, barcode, category_map.get(barcode), name,
                 bp, unit_price, body["price"], min_qty, club, coupon,
                 body["starts"] or None, body["ends"] or None,
                 body["description"] or None, discount_pct,
-                bitmap.pack(branch_bits, n),
+                pack_branches(body["where"]),
             ))
             deal_id += 1
     conn.executemany(
         "INSERT INTO deals VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", rows)
+    conn.executemany(
+        "INSERT INTO promo_everywhere VALUES (?,?)", everywhere_rows)
     return len(rows), merged_total
 
 
@@ -546,6 +574,8 @@ def build(db_path, out_path, categories_json=CATEGORIES_JSON,
     counts["store_bits"] = store_bits_rows
     deals_rows, merged_total = build_deals(conn, bit_of, category_map)
     counts["deals"] = deals_rows
+    counts["promo_everywhere"] = conn.execute(
+        "SELECT COUNT(*) FROM promo_everywhere").fetchone()[0]
 
     conn.commit()
     conn.execute("DETACH DATABASE src")
