@@ -23,6 +23,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from scripts import bitmap
+
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
@@ -67,10 +69,16 @@ def get_connection() -> sqlite3.Connection:
 
     Raises sqlite3.OperationalError if the file is missing or unreadable;
     callers turn that into a 503 rather than a 500.
+
+    Registers ``has_branch`` (KAN-19: chain/branch-filtered ``/deals``) once
+    per connection, as the query planner requires - there is no connection
+    pool here, so "once per connection" and "once per request" are the same
+    thing.
     """
     uri = f"file:{db_path()}?mode=ro"
     conn = sqlite3.connect(uri, uri=True, check_same_thread=False)
     conn.execute("PRAGMA query_only=1")
+    conn.create_function("has_branch", 2, bitmap.has_branch, deterministic=True)
     return conn
 
 

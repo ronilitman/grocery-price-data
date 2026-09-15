@@ -46,9 +46,24 @@ LOW_DISCOUNT = "2000000000002"
 EXPIRED_ONLY = "2000000000003"
 ZERO_DISCOUNT = "2000000000004"
 NO_DEAL = "2000000000005"
+# KAN-19: chain/branch filtering fixtures. RAMI_LEVY gets two more branches
+# (store "20", a real branch that runs its own promotions, and store "30",
+# a real branch that never runs ANY promotion at all - store_bits' universe
+# is stores UNION promo_stores, so "30" still counts toward branches_total).
+BRANCH_MULTI = "3000000000001"      # two RAMI_LEVY offers, different branches
+BRANCH_EXCLUSIVE = "3000000000002"  # one RAMI_LEVY offer, store "20" only
 
 BUILT_AT = "2026-09-14T02:00:00+00:00"
 TODAY = "2026-09-14"
+
+# KAN-19: category_id combines with every /deals mode. CHOC_A/B/C share
+# category 1; the two branch-filtering fixtures above share category 2 -
+# real fixture barcodes only, one per line, no header (see
+# build_app_db.load_category_map).
+CATEGORY_MAP = {
+    CHOC_A: 1, CHOC_B: 1, CHOC_C: 1,
+    BRANCH_MULTI: 2, BRANCH_EXCLUSIVE: 2,
+}
 
 
 def _build_prices_db(path):
@@ -67,6 +82,12 @@ def _build_prices_db(path):
         "INSERT INTO stores VALUES (?,?,?,?,?,?,?)",
         [
             ("RAMI_LEVY", "10", None, "Rami Levy A", "3000", "St 1", 100),
+            # KAN-19: two more real RAMI_LEVY branches - "20" runs its own
+            # promotions below, "30" never runs any promotion at all (still
+            # a real branch, still counts toward branches_total via
+            # store_bits' stores-UNION-promo_stores universe).
+            ("RAMI_LEVY", "20", None, "Rami Levy B", "3000", "St 1b", 100),
+            ("RAMI_LEVY", "30", None, "Rami Levy C", "3000", "St 1c", 100),
             ("SHUFERSAL", "1", None, "Shufersal A", "5000", "St 2", 100),
             ("OSHER_AD", "5", None, "Osher Ad A", "2000", "St 3", 100),
         ],
@@ -82,6 +103,8 @@ def _build_prices_db(path):
             (EXPIRED_ONLY, "פסטה", "Acme", "500", 500.0, "g", 0),
             (ZERO_DISCOUNT, "אורז", "Acme", "1", 1.0, "kg", 0),
             (NO_DEAL, "חלב 3 אחוז", "Acme", "1", 1.0, "L", 0),
+            (BRANCH_MULTI, "יין לבן", "Acme", "750", 750.0, "מ\"ל", 0),
+            (BRANCH_EXCLUSIVE, "יין מבעבע", "Acme", "750", 750.0, "מ\"ל", 0),
         ],
     )
     conn.executemany(
@@ -96,6 +119,8 @@ def _build_prices_db(path):
             ("RAMI_LEVY", LOW_DISCOUNT, 100.00, 5),  # -> 10% off at 90.00
             ("RAMI_LEVY", ZERO_DISCOUNT, 40.00, 5),  # multi-buy, not cheaper
             ("RAMI_LEVY", NO_DEAL, 6.90, 5),
+            ("RAMI_LEVY", BRANCH_MULTI, 100.00, 5),
+            ("RAMI_LEVY", BRANCH_EXCLUSIVE, 100.00, 5),
         ],
     )
     conn.executemany(
@@ -123,6 +148,19 @@ def _build_prices_db(path):
             # (unit_price 40.00 == base_price 40.00) -> discount_pct == 0.
             (9, "RAMI_LEVY", "P9", ZERO_DISCOUNT, 0, 0, 2, 80.00, 40.00,
              "rice, not actually cheaper", "2026-09-01", "2026-12-31"),
+            # KAN-19: BRANCH_MULTI has TWO RAMI_LEVY offers on DIFFERENT
+            # branches - offer 10 (branch "10") is cheaper (55% off) than
+            # offer 11 (branch "20", 30% off). Chain-mode's representative
+            # must be offer 10; store_id="20" must fall back to offer 11
+            # (offer 10 doesn't apply there), never show offer 10's price.
+            (10, "RAMI_LEVY", "P10", BRANCH_MULTI, 0, 0, 1, 45.00, 45.00,
+             "white wine, branch 10 - cheaper", "2026-09-01", "2026-12-31"),
+            (11, "RAMI_LEVY", "P11", BRANCH_MULTI, 0, 0, 1, 70.00, 70.00,
+             "white wine, branch 20 - pricier", "2026-09-01", "2026-12-31"),
+            # KAN-19: BRANCH_EXCLUSIVE only ever runs at branch "20" - absent
+            # for store_id="10" even though it's a real RAMI_LEVY discount.
+            (12, "RAMI_LEVY", "P12", BRANCH_EXCLUSIVE, 0, 0, 1, 60.00, 60.00,
+             "sparkling wine, branch 20 only", "2026-09-01", "2026-12-31"),
         ],
     )
     conn.executemany(
@@ -131,6 +169,7 @@ def _build_prices_db(path):
             (1, "10"), (2, "10"), (3, "1"),
             (4, "10"), (5, "1"), (6, "5"),
             (7, "10"), (8, "10"), (9, "10"),
+            (10, "10"), (11, "20"), (12, "20"),
         ],
     )
     conn.executemany(
@@ -157,10 +196,18 @@ def app_db(tmp_path, monkeypatch):
     monkeypatch.setattr(bad_mod, "PRODUCE_UNITS_TSV", str(units_tsv))
     monkeypatch.setattr(bad_mod, "PRODUCE_GENERIC_MAP_TSV", str(map_tsv))
 
+    # KAN-19: real, no-header categories TSV (barcode\tcategory_id\tchain)
+    # so category_id can be exercised alongside chain/store filtering.
+    categories_tsv = tmp_path / "product_categories.tsv"
+    categories_tsv.write_text(
+        "".join(f"{barcode}\t{category_id}\tRAMI_LEVY\n"
+                for barcode, category_id in CATEGORY_MAP.items()),
+        encoding="utf-8")
+
     prices_path = str(tmp_path / "prices.db")
     _build_prices_db(prices_path)
     out_path = str(tmp_path / "app.db")
-    build_app_db.build(prices_path, out_path)
+    build_app_db.build(prices_path, out_path, categories_tsv=str(categories_tsv))
     return out_path
 
 
@@ -205,8 +252,11 @@ def test_full_walk_matches_deal_products_ground_truth_exactly(app_db, client):
         "SELECT barcode FROM deal_products ORDER BY discount_pct DESC, deal_id ASC"
     )]
     conn.close()
-    assert set(expected) == {CHOC_A, CHOC_B, CHOC_C, MULTI_CHAIN, LOW_DISCOUNT}
-    assert len(expected) == 5
+    assert set(expected) == {
+        CHOC_A, CHOC_B, CHOC_C, MULTI_CHAIN, LOW_DISCOUNT,
+        BRANCH_MULTI, BRANCH_EXCLUSIVE,
+    }
+    assert len(expected) == 7
     # CHOC_B/CHOC_C tie at 80% - deal_products already picked a stable
     # deal_id order for them; /deals must reproduce that exact order, not
     # just the same set, below.
@@ -248,7 +298,7 @@ def test_expired_and_non_positive_discount_deals_are_absent(app_db, client):
     assert EXPIRED_ONLY not in barcodes
     assert ZERO_DISCOUNT not in barcodes
     assert NO_DEAL not in barcodes
-    assert len(barcodes) == 5
+    assert len(barcodes) == 7
 
 
 # ---------------------------------------------------------------------------
@@ -317,7 +367,208 @@ def test_limit_out_of_range_is_422(client):
 def test_default_limit_is_24(app_db, client):
     resp = client.get("/deals")
     assert resp.status_code == 200
-    # Only 5 qualifying products exist in the fixture, well under 24, so a
+    # Only 7 qualifying products exist in the fixture, well under 24, so a
     # single page with no next_cursor proves the default limit didn't
     # truncate anything unexpectedly.
     assert resp.json()["next_cursor"] is None
+
+
+# ---------------------------------------------------------------------------
+# KAN-19: chain_id alone - every product on offer at that chain, even when
+# cheaper elsewhere, represented by the chain's own cheapest-unit-price
+# qualifying offer.
+# ---------------------------------------------------------------------------
+
+def test_chain_mode_shows_product_even_though_cheaper_elsewhere(app_db, client):
+    """MULTI_CHAIN's globally-cheapest deal is at SHUFERSAL (60% off,
+    unit_price 40); chain_id=RAMI_LEVY must still surface it, represented by
+    RAMI_LEVY's own (worse) offer, not omit it or borrow SHUFERSAL's."""
+    body = client.get("/deals", params={"chain_id": "RAMI_LEVY", "limit": 48}).json()
+    item = next(i for i in body["items"] if i["barcode"] == MULTI_CHAIN)
+    assert item["chain_id"] == "RAMI_LEVY"
+    assert item["unit_price"] == 50.00
+    assert item["discount_pct"] == 50.0
+    assert "chains_on_deal" not in item
+
+
+def test_chain_mode_picks_the_chains_cheapest_offer_as_representative(app_db, client):
+    """BRANCH_MULTI has two RAMI_LEVY offers (45.00 at branch 10, 70.00 at
+    branch 20) - the representative must be the cheaper one, regardless of
+    which branch it runs at."""
+    body = client.get("/deals", params={"chain_id": "RAMI_LEVY", "limit": 48}).json()
+    item = next(i for i in body["items"] if i["barcode"] == BRANCH_MULTI)
+    assert item["unit_price"] == 45.00
+    assert item["discount_pct"] == 55.0
+
+
+def test_chain_mode_branches_on_deal_and_total(app_db, client):
+    """RAMI_LEVY has 3 real branches (10, 20, 30 - store_bits' universe,
+    including "30" which never runs a promotion). CHOC_A's one offer only
+    applies at branch 10 (1 of 3); BRANCH_EXCLUSIVE's only offer applies at
+    branch 20 (also 1 of 3, a different single branch)."""
+    body = client.get("/deals", params={"chain_id": "RAMI_LEVY", "limit": 48}).json()
+    by_barcode = {i["barcode"]: i for i in body["items"]}
+    assert by_barcode[CHOC_A]["branches_total"] == 3
+    assert by_barcode[CHOC_A]["branches_on_deal"] == 1
+    assert by_barcode[BRANCH_EXCLUSIVE]["branches_total"] == 3
+    assert by_barcode[BRANCH_EXCLUSIVE]["branches_on_deal"] == 1
+
+
+def test_chain_mode_order_and_full_pagination_walk(app_db, client):
+    """Every RAMI_LEVY-qualifying product exactly once, in
+    discount_pct DESC, deal_id ASC order, walked a page at a time - no
+    overlap, no gap. Order hand-derived from the fixture's RAMI_LEVY
+    offers: CHOC_A 90, CHOC_B 80, BRANCH_MULTI 55 (its cheaper branch-10
+    offer), MULTI_CHAIN 50 (RAMI_LEVY's own offer, not SHUFERSAL's 60),
+    BRANCH_EXCLUSIVE 40, LOW_DISCOUNT 10."""
+    expected = [CHOC_A, CHOC_B, BRANCH_MULTI, MULTI_CHAIN, BRANCH_EXCLUSIVE, LOW_DISCOUNT]
+
+    got = []
+    cursor = None
+    pages = 0
+    while True:
+        params = {"chain_id": "RAMI_LEVY", "limit": 2}
+        if cursor:
+            params["cursor"] = cursor
+        resp = client.get("/deals", params=params)
+        assert resp.status_code == 200
+        body = resp.json()
+        got.extend(_barcodes(body))
+        pages += 1
+        assert pages < 20, "walk did not terminate"
+        cursor = body["next_cursor"]
+        if cursor is None:
+            break
+
+    assert got == expected
+    assert len(got) == len(set(got)), "duplicate barcode across pages"
+
+
+def test_chain_mode_category_id_combines(app_db, client):
+    """category_id=2 (BRANCH_MULTI, BRANCH_EXCLUSIVE in CATEGORY_MAP)
+    narrows a chain_id=RAMI_LEVY query to just those two."""
+    body = client.get(
+        "/deals", params={"chain_id": "RAMI_LEVY", "category_id": 2, "limit": 48}
+    ).json()
+    assert set(_barcodes(body)) == {BRANCH_MULTI, BRANCH_EXCLUSIVE}
+
+
+def test_chain_mode_q_combines(app_db, client):
+    body = client.get(
+        "/deals", params={"chain_id": "RAMI_LEVY", "q": "שוקולד", "limit": 48}
+    ).json()
+    assert set(_barcodes(body)) == {CHOC_A, CHOC_B}
+
+
+def test_unknown_chain_id_is_404(client):
+    resp = client.get("/deals", params={"chain_id": "NOPE"})
+    assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# KAN-19: chain_id + store_id - only offers valid at that branch.
+# ---------------------------------------------------------------------------
+
+def test_store_mode_excludes_offer_not_valid_at_the_branch(app_db, client):
+    """BRANCH_EXCLUSIVE's only offer runs at branch 20 - store_id="10" must
+    not show it at all, even though it's a real RAMI_LEVY discount."""
+    body = client.get(
+        "/deals", params={"chain_id": "RAMI_LEVY", "store_id": "10", "limit": 48}
+    ).json()
+    assert BRANCH_EXCLUSIVE not in _barcodes(body)
+
+
+def test_store_mode_falls_back_to_the_branch_valid_offer_not_the_chains_best(app_db, client):
+    """BRANCH_MULTI's chain-wide best offer (45.00/55%) only runs at branch
+    10. At branch 20, the representative must be the OTHER offer
+    (70.00/30%) - never the chain's best, and never absent just because the
+    best offer doesn't apply there."""
+    body = client.get(
+        "/deals", params={"chain_id": "RAMI_LEVY", "store_id": "20", "limit": 48}
+    ).json()
+    item = next(i for i in body["items"] if i["barcode"] == BRANCH_MULTI)
+    assert item["unit_price"] == 70.00
+    assert item["discount_pct"] == 30.0
+    assert "branches_on_deal" not in item
+    assert "branches_total" not in item
+    assert "chains_on_deal" not in item
+
+
+def test_store_mode_no_offers_at_the_branch_is_empty(app_db, client):
+    """Branch "30" is a real RAMI_LEVY store (store_bits counts it) that
+    never runs any promotion - an empty, not an error, response."""
+    body = client.get(
+        "/deals", params={"chain_id": "RAMI_LEVY", "store_id": "30", "limit": 48}
+    ).json()
+    assert body["items"] == []
+    assert body["next_cursor"] is None
+
+
+def test_store_mode_order_and_full_pagination_walk(app_db, client):
+    """store_id="10": CHOC_A 90, CHOC_B 80, BRANCH_MULTI 55, MULTI_CHAIN 50,
+    LOW_DISCOUNT 10 - BRANCH_EXCLUSIVE (branch 20 only) is absent."""
+    expected = [CHOC_A, CHOC_B, BRANCH_MULTI, MULTI_CHAIN, LOW_DISCOUNT]
+
+    got = []
+    cursor = None
+    pages = 0
+    while True:
+        params = {"chain_id": "RAMI_LEVY", "store_id": "10", "limit": 2}
+        if cursor:
+            params["cursor"] = cursor
+        resp = client.get("/deals", params=params)
+        assert resp.status_code == 200
+        body = resp.json()
+        got.extend(_barcodes(body))
+        pages += 1
+        assert pages < 20, "walk did not terminate"
+        cursor = body["next_cursor"]
+        if cursor is None:
+            break
+
+    assert got == expected
+    assert len(got) == len(set(got)), "duplicate barcode across pages"
+
+
+def test_store_mode_category_id_combines(app_db, client):
+    body = client.get(
+        "/deals",
+        params={
+            "chain_id": "RAMI_LEVY", "store_id": "10", "category_id": 1,
+            "limit": 48,
+        },
+    ).json()
+    assert set(_barcodes(body)) == {CHOC_A, CHOC_B}
+
+
+def test_unknown_store_id_for_known_chain_is_404(client):
+    resp = client.get(
+        "/deals", params={"chain_id": "RAMI_LEVY", "store_id": "999"})
+    assert resp.status_code == 404
+
+
+def test_store_id_without_chain_id_is_400(client):
+    resp = client.get("/deals", params={"store_id": "10"})
+    assert resp.status_code == 400
+
+
+def test_response_item_shape_chain_mode(app_db, client):
+    body = client.get(
+        "/deals", params={"chain_id": "RAMI_LEVY", "limit": 1}).json()
+    item = body["items"][0]
+    assert set(item) == {
+        "barcode", "name", "chain_id", "base_price", "unit_price", "price",
+        "min_qty", "club", "coupon", "ends", "discount_pct", "generic_key",
+        "branches_on_deal", "branches_total",
+    }
+
+
+def test_response_item_shape_store_mode(app_db, client):
+    body = client.get(
+        "/deals",
+        params={"chain_id": "RAMI_LEVY", "store_id": "10", "limit": 1}).json()
+    item = body["items"][0]
+    assert set(item) == {
+        "barcode", "name", "chain_id", "base_price", "unit_price", "price",
+        "min_qty", "club", "coupon", "ends", "discount_pct", "generic_key",
+    }

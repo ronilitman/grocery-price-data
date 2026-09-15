@@ -84,6 +84,31 @@ none are stale), matching the shape already published in the JSON contract's
 `index.json` (see the root `CLAUDE.md`). `GET /health` reads both keys and
 decodes `chain_as_of`.
 
+## `GET /deals` (KAN-15, KAN-19)
+
+The Discounts page's paginated card list - one card per product, keyset
+paginated (`limit`, `cursor`; never `OFFSET`, since `app.db` is replaced
+nightly). `q` and `category_id` narrow in every mode below. See
+`api/deals.py`'s module docstring for the full rationale.
+
+| params | shows |
+| --- | --- |
+| none | One card per product at its cheapest chain anywhere, with `chains_on_deal`. Reads the pre-grouped `deal_products` table. |
+| `chain_id` | Every product with a qualifying offer *at that chain*, even if it's cheaper elsewhere. One card per product, represented by the chain's own cheapest-unit-price offer. Adds `branches_on_deal` (branches where the representative offer applies) and `branches_total` (the chain's real branch count); omits `chains_on_deal`. |
+| `chain_id` + `store_id` | Only offers valid at that branch (a `has_branch()` bitmap test against `store_bits`). One card per product, represented by the best offer actually usable there - never the chain's best offer if that offer doesn't apply at the branch. Omits `chains_on_deal`, `branches_on_deal` and `branches_total`. |
+
+The chain/branch modes group the raw `deals` table at request time (a
+`ROW_NUMBER() OVER (PARTITION BY barcode ...)` window query), narrowed first
+by the indexed `deals(chain_id, category_id, discount_pct DESC, deal_id)`
+prefix - the branch bit test cannot use an index, so it always runs after
+that narrowing. There's no new build-time table for this: grouping at
+request time means a chain/branch filter never has to wait for a nightly
+rebuild.
+
+Errors: a malformed `cursor` is a 400; `store_id` without `chain_id` is a
+400 (a branch only means something within a chain); an unknown `chain_id`,
+or a `(chain_id, store_id)` pair `store_bits` has no bit for, is a 404.
+
 ## Nightly app.db push and swap (KAN-11)
 
 The API reads `/srv/grocery/data/live.db` (override with the `APP_DB` env
