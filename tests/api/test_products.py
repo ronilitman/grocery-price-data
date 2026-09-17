@@ -133,3 +133,33 @@ def test_post_products_built_at_matches_meta(client):
     meta = client.get("/meta").json()
     resp = client.post("/products", json={"items": []})
     assert resp.json()["built_at"] == meta["built_at"]
+
+
+def test_large_response_is_gzipped(client):
+    """Every response here is JSON and compresses 4-7x; the VM's free tier
+    only covers 1 GB of egress a month, so compression is not optional."""
+    resp = client.get("/deals", headers={"Accept-Encoding": "gzip"})
+
+    assert resp.status_code == 200
+    assert len(resp.content) > 500, "fixture response too small to trip minimum_size"
+    assert resp.headers["content-encoding"] == "gzip"
+    assert "accept-encoding" in resp.headers["vary"].lower()
+    # httpx decodes transparently, so the body is still usable JSON.
+    assert "built_at" in resp.json()
+
+
+def test_gzip_does_not_drop_the_cors_vary(client):
+    """GZip and CORS both append to `Vary`; neither may clobber the other,
+    or a shared cache could serve one origin's headers to another."""
+    resp = client.get(
+        "/deals",
+        headers={
+            "Accept-Encoding": "gzip",
+            "Origin": "https://gen-lang-client-0902689301.web.app",
+        },
+    )
+
+    vary = resp.headers["vary"].lower()
+    assert "accept-encoding" in vary
+    assert "origin" in vary
+

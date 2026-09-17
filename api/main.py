@@ -20,6 +20,7 @@ from typing import Optional
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -49,11 +50,23 @@ ALLOWED_ORIGINS = [
     "http://localhost:5174",
 ]
 
-# Nothing caches this response today. Sending the header from day one is
-# what lets a CDN be dropped in front later with no client change (see the
-# design doc linked from KAN-4). Every endpoint also accepts and ignores a
-# `v` query parameter - the client's build stamp - for the same reason.
+# Sending cache headers from day one is what lets a CDN be dropped in front
+# later with no client change (see the design doc linked from KAN-4). Every
+# endpoint also accepts and ignores a `v` query parameter - the client's build
+# stamp - for the same reason, and a long max-age is only safe *because* of
+# that stamp: a new nightly build changes the URL, which retires the old
+# entry. Two groups of paths do not get it.
 CACHE_CONTROL = "public, max-age=86400"
+
+# `/search` carries no `v` stamp in practice: grocery-list-app's
+# `searchByName` is hard-wired to this API and calls `/search` directly
+# without loading `/meta` first, so the client has no build stamp to send.
+# An unstamped URL plus a 24h max-age meant a browser answered a repeated
+# query from its own disk cache for a day - yesterday's prices, no request
+# reaching us at all. Search is database-only, so it must not be reused
+# blindly.
+CACHE_CONTROL_NO_STORE = "no-store"
+NO_STORE_PATHS = frozenset({"/search"})
 
 RATE_LIMIT_PER_SECOND = 20.0
 RATE_LIMIT_BURST = 40.0
@@ -171,6 +184,13 @@ app.add_middleware(
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
+
+# Every response here is JSON and compresses 4-7x (measured 2026-09-17:
+# /meta 126,042 -> 34,643 bytes, /deals 6,703 -> 963, /search 2,447 -> 593).
+# The VM's free tier allows 1 GB of egress a month, so this is the
+# difference between fitting in it and not. `minimum_size` skips the tiny
+# `/product` payloads, where the gzip header costs more than it saves.
+app.add_middleware(GZipMiddleware, minimum_size=500)
 app.add_middleware(RateLimitMiddleware)
 
 from api.search import router as search_router  # noqa: E402  (KAN-12)
@@ -188,7 +208,11 @@ app.include_router(categories_router)
 async def add_cache_control(request: Request, call_next):
     response = await call_next(request)
     if response.status_code < 400:
-        response.headers["Cache-Control"] = CACHE_CONTROL
+        response.headers["Cache-Control"] = (
+            CACHE_CONTROL_NO_STORE
+            if request.url.path in NO_STORE_PATHS
+            else CACHE_CONTROL
+        )
     return response
 
 
