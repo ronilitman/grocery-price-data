@@ -1,0 +1,20 @@
+# KAN-29: a product's display name, decided once by a human and then kept -
+# never recomputed from whichever chain's file happens to sort last, and
+# never one of the eleven chains' names truncated at 20 characters.
+#
+# Columns: barcode, name, source, decided_at (tab-separated, UTF-8, no
+# header on the data rows below - this comment block is skipped by the
+# loader because it starts with '#'). `source` names where the evidence
+# came from (a chain id, "pricez", "manual", ...), not a person, so it
+# survives a re-review. `decided_at` is the date (YYYY-MM-DD) the row was
+# accepted, not when the candidate was first seen.
+#
+# This file has room to grow: a later column (brand, size, unit, image URL,
+# category) is appended after decided_at, never inserted before it, and
+# existing rows are left with only four fields until they are backfilled -
+# scripts/build_app_db.py's load_product_names() only unpacks the first
+# four fields and ignores the rest, so old rows and old readers both keep
+# working. Teaching the build to use a new column is a separate change to
+# that function, not to this file's shape.
+7290011723200	טחינה גולמית הר ברכה תעשיות 500 גרם	pricez	2026-09-17
+8714789733296	פלמוליב נטורלס תחליב רחצה זיתים וחלב 750 מ"ל	super_pharm	2026-09-17

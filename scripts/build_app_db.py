@@ -35,6 +35,7 @@ import offers as offers_mod
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CATEGORIES_JSON = os.path.join(ROOT, "data", "categories.json")
 PRODUCT_CATEGORIES_TSV = os.path.join(ROOT, "data", "product_categories.tsv")
+PRODUCT_NAMES_TSV = os.path.join(ROOT, "data", "product_names.tsv")
 
 # Same shape as merge_db.SCHEMA for every table we carry over, plus three new
 # columns on products and the deals/store_bits pair. promo_offers,
@@ -236,21 +237,59 @@ def load_categories(json_path):
         return json.load(handle)
 
 
+def load_product_names(tsv_path):
+    """barcode -> human-decided name, from the no-header, tab-separated TSV.
+
+    Columns today are ``barcode, name, source, decided_at`` (KAN-29): a name
+    is decided once, by a human, and kept - it stops the display name
+    flipping to whichever chain's file happens to sort last, and stops it
+    being one of the eleven chains' 20-character-capped names. A row that is
+    blank, or has fewer than the four columns, is skipped rather than raising
+    - a hand-reviewed batch is exactly the kind of file that picks up a stray
+    blank line - and a row with an empty barcode or name is skipped the same
+    way. Only the first four fields are unpacked, so a later column (brand,
+    size, unit, image URL, category - see the TSV's own header comment) can
+    be appended without this loader, or any row written before it existed,
+    breaking; teaching the build to use it is a separate change to this
+    function.
+    """
+    names = {}
+    with open(tsv_path, encoding="utf-8") as handle:
+        for line in handle:
+            line = line.rstrip("\n")
+            if not line or line.startswith("#"):
+                continue
+            parts = line.split("\t")
+            if len(parts) < 4:
+                continue
+            barcode, name = parts[0].strip(), parts[1].strip()
+            if not barcode or not name:
+                continue
+            names[barcode] = name
+    return names
+
+
 def ro_uri(path):
     """A file: URI SQLite's ATTACH will open strictly read-only."""
     return pathlib.Path(path).resolve().as_uri() + "?mode=ro"
 
 
-def copy_products(conn, category_map):
+def copy_products(conn, category_map, name_map=None):
+    name_map = name_map or {}
     rows = []
     cur = conn.execute(
         "SELECT barcode, name, manufacturer, unit_qty, quantity, "
         "unit_of_measure, is_weighted FROM src.products"
     )
     for barcode, name, manufacturer, unit_qty, quantity, unit_of_measure, is_weighted in cur:
+        # KAN-29: a human-decided name (data/product_names.tsv) wins over
+        # whichever chain's file the merge happened to keep. Falls back to
+        # today's name when the barcode isn't in the table yet, so partial
+        # coverage never breaks a product that hasn't been reviewed.
+        display_name = name_map.get(barcode, name)
         rows.append((
-            barcode, name, manufacturer, unit_qty, quantity, unit_of_measure,
-            is_weighted, category_map.get(barcode), None, sort_key_for(name),
+            barcode, display_name, manufacturer, unit_qty, quantity, unit_of_measure,
+            is_weighted, category_map.get(barcode), None, sort_key_for(display_name),
         ))
     conn.executemany(
         "INSERT INTO products "
@@ -521,7 +560,7 @@ def build_fts(conn):
 
 
 def build(db_path, out_path, categories_json=CATEGORIES_JSON,
-          categories_tsv=PRODUCT_CATEGORIES_TSV):
+          categories_tsv=PRODUCT_CATEGORIES_TSV, names_tsv=PRODUCT_NAMES_TSV):
     start = time.perf_counter()
     tmp_path = out_path + ".tmp"
     if os.path.exists(tmp_path):
@@ -539,7 +578,8 @@ def build(db_path, out_path, categories_json=CATEGORIES_JSON,
         counts[table] = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
 
     category_map = load_category_map(categories_tsv)
-    counts["products"] = copy_products(conn, category_map)
+    name_map = load_product_names(names_tsv)
+    counts["products"] = copy_products(conn, category_map, name_map)
 
     bit_of, store_bits_rows = build_store_bits(conn)
     counts["store_bits"] = store_bits_rows
