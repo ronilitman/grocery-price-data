@@ -5,19 +5,17 @@ Deliberately its own fixture, not tests/api/catalog_fixture.py's: that one's
 fixture barcodes are never in the REAL data/product_categories.tsv (which
 build_app_db.build() reads by default), so nothing in it is ever
 categorised. This module builds its own small categories.json/
-product_categories.tsv (passed explicitly to build_app_db.build(), same way
-tests/api/catalog_fixture.py substitutes its own produce_units.tsv/
-produce_generic_map.tsv) and its own produce pair, so a category listing has
-real rows - including one collapsed generic - to walk.
+product_categories.tsv (passed explicitly to build_app_db.build()) so a
+category listing has real rows to walk.
 
 Layout, one barcode/case per DoD line item:
 
   TOP_A (id 100)
     SUB_A1 (id 101) - APPLE, BANANA (on a live club deal), CARROT (weighed),
-                       DATE, EGGPLANT, and TOMATO_RL/TOMATO_SF (two chains'
-                       own barcodes for the same generic key "עגבניה",
-                       BOTH individually categorised into SUB_A1 - the
-                       collapse case: 7 categorised barcodes, 6 browse rows).
+                       DATE, EGGPLANT, TOMATO_RL and TOMATO_SF (two chains'
+                       own barcodes for the same loose-produce item,
+                       individually categorised - 7 categorised barcodes,
+                       7 browse rows).
     SUB_A2 (id 102) - no product points here: an empty aisle, hidden by the
                        API's "omit empty tiles" rule.
   TOP_B (id 200)
@@ -46,8 +44,6 @@ EGGPLANT = "3000000000005"
 TOMATO_RL = "3000000000006"    # RAMI_LEVY's own barcode for "עגבניה"
 TOMATO_SF = "3000000000007"    # SHUFERSAL's own barcode for "עגבניה"
 ZUCCHINI = "3000000000099"     # priced, but never categorised
-
-TOMATO_KEY = "עגבניה"
 
 TOP_A, SUB_A1, SUB_A2 = 100, 101, 102
 TOP_B, SUB_B1 = 200, 201
@@ -156,44 +152,15 @@ def write_category_files(dir_path):
     return categories_json, tsv_path
 
 
-def write_produce_tsvs(dir_path):
-    """Minimal produce_units.tsv/produce_generic_map.tsv so TOMATO_RL/
-    TOMATO_SF land in the same algorithmic generics.py group AND resolve
-    through a mapped key - same pattern as tests/api/catalog_fixture.py."""
-    units_path = os.path.join(dir_path, "produce_units.tsv")
-    map_path = os.path.join(dir_path, "produce_generic_map.tsv")
-    header = ("slug\tname_he\tkind\tchain_id\tchain_name\tbarcode\t"
-              "chain_product_name\tprice\tnote\n")
-    with open(units_path, "w", encoding="utf-8") as handle:
-        handle.write(header)
-        handle.write(f"tomato\tעגבניה\tvegetable\tRAMI_LEVY\tRami Levy\t"
-                     f"{TOMATO_RL}\tעגבניה\t6.9\t\n")
-        handle.write(f"tomato\tעגבניה\tvegetable\tSHUFERSAL\tShufersal\t"
-                     f"{TOMATO_SF}\tעגבניה\t7.9\t\n")
-    with open(map_path, "w", encoding="utf-8") as handle:
-        handle.write("slug\tgeneric_key\tprimary\tnote\n")
-        handle.write(f"tomato\t{TOMATO_KEY}\tyes\tfixture primary\n")
-    return units_path, map_path
-
-
 def build_app_db_from_fixture(prices_db_path, out_path, tmp_path):
     """Run build_app_db.build() against the fixture, pointed at THIS
-    module's own categories/produce files rather than the real checked-in
-    ones (which know nothing about this fixture's barcodes)."""
+    module's own categories files rather than the real checked-in ones
+    (which know nothing about this fixture's barcodes)."""
     build_app_db = _module("build_app_db")
     dir_path = str(tmp_path)
     categories_json, categories_tsv = write_category_files(dir_path)
-    units_path, map_path = write_produce_tsvs(dir_path)
 
-    orig_units = build_app_db.PRODUCE_UNITS_TSV
-    orig_map = build_app_db.PRODUCE_GENERIC_MAP_TSV
-    build_app_db.PRODUCE_UNITS_TSV = units_path
-    build_app_db.PRODUCE_GENERIC_MAP_TSV = map_path
-    try:
-        counts, _size, _elapsed, _merged_total = build_app_db.build(
-            prices_db_path, out_path,
-            categories_json=categories_json, categories_tsv=categories_tsv)
-        return counts
-    finally:
-        build_app_db.PRODUCE_UNITS_TSV = orig_units
-        build_app_db.PRODUCE_GENERIC_MAP_TSV = orig_map
+    counts, _size, _elapsed, _merged_total = build_app_db.build(
+        prices_db_path, out_path,
+        categories_json=categories_json, categories_tsv=categories_tsv)
+    return counts

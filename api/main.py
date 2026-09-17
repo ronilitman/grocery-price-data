@@ -2,8 +2,8 @@
 
 This is KAN-10: the VM, Tailscale Funnel (HTTPS) and a `/health` endpoint.
 `app.db` is built by `scripts/build_app_db.py` (KAN-6). `GET /search` is
-KAN-12 (`api/search.py`). `/meta`, `/product`, `/generic` and `POST
-/products` are KAN-13 (`api/products.py`). `GET /categories` and `GET
+KAN-12 (`api/search.py`). `/meta`, `/product` and `POST /products` are
+KAN-13 (`api/products.py`). `GET /categories` and `GET
 /categories/{id}/products` are KAN-17 (`api/categories.py`). The nightly
 build-and-swap (KAN-11) is a separate subtask and deliberately not built
 here.

@@ -1,11 +1,9 @@
-"""The key KAN-13 test: /product and /generic return exactly what today's
-published shards say, for a fixture prices.db run through BOTH
-build_catalog.py (the shards) and build_app_db.py (app.db) - proving the two
-paths agree without relying on one to define the other.
+"""The key KAN-13 test: /product returns exactly what today's published
+shards say, for a fixture prices.db run through BOTH build_catalog.py (the
+shards) and build_app_db.py (app.db) - proving the two paths agree without
+relying on one to define the other.
 
-Every barcode is checked; mapped generic keys are checked to differ from
-generics.json in exactly the documented way (members/prices from
-produce_units), never silently skipped.
+Every barcode is checked.
 """
 import json
 import os
@@ -32,16 +30,15 @@ def built(tmp_path_factory):
     cf.build_prices_db(prices_db)
 
     catalog_dir = str(tmp / "catalog")
-    entries, of_barcode = cf.run_build_catalog(prices_db, catalog_dir)
-    index, barcodes, detail, promo, generics = cf.load_catalog_output(catalog_dir)
+    cf.run_build_catalog(prices_db, catalog_dir)
+    index, barcodes, detail, promo = cf.load_catalog_output(catalog_dir)
 
     app_db = str(tmp / "app.db")
     cf.build_app_db_from_fixture(prices_db, app_db, tmp)
 
     return {
         "app_db": app_db, "index": index, "barcodes": barcodes,
-        "detail": detail, "promo": promo, "generics": generics,
-        "of_barcode": of_barcode,
+        "detail": detail, "promo": promo,
     }
 
 
@@ -62,8 +59,7 @@ def client(built, monkeypatch):
 
 ALL_BARCODES = [
     cf.DAIRY, cf.BRANCH_EXC, cf.CLUB_OFFER, cf.COUPON_OFFER, cf.EXPIRED_TRAP,
-    cf.WEIGHED_CODE, cf.UPC_A_CODE, cf.TOMATO_A, cf.TOMATO_B, cf.TOMATO_C,
-    cf.CUCUMBER_A, cf.CUCUMBER_B,
+    cf.WEIGHED_CODE, cf.UPC_A_CODE,
 ]
 
 
@@ -101,7 +97,6 @@ def test_product_matches_shards(client, built, barcode):
     assert body["n"] == shard_entry["n"]
     assert body["w"] == shard_entry.get("w", 0)
     assert body["u"] == shard_entry.get("u")
-    assert body["g"] == shard_entry.get("g")
     assert body["p"] == shard_entry.get("p", {})
     assert _sorted_detail(body["detail"]) == _sorted_detail(built["detail"].get(barcode))
     assert _sorted_promo(body["promo"]) == _sorted_promo(built["promo"].get(barcode))
@@ -141,76 +136,12 @@ def test_branch_exception_detail(client):
     assert body["detail"] == {"RAMI_LEVY": [["20", 7.5]]}
 
 
-def test_dairy_has_no_unit_no_generic_no_detail_no_promo(client):
+def test_dairy_has_no_unit_no_detail_no_promo(client):
     body = client.get(f"/product/{cf.DAIRY}").json()
     assert body["w"] == 0
     assert body["u"] is None
-    assert body["g"] is None
     assert body["detail"] == {}
     assert body["promo"] == {}
-
-
-# --------------------------------------------------------------------- generics
-
-def test_unmapped_generic_matches_shard(client, built):
-    """CUCUMBER has no produce_generic_map row at all - resolves exactly as
-    generics.json, plus detail/promo across its members."""
-    shard = built["generics"][cf.CUCUMBER_KEY]
-    resp = client.get(f"/generic/{cf.CUCUMBER_KEY}")
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["n"] == shard["n"]
-    assert body["w"] == shard.get("w", 0)
-    assert body["u"] == shard.get("u")
-    assert body["i"] == shard.get("i")
-    assert body["p"] == shard["p"]
-    assert sorted(body["b"]) == sorted(shard["b"])
-    # No exceptions/promotions attached to either cucumber barcode in the
-    # fixture, but the fields must still be present and empty.
-    assert body["detail"] == {}
-    assert body["promo"] == {}
-
-
-def test_mapped_generic_differs_only_in_members_and_prices(client, built):
-    """TOMATO is mapped (produce_generic_map). Per KAN-9 precedence: name,
-    unit and image_id still come from the generic row (unchanged from the
-    shard); members/prices come from produce_units instead - and are
-    EXPECTED to differ, not to be skipped. The fixture is built so
-    Shufersal's representative member actually changes (TOMATO_B, the
-    algorithmic pick, -> TOMATO_C, produce_units' pick for that chain).
-    """
-    shard = built["generics"][cf.TOMATO_KEY]
-    resp = client.get(f"/generic/{cf.TOMATO_KEY}")
-    assert resp.status_code == 200
-    body = resp.json()
-
-    # Unchanged fields.
-    assert body["n"] == shard["n"]
-    assert body["w"] == shard.get("w", 0)
-    assert body["u"] == shard.get("u")
-    assert body["i"] == shard.get("i")
-
-    # Expected-to-differ fields: assert the difference explicitly, not "not
-    # equal" - so a future accident that makes them equal again is caught.
-    assert shard["p"]["SHUFERSAL"][2] == cf.TOMATO_B
-    assert body["p"]["SHUFERSAL"][2] == cf.TOMATO_C
-    assert body["p"]["SHUFERSAL"][0] == pytest.approx(14.9)  # live chain_prices for TOMATO_C
-    # Rami Levy's produce_units row happens to name the same barcode the
-    # algorithmic grouping picked - that member is unchanged.
-    assert shard["p"]["RAMI_LEVY"][2] == cf.TOMATO_A == body["p"]["RAMI_LEVY"][2]
-
-    assert sorted(shard["b"]) == [cf.TOMATO_A, cf.TOMATO_B, cf.TOMATO_C]
-    assert sorted(body["b"]) == [cf.TOMATO_A, cf.TOMATO_C]  # TOMATO_B dropped, on purpose
-
-
-def test_barcode_in_produce_units_resolves_to_slugs_primary_key(client):
-    """TOMATO_C is a produce_units member of the 'tomato' slug but is NOT
-    the algorithmic generic's representative barcode for any chain (the
-    'p' map never names it - see the mapped-key test above). KAN-9 step 3:
-    a barcode in produce_units still resolves (via /product's `g` field) to
-    its slug's primary key."""
-    body = client.get(f"/product/{cf.TOMATO_C}").json()
-    assert body["g"] == cf.TOMATO_KEY
 
 
 # --------------------------------------------------------------------- misc DoD
@@ -224,10 +155,6 @@ def test_meta_chain_as_of_matches_index(client, built):
 
 def test_unknown_barcode_404(client):
     assert client.get("/product/99999999999999").status_code == 404
-
-
-def test_unknown_generic_key_404(client):
-    assert client.get("/generic/not-a-real-key").status_code == 404
 
 
 def test_candidate_resolution_729000_prefix(client):
@@ -255,35 +182,25 @@ def test_batch_results_include_null_for_unknown_items(client):
     body = {"items": [
         {"barcode": cf.DAIRY},
         {"barcode": "0000000000000"},
-        {"generic_key": cf.CUCUMBER_KEY},
-        {"generic_key": "not-a-real-key"},
     ]}
     resp = client.post("/products", json=body)
     assert resp.status_code == 200
     results = resp.json()["results"]
     assert results[cf.DAIRY] is not None
     assert results["0000000000000"] is None
-    assert results[cf.CUCUMBER_KEY] is not None
-    assert results["not-a-real-key"] is None
 
 
 def test_batch_matches_single_item_endpoints(client, built):
-    """POST /products must return the same shape the single-item endpoints
-    do, for both a barcode and a generic key, proving the batched query
-    path doesn't diverge from the per-item path."""
-    body = {"items": [
-        {"barcode": cf.EXPIRED_TRAP},
-        {"generic_key": cf.TOMATO_KEY},
-    ]}
+    """POST /products must return the same shape the single-item /product
+    endpoint does, proving the batched query path doesn't diverge from the
+    per-item path."""
+    body = {"items": [{"barcode": cf.EXPIRED_TRAP}]}
     resp = client.post("/products", json=body)
     assert resp.status_code == 200
     results = resp.json()["results"]
 
     single_product = client.get(f"/product/{cf.EXPIRED_TRAP}").json()
     assert results[cf.EXPIRED_TRAP] == single_product
-
-    single_generic = client.get(f"/generic/{cf.TOMATO_KEY}").json()
-    assert results[cf.TOMATO_KEY] == single_generic
 
 
 def test_stores_filter_narrows_detail(client):

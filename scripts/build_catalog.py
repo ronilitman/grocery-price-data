@@ -18,7 +18,6 @@ import sqlite3
 import sys
 from collections import Counter, defaultdict
 
-import generics as generics_mod
 import offers as offers_mod
 
 LEVELS = (3, 6, 8)      # split deeper only where a bucket is actually crowded
@@ -193,30 +192,6 @@ def write_promos(conn, out_dir, today):
     return len(shards), len(offers)
 
 
-def write_generics(conn, out_dir):
-    """Loose produce collapsed across chains: one row, every chain's price.
-
-    A barcode names a row in one chain's price file, not a product - fifteen
-    codes carry `עגבניה` and one of them is frozen chicken breast somewhere
-    else. This is the layer that lets the app answer "what do tomatoes cost"
-    with one line instead of fifteen near-identical ones.
-
-    ``b`` lists the member barcodes so a scan of any of them lands here, and
-    ``i`` is the Pricez picture id - loose produce has no package shot, so its
-    barcode has no image, and the id resolved by hand is the only way to show
-    one at all.
-    """
-    entries, of_barcode = generics_mod.from_db(conn)
-    path = os.path.join(out_dir, "generics.json")
-    with open(path, "w", encoding="utf-8") as handle:
-        handle.write(dump(entries))
-    with_image = sum(1 for e in entries.values() if "i" in e)
-    print(f"[catalog] {len(entries)} produce generics over {len(of_barcode):,} "
-          f"barcodes, {with_image} with a picture, "
-          f"{os.path.getsize(path) / 1e3:.0f} KB")
-    return entries, of_barcode
-
-
 def _name_terms(name, filler):
     """The words worth indexing, folded to lower case and de-duplicated.
 
@@ -236,7 +211,7 @@ def _name_terms(name, filler):
     return out
 
 
-def write_names(entries, generic_entries, of_barcode, out_dir):
+def write_names(entries, out_dir):
     """Search shards keyed by the first letters of a word, not of a barcode.
 
     The client takes the longest prefix in the index that its query starts
@@ -244,27 +219,16 @@ def write_names(entries, generic_entries, of_barcode, out_dir):
     pointed at words. Each shard carries whole rows rather than postings, so
     one request answers a multi-word query too: whichever word picks the file,
     the filter then runs over the full name.
-
-    A product that belongs to a generic is NOT indexed. Its generic is, in its
-    place, which is what turns thirty near-identical `עגבניה` rows into one.
     """
     rows, terms_of = {}, {}
     freq = Counter()
     for barcode, entry in entries.items():
-        if barcode in of_barcode:
-            continue                       # its generic stands for it
-        freq.update(_name_terms(entry["n"], frozenset()))
-    for key, entry in generic_entries.items():
         freq.update(_name_terms(entry["n"], frozenset()))
 
-    indexed = len(entries) - len(of_barcode) + len(generic_entries)
+    indexed = len(entries)
     filler = {w for w, c in freq.items() if c >= max(50, indexed * NAME_FILLER_AT)}
 
     def add(row_id, name, weighted, chains, aliases=()):
-        # Aliases are searched but never displayed. A generic labelled `עגבניה`
-        # has to answer a query for `עגבניות`, and only its members carry that
-        # spelling - so the words ride along in a fourth field the client
-        # matches against and never renders.
         terms = _name_terms(name, filler)
         extra = set()
         for alias in aliases:
@@ -279,14 +243,7 @@ def write_names(entries, generic_entries, of_barcode, out_dir):
         terms_of[row_id] = (terms | extra, chains)
 
     for barcode, entry in entries.items():
-        if barcode in of_barcode:
-            continue
         add(barcode, entry["n"], entry.get("w"), len(entry["p"]))
-    # "@" marks a generic. The client needs to tell the two apart before it can
-    # decide whether to fetch a barcode's shard or read generics.json, and a
-    # prefix costs one byte against a second field on every row.
-    for key, entry in generic_entries.items():
-        add("@" + key, entry["n"], 1, len(entry["p"]), entry.get("a", ()))
 
     postings = defaultdict(list)
     for row_id, (terms, chains) in terms_of.items():
@@ -347,9 +304,8 @@ def write_names(entries, generic_entries, of_barcode, out_dir):
     with open(os.path.join(name_dir, "index.json"), "w", encoding="utf-8") as handle:
         handle.write(dump({"levels": list(NAME_LEVELS), "shards": sorted(shards)}))
 
-    print(f"[catalog] {len(shards)} name shards over {len(rows):,} searchable rows "
-          f"({len(generic_entries)} generics standing in for {len(of_barcode):,} "
-          f"products), {len(filler)} filler words, largest {largest / 1e3:.0f} KB")
+    print(f"[catalog] {len(shards)} name shards over {len(rows):,} searchable rows, "
+          f"{len(filler)} filler words, largest {largest / 1e3:.0f} KB")
     return len(shards)
 
 
@@ -404,19 +360,9 @@ def main():
     detail_count = write_detail(conn, args.out_dir)
     promo_count, promo_products = write_promos(
         conn, args.out_dir, (built_at or "")[:10] or "0000-00-00")
-    generic_entries, of_barcode = write_generics(conn, args.out_dir)
     conn.close()
 
-    # "g" points a member barcode at its generic, so scanning the code printed
-    # on one chain's tomato sticker resolves to the row that knows all of them.
-    # It rides on the product's existing shard rather than a reverse map of its
-    # own: the scan already fetches that file.
-    for barcode, key in of_barcode.items():
-        entry = entries.get(barcode)
-        if entry is not None:
-            entry["g"] = key
-
-    name_count = write_names(entries, generic_entries, of_barcode, args.out_dir)
+    name_count = write_names(entries, args.out_dir)
 
     shards = split(list(entries), 0)
 
@@ -437,11 +383,7 @@ def main():
                    "products": len(entries),
                    # How many products have a promotion somewhere. A client can
                    # skip fetching promo shards entirely when this is 0.
-                   "promo_products": promo_products,
-                   # Loose produce collapsed across chains. Zero means the
-                   # generics layer is absent and the client should fall back
-                   # to per-barcode rows, so an older API stays readable.
-                   "generics": len(generic_entries)}, handle, ensure_ascii=False)
+                   "promo_products": promo_products}, handle, ensure_ascii=False)
 
     depths = defaultdict(int)
     for prefix in shards:
@@ -454,8 +396,8 @@ def main():
           f"largest {largest / 1e3:.0f} KB -> {args.out_dir}")
     print("[catalog] shards by prefix length: "
           + ", ".join(f"{k}->{v}" for k, v in sorted(depths.items())))
-    # + index, stores, generics, detail/index, promo/index, name/index
-    total_files = len(shards) + detail_count + promo_count + name_count + 6
+    # + index, stores, detail/index, promo/index, name/index
+    total_files = len(shards) + detail_count + promo_count + name_count + 5
     print(f"[catalog] {total_files} files total")
     if total_files > MAX_FILES:
         print(f"[catalog] {total_files} files exceeds the {MAX_FILES}-file limit",

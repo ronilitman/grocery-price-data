@@ -186,16 +186,6 @@ def _build_prices_db(path):
 
 @pytest.fixture
 def app_db(tmp_path, monkeypatch):
-    units_tsv = tmp_path / "produce_units.tsv"
-    units_tsv.write_text(
-        "slug\tname_he\tkind\tchain_id\tchain_name\tbarcode\t"
-        "chain_product_name\tprice\tnote\n", encoding="utf-8")
-    map_tsv = tmp_path / "produce_generic_map.tsv"
-    map_tsv.write_text("slug\tgeneric_key\tprimary\tnote\n", encoding="utf-8")
-    import build_app_db as bad_mod
-    monkeypatch.setattr(bad_mod, "PRODUCE_UNITS_TSV", str(units_tsv))
-    monkeypatch.setattr(bad_mod, "PRODUCE_GENERIC_MAP_TSV", str(map_tsv))
-
     # KAN-19: real, no-header categories TSV (barcode\tcategory_id\tchain)
     # so category_id can be exercised alongside chain/store filtering.
     categories_tsv = tmp_path / "product_categories.tsv"
@@ -321,7 +311,6 @@ def test_response_item_shape(app_db, client):
     assert set(item) == {
         "barcode", "name", "chain_id", "base_price", "unit_price", "price",
         "min_qty", "club", "coupon", "ends", "discount_pct", "chains_on_deal",
-        "generic_key",
     }
     assert body["built_at"] == BUILT_AT
 
@@ -558,7 +547,7 @@ def test_response_item_shape_chain_mode(app_db, client):
     item = body["items"][0]
     assert set(item) == {
         "barcode", "name", "chain_id", "base_price", "unit_price", "price",
-        "min_qty", "club", "coupon", "ends", "discount_pct", "generic_key",
+        "min_qty", "club", "coupon", "ends", "discount_pct",
         "branches_on_deal", "branches_total",
     }
 
@@ -570,5 +559,5 @@ def test_response_item_shape_store_mode(app_db, client):
     item = body["items"][0]
     assert set(item) == {
         "barcode", "name", "chain_id", "base_price", "unit_price", "price",
-        "min_qty", "club", "coupon", "ends", "discount_pct", "generic_key",
+        "min_qty", "club", "coupon", "ends", "discount_pct",
     }
