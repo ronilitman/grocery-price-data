@@ -160,18 +160,27 @@ PLACEHOLDER_ITEM = "0000000000000"
 
 
 def _group_terms(group):
-    """``{barcode: (min_qty, price)}`` for one ``<Group>``.
+    """``{barcode: (min_qty, price, rate)}`` for one ``<Group>``.
 
     ``price`` is None when the group states none. That is not zero and not
     free: it means the item costs whatever the branch charges for it, which
     only the price tables know. See ``_across_groups``.
+
+    ``rate`` is ``DiscountRate``, read only to recognise a buy-N-get-M-free or
+    "second at X%" reward leg (see ``_is_reward_leg`` / ``_buy_reward_legs``).
+    It is not a dialect artefact like ``RewardType`` - Victory's own portal
+    populates it consistently for a reward leg - but it is meaningless outside
+    that pairing (KAN-26: 16% of Victory's populated values fall outside
+    0-100 on ordinary single-group promos), so nothing else in this file reads
+    it.
     """
     terms = {}
     for item in group.iter("PromotionItem"):
         code = _text(item, "ItemCode")
         if code:
             terms[code] = (_number(_text(item, "MinQty")),
-                           _number(_text(item, "DiscountedPrice")))
+                           _number(_text(item, "DiscountedPrice")),
+                           _number(_text(item, "DiscountRate")))
     return terms
 
 
@@ -186,13 +195,81 @@ def _legs(groups):
             if not _is_threshold(terms)]
 
 
+def _is_buy_leg(terms):
+    """Every item states its own price and none carries a reward rate.
+
+    This is the "N" side of a Victory buy-N-get-M-free or second-at-X% pair -
+    see ``_buy_reward_legs``. A group with a blank price (Fresh Market's
+    threshold-adjacent leg) is deliberately excluded: that shape is already
+    handled below and must keep going through it, not this one.
+    """
+    return bool(terms) and all(rate is None and price is not None
+                                for _, price, rate in terms.values())
+
+
+def _is_reward_leg(terms):
+    """Every item names a discount rate, 0-100, that is not a dialect fluke.
+
+    KAN-26: Victory populates ``DiscountRate`` for 91% of items chain-wide,
+    but 16% of those values sit outside 0-100 (one sampled at -54400) on
+    ordinary single-group promos where it means nothing. Restricting to
+    0-100 here is what keeps this leg from firing on that noise.
+    """
+    return bool(terms) and all(rate is not None and 0 <= rate <= 100
+                                for _, _, rate in terms.values())
+
+
+def _buy_reward_legs(buy, reward):
+    """Buy N at the branch's own shelf price, get M at ``rate`` percent off.
+
+    KAN-26. Victory expresses two deals with the same two-group shape - a
+    plain leg and a reward leg naming a ``DiscountRate``:
+
+        buy N + get M free   (promo 260963, tehina)   rate 100, reward 0.00
+        the Mth at X% off    (promo 261407, deodorant) rate  50, reward half
+
+    Neither leg's own ``DiscountedPrice`` is trusted. On the buy leg it
+    restates the branch's *own* shelf price only when the branch stocks the
+    barcode; when it does not, Victory fills near-zero junk (0, 0.01, 0.02)
+    instead of leaving the field blank - measured at branch 097, every one of
+    those near-zero buy legs was a barcode absent from that branch's own
+    PriceFull, and every stocked item matched its PriceFull exactly. So the
+    buy leg is always routed unpriced (``known=0``), the same machinery
+    Fresh Market's shelf-priced leg already uses, and a branch that does not
+    stock the barcode drops the row instead of publishing the junk as a
+    price. The reward leg's price is not read at all - only its rate - since
+    it is derived from the same untrustworthy buy-leg number (261407's
+    reward leg is 0.02 * 0.5 = 0.01 for the one barcode that is junk there
+    too) and resolve_unpriced_offers will multiply the real shelf price by
+    ``(1 - rate/100)`` once it is known.
+
+    ``unit_price = shelf * (N + M*(1-rate/100)) / (N+M)``. rate=100 collapses
+    M's term to zero, which is exactly "buy N get M free" -
+    ``(N*shelf)/(N+M)`` - so one formula covers both shapes.
+
+    A group can list many interchangeable barcodes (15 in promo 261418) and
+    each resolves on its own, independent of what any other barcode in the
+    same pair of groups does.
+    """
+    for barcode in set(buy) & set(reward):
+        n, _buy_price, _ = buy[barcode]
+        m, reward_price, rate = reward[barcode]
+        if n is None or n < 1 or m is None or m < 1:
+            continue
+        if rate == 100 and (reward_price is None or reward_price > MIN_PRICE):
+            continue      # doesn't actually look like a gift leg after all
+        weight = n + m * (1 - rate / 100)
+        yield barcode, n + m, None, 0.0, weight
+
+
 def _across_legs(legs):
     """One combined ``(barcode, qty, price, known, unpriced_qty)`` per barcode.
 
     A promotion with several ``<Group>``s is not several offers, it is one
-    offer with several legs that must all be bought. Both chains that do this
-    file "the second one is a shekel" the same way, and the whole deal is the
-    sum of its legs:
+    offer with several legs that must all be bought. Every chain that does
+    this files "the second one is a shekel" (or "get one free", or "the
+    second at half price") the same way, and the whole deal is the sum of its
+    legs:
 
         Super-Pharm   group 1  one bottle 28.90   group 2  one bottle 1.00
                       -> two for 29.90, 14.95 each
@@ -201,6 +278,9 @@ def _across_legs(legs):
                       group 2  one tin, no price  (whatever the branch charges)
                       group 3  one tin, 1.00
                       -> two for shelf + 1.00
+
+        Victory       group 1  buy leg, no rate   group 2  reward leg, a rate
+                      -> see _buy_reward_legs
 
     Read the groups apart instead and the shekel looks like the price of the
     product, which is what the app once showed for a bottle of Listerine.
@@ -222,6 +302,15 @@ def _across_legs(legs):
     free" - which changes neither item's own price and cannot honestly be
     published as a price for either.
     """
+    if len(legs) == 2:
+        a, b = legs
+        if _is_buy_leg(a) and _is_reward_leg(b):
+            yield from _buy_reward_legs(a, b)
+            return
+        if _is_buy_leg(b) and _is_reward_leg(a):
+            yield from _buy_reward_legs(b, a)
+            return
+
     shared = set(legs[0])
     for other in legs[1:]:
         shared &= set(other)
@@ -230,11 +319,11 @@ def _across_legs(legs):
         rows = [leg[barcode] for leg in legs]
         # A fractional MinQty is a weight (see the note at the top of this
         # file); summing it with a count would be nonsense, so leave those.
-        if any(qty is None or qty < 1 for qty, _ in rows):
+        if any(qty is None or qty < 1 for qty, _, _ in rows):
             continue
-        qty = sum(qty for qty, _ in rows)
-        known = sum(price for _, price in rows if price is not None)
-        unpriced = sum(q for q, price in rows if price is None)
+        qty = sum(qty for qty, _, _ in rows)
+        known = sum(price for _, price, _ in rows if price is not None)
+        unpriced = sum(q for q, price, _ in rows if price is None)
         yield barcode, qty, (known if not unpriced else None), known, unpriced
 
 

@@ -1,0 +1,87 @@
+<?xml version='1.0' encoding='utf-8'?>
+<Root>
+  <ChainID>7290696200003</ChainID>
+  <SubChainID>001</SubChainID>
+  <StoreID>097</StoreID>
+  <BikoretNo>0</BikoretNo>
+  <Promotions>
+    <Promotion>
+      <PromotionUpdateTime>2026-08-13T08:47:44.000</PromotionUpdateTime>
+      <AllowMultipleDiscounts>0</AllowMultipleDiscounts>
+      <PromotionID>260950</PromotionID>
+      <PromotionDescription>1+1 חמאת בוטנים המיניונים 510 גר'</PromotionDescription>
+      <PromotionStartDateTime>2026-08-09T00:00:00.000</PromotionStartDateTime>
+      <PromotionEndDateTime>2026-10-03T00:00:00.000</PromotionEndDateTime>
+      <PromotionStartHour />
+      <PromotionEndHour />
+      <PromotionDays />
+      <RedemptionLimit />
+      <MinNoOfItemOffered>10</MinNoOfItemOffered>
+      <ClubID>0</ClubID>
+      <IsGiftItem>1</IsGiftItem>
+      <AdditionalIsCoupon>0</AdditionalIsCoupon>
+      <AdditionalRestrictions />
+      <Remarks> </Remarks>
+      <Groups>
+        <Group>
+          <GroupID>1</GroupID>
+          <MinPurchaseAmount />
+          <DiscountType>0</DiscountType>
+          <PromotionItems>
+            <PromotionItem>
+              <ItemCode>7290019926573</ItemCode>
+              <ItemType>1</ItemType>
+              <RewardType>0</RewardType>
+              <MinQty>1</MinQty>
+              <MaxQty />
+              <DiscountRate />
+              <DiscountedPrice>14.9</DiscountedPrice>
+              <DiscountedPricePerMida />
+              <bIsWeighted>0</bIsWeighted>
+            </PromotionItem>
+            <PromotionItem>
+              <ItemCode>7290019926627</ItemCode>
+              <ItemType>1</ItemType>
+              <RewardType>0</RewardType>
+              <MinQty>1</MinQty>
+              <MaxQty />
+              <DiscountRate />
+              <DiscountedPrice>14.9</DiscountedPrice>
+              <DiscountedPricePerMida />
+              <bIsWeighted>0</bIsWeighted>
+            </PromotionItem>
+          </PromotionItems>
+        </Group>
+        <Group>
+          <GroupID>2</GroupID>
+          <MinPurchaseAmount />
+          <DiscountType>0</DiscountType>
+          <PromotionItems>
+            <PromotionItem>
+              <ItemCode>7290019926573</ItemCode>
+              <ItemType>1</ItemType>
+              <RewardType>10</RewardType>
+              <MinQty>1</MinQty>
+              <MaxQty />
+              <DiscountRate>100</DiscountRate>
+              <DiscountedPrice>0</DiscountedPrice>
+              <DiscountedPricePerMida />
+              <bIsWeighted>0</bIsWeighted>
+            </PromotionItem>
+            <PromotionItem>
+              <ItemCode>7290019926627</ItemCode>
+              <ItemType>1</ItemType>
+              <RewardType>10</RewardType>
+              <MinQty>1</MinQty>
+              <MaxQty />
+              <DiscountRate>100</DiscountRate>
+              <DiscountedPrice>0</DiscountedPrice>
+              <DiscountedPricePerMida />
+              <bIsWeighted>0</bIsWeighted>
+            </PromotionItem>
+          </PromotionItems>
+        </Group>
+      </Groups>
+    </Promotion>
+  </Promotions>
+</Root>

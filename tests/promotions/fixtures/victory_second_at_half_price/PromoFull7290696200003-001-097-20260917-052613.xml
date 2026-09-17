@@ -1,0 +1,109 @@
+<?xml version='1.0' encoding='utf-8'?>
+<Root>
+  <ChainID>7290696200003</ChainID>
+  <SubChainID>001</SubChainID>
+  <StoreID>097</StoreID>
+  <BikoretNo>0</BikoretNo>
+  <Promotions>
+    <Promotion>
+      <PromotionUpdateTime>2026-08-14T08:48:49.000</PromotionUpdateTime>
+      <AllowMultipleDiscounts>0</AllowMultipleDiscounts>
+      <PromotionID>261407</PromotionID>
+      <PromotionDescription>השני ב50% ליידי ספיד סטיק  ג'ל 24/7/ פרו 5</PromotionDescription>
+      <PromotionStartDateTime>2026-08-16T00:00:00.000</PromotionStartDateTime>
+      <PromotionEndDateTime>2026-10-03T00:00:00.000</PromotionEndDateTime>
+      <PromotionStartHour />
+      <PromotionEndHour />
+      <PromotionDays />
+      <RedemptionLimit />
+      <MinNoOfItemOffered>10</MinNoOfItemOffered>
+      <ClubID>0</ClubID>
+      <IsGiftItem>1</IsGiftItem>
+      <AdditionalIsCoupon>0</AdditionalIsCoupon>
+      <AdditionalRestrictions />
+      <Remarks> </Remarks>
+      <Groups>
+        <Group>
+          <GroupID>1</GroupID>
+          <MinPurchaseAmount />
+          <DiscountType>0</DiscountType>
+          <PromotionItems>
+            <PromotionItem>
+              <ItemCode>7290004078942</ItemCode>
+              <ItemType>1</ItemType>
+              <RewardType>0</RewardType>
+              <MinQty>1</MinQty>
+              <MaxQty />
+              <DiscountRate />
+              <DiscountedPrice>21.9</DiscountedPrice>
+              <DiscountedPricePerMida />
+              <bIsWeighted>0</bIsWeighted>
+            </PromotionItem>
+            <PromotionItem>
+              <ItemCode>8714789966403</ItemCode>
+              <ItemType>1</ItemType>
+              <RewardType>0</RewardType>
+              <MinQty>1</MinQty>
+              <MaxQty />
+              <DiscountRate />
+              <DiscountedPrice>21.9</DiscountedPrice>
+              <DiscountedPricePerMida />
+              <bIsWeighted>0</bIsWeighted>
+            </PromotionItem>
+            <PromotionItem>
+              <ItemCode>8718951119413</ItemCode>
+              <ItemType>1</ItemType>
+              <RewardType>0</RewardType>
+              <MinQty>1</MinQty>
+              <MaxQty />
+              <DiscountRate />
+              <DiscountedPrice>22.9</DiscountedPrice>
+              <DiscountedPricePerMida />
+              <bIsWeighted>0</bIsWeighted>
+            </PromotionItem>
+          </PromotionItems>
+        </Group>
+        <Group>
+          <GroupID>2</GroupID>
+          <MinPurchaseAmount />
+          <DiscountType>0</DiscountType>
+          <PromotionItems>
+            <PromotionItem>
+              <ItemCode>7290004078942</ItemCode>
+              <ItemType>1</ItemType>
+              <RewardType>10</RewardType>
+              <MinQty>1</MinQty>
+              <MaxQty />
+              <DiscountRate>50</DiscountRate>
+              <DiscountedPrice>10.95</DiscountedPrice>
+              <DiscountedPricePerMida>16.85</DiscountedPricePerMida>
+              <bIsWeighted>0</bIsWeighted>
+            </PromotionItem>
+            <PromotionItem>
+              <ItemCode>8714789966403</ItemCode>
+              <ItemType>1</ItemType>
+              <RewardType>10</RewardType>
+              <MinQty>1</MinQty>
+              <MaxQty />
+              <DiscountRate>50</DiscountRate>
+              <DiscountedPrice>10.95</DiscountedPrice>
+              <DiscountedPricePerMida>16.85</DiscountedPricePerMida>
+              <bIsWeighted>0</bIsWeighted>
+            </PromotionItem>
+            <PromotionItem>
+              <ItemCode>8718951119413</ItemCode>
+              <ItemType>1</ItemType>
+              <RewardType>10</RewardType>
+              <MinQty>1</MinQty>
+              <MaxQty />
+              <DiscountRate>50</DiscountRate>
+              <DiscountedPrice>11.45</DiscountedPrice>
+              <DiscountedPricePerMida>17.62</DiscountedPricePerMida>
+              <bIsWeighted>0</bIsWeighted>
+            </PromotionItem>
+          </PromotionItems>
+        </Group>
+      </Groups>
+    </Promotion>
+  </Promotions>
+</Root>

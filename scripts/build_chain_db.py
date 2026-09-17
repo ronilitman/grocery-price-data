@@ -345,6 +345,15 @@ def resolve_unpriced_offers(conn, staged):
 
     A branch that does not stock the product at all drops out: no shelf price,
     no total, nothing honest to publish.
+
+    KAN-26: this also finishes Victory's buy-N-get-M-free and second-at-X%
+    legs, unchanged. promos.py's ``_buy_reward_legs`` stages those with
+    ``known_price=0`` and ``unpriced_qty = N + M*(1-rate/100)`` - a weighted
+    quantity rather than a literal item count - so the same
+    ``known_price + unpriced_qty * shelf`` arithmetic below already resolves
+    them against the branch's real price: N*shelf for a free gift (rate=100),
+    and shelf*(N + M*(1-rate/100)) for a percentage-off second leg. No SQL
+    here changed to support it.
     """
     if not staged:
         return 0, 0
