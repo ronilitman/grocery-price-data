@@ -222,3 +222,18 @@ def test_limit_is_respected(client):
 def test_limit_out_of_range_is_422(client):
     assert client.get("/search", params={"q": "חלב", "limit": 0}).status_code == 422
     assert client.get("/search", params={"q": "חלב", "limit": 51}).status_code == 422
+
+
+def test_search_is_not_cached(client):
+    """`/search` must not carry a reusable cache directive.
+
+    grocery-list-app's `searchByName` is hard-wired to this API and calls
+    `/search` directly without loading `/meta` first, so it has no `v=`
+    build stamp to send. An unstamped URL plus the default 24h `max-age`
+    meant a browser answered a repeated query from its own disk cache for a
+    day - yesterday's prices, with no request reaching us at all.
+    """
+    resp = client.get("/search", params={"q": "15"})
+
+    assert resp.status_code == 200
+    assert resp.headers["cache-control"] == "no-store"
