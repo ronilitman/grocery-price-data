@@ -3,9 +3,10 @@
 `api/deploy/deploy.sh` ships ONLY `api/` and `scripts/` to the VM (tarred
 from the repo root - see its own docstring). CI, by contrast, always runs
 inside a full checkout, so an endpoint that reaches into `data/` at request
-time (as `scripts/generics.py`'s `load_produce_words()`/`load_image_map()`
-did, via `api/catalog.py`'s old `generics_full()`) passes every existing
-test and then 500s on the real box, where `data/` was never deployed.
+time (as a since-removed generics endpoint once did, via a module that
+needed `data/produce_words.txt`/`data/pricez_images.json`) passes every
+existing test and then 500s on the real box, where `data/` was never
+deployed.
 
 This test reproduces the deploy layout exactly: copy only `api/` and
 `scripts/` into an empty temp directory, point `APP_DB` at a fixture app.db
@@ -14,11 +15,6 @@ living OUTSIDE that copy (matching the real split between
 subprocess with that directory as its cwd and nothing else on its import
 path - a stray `data/` reach fails exactly the way it failed in production,
 instead of silently succeeding against the full repo checkout under it.
-
-Confirmed to fail on `main` before this fix (500 on /product, /generic and
-POST /products with the same `FileNotFoundError:
-.../scripts/../data/produce_words.txt` seen on the real VM) and to pass
-after it.
 """
 import os
 import shutil
@@ -117,9 +113,6 @@ def deploy_copy_server(tmp_path_factory):
 
 
 def _get(base_url, path):
-    # Hebrew generic keys go straight into the URL path elsewhere in this
-    # file - percent-encode non-ASCII so http.client (ASCII-only) doesn't
-    # choke on the request line itself.
     safe_path = urllib.parse.quote(path, safe="/?=&")
     req = urllib.request.Request(f"{base_url}{safe_path}")
     try:
@@ -145,8 +138,6 @@ def _post(base_url, path, body_bytes):
     ("/meta", {200}),
     (f"/product/{cf.DAIRY}", {200}),
     (f"/product/0000000000000", {404}),
-    (f"/generic/{cf.CUCUMBER_KEY}", {200}),
-    ("/generic/not-a-real-key", {404}),
     ("/search?q=test", {200}),
 ])
 def test_endpoint_never_500s_from_the_deploy_copy(deploy_copy_server, path, expected):
@@ -164,8 +155,7 @@ def test_endpoint_never_500s_from_the_deploy_copy(deploy_copy_server, path, expe
 def test_post_products_never_500s_from_the_deploy_copy(deploy_copy_server):
     import json
     base_url, proc = deploy_copy_server
-    body = json.dumps({"items": [{"barcode": cf.DAIRY},
-                                  {"generic_key": cf.CUCUMBER_KEY}]}).encode()
+    body = json.dumps({"items": [{"barcode": cf.DAIRY}]}).encode()
     status = _post(base_url, "/products", body)
     if status != 200:
         out = proc.stdout.read(4000) if proc.stdout else ""

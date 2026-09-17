@@ -51,11 +51,11 @@ def test_categories_tree_shape_and_counts(client):
     assert ids == {cf.TOP_A}
 
     top_a = next(c for c in body["categories"] if c["id"] == cf.TOP_A)
-    # SUB_A2 is hidden too (no products point at it); SUB_A1's 7 categorised
-    # barcodes collapse to 6 browse rows (TOMATO_RL/TOMATO_SF -> one row).
+    # SUB_A2 is hidden too (no products point at it); SUB_A1 has 7
+    # categorised barcodes.
     assert [c["id"] for c in top_a["children"]] == [cf.SUB_A1]
-    assert top_a["children"][0]["count"] == 6
-    assert top_a["count"] == 6  # sum of (visible) children
+    assert top_a["children"][0]["count"] == 7
+    assert top_a["count"] == 7  # sum of (visible) children
 
 
 def test_categories_ignores_v_param(client):
@@ -128,18 +128,18 @@ def _walk(client, category_id, limit):
 
 def test_full_walk_matches_count_no_duplicates(client):
     items, count = _walk(client, cf.SUB_A1, limit=2)  # force multiple pages
-    assert len(items) == count == 6
+    assert len(items) == count == 7
 
-    idents = [it["generic_key"] or it["barcode"] for it in items]
+    idents = [it["barcode"] for it in items]
     assert len(idents) == len(set(idents)), "duplicate row across pages"
 
     # ZUCCHINI (category_id NULL) must never appear.
     assert cf.ZUCCHINI not in idents
 
-    # TOMATO_RL/TOMATO_SF collapse into exactly one generic row.
-    assert idents.count(cf.TOMATO_KEY) == 1
-    assert cf.TOMATO_RL not in idents
-    assert cf.TOMATO_SF not in idents
+    # TOMATO_RL and TOMATO_SF are two chains' own barcodes - ordinary,
+    # separate rows.
+    assert cf.TOMATO_RL in idents
+    assert cf.TOMATO_SF in idents
 
 
 def test_walk_is_in_sort_key_order(client):
@@ -151,7 +151,7 @@ def test_walk_is_in_sort_key_order(client):
 def test_walk_is_stable_regardless_of_page_size(client):
     small, _ = _walk(client, cf.SUB_A1, limit=1)
     large, _ = _walk(client, cf.SUB_A1, limit=50)
-    key = lambda it: it["generic_key"] or it["barcode"]  # noqa: E731
+    key = lambda it: it["barcode"]  # noqa: E731
     assert [key(it) for it in small] == [key(it) for it in large]
 
 
@@ -162,7 +162,6 @@ def test_walk_is_stable_regardless_of_page_size(client):
 def test_plain_item_shape(client):
     items, _count = _walk(client, cf.SUB_A1, limit=50)
     apple = next(it for it in items if it["barcode"] == cf.APPLE)
-    assert apple["generic_key"] is None
     assert apple["name"] == "Apple"
     assert apple["min_price"] == 4.90
     assert apple["chains"] == 1
@@ -184,15 +183,15 @@ def test_on_deal_item(client):
     assert date["on_deal"] is False
 
 
-def test_collapsed_generic_item_shape(client):
+def test_two_chains_own_tomato_barcodes_stay_separate(client):
     items, _count = _walk(client, cf.SUB_A1, limit=50)
-    tomato = next(it for it in items if it["generic_key"] == cf.TOMATO_KEY)
-    assert tomato["barcode"] is None
-    assert tomato["name"] == "עגבניה"
-    assert tomato["weighted"] is True
-    # Both RAMI_LEVY (6.90) and SHUFERSAL (7.90) chains are members.
-    assert tomato["chains"] == 2
-    assert tomato["min_price"] == 6.90
+    tomato_rl = next(it for it in items if it["barcode"] == cf.TOMATO_RL)
+    tomato_sf = next(it for it in items if it["barcode"] == cf.TOMATO_SF)
+    assert tomato_rl["weighted"] is True
+    assert tomato_rl["chains"] == 1
+    assert tomato_rl["min_price"] == 6.90
+    assert tomato_sf["chains"] == 1
+    assert tomato_sf["min_price"] == 7.90
 
 
 def test_limit_is_respected(client):

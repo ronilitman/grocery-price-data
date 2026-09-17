@@ -1,15 +1,12 @@
 """GET /search (KAN-12) against a real app.db built by build_app_db.py from
 a fixture prices.db - not a hand-rolled sqlite schema - so these tests catch
-a drift between api/search.py's assumptions and what KAN-6/7/8/9 actually
+a drift between api/search.py's assumptions and what KAN-6/7/8 actually
 produce.
 
 Fixture layout (see `_build_prices_db`):
 
 * CHEESE/CREAM/COFFEE - three differently-worded "15" products, to prove
   bm25 ranking (not truncation) decides order.
-* TOMATO_RL/TOMATO_SHUF - two barcodes, two chains, one algorithmic generic
-  key ("עגבניה") that produce_generic_map.tsv also marks as tomato's primary
-  - proving the KAN-9 precedence collapses them into one row.
 * DEAL_PRODUCT/PLAIN_PRODUCT - one product with a real promo (discount_pct
   > 0, lands in fts_deals), one without (fts_all only).
 """
@@ -34,12 +31,9 @@ from api.main import app  # noqa: E402
 CHEESE = "1000000000001"
 CREAM = "1000000000002"
 COFFEE = "1000000000003"
-TOMATO_RL = "2000000000001"
-TOMATO_SHUF = "2000000000002"
 DEAL_PRODUCT = "3000000000001"
 PLAIN_PRODUCT = "3000000000002"
 
-TOMATO_KEY = "עגבניה"
 BUILT_AT = "2026-09-13T02:00:00+00:00"
 
 
@@ -61,8 +55,6 @@ def _build_prices_db(path):
             (CHEESE, "גבינה צהובה 15% דק", "Acme", "200", 200.0, "g", 0),
             (CREAM, "שמנת 15%", "Acme", "250", 250.0, "ml", 0),
             (COFFEE, "קפסולות קפה 15", "Acme", "1", 1.0, "unit", 0),
-            (TOMATO_RL, "עגבניה", "Acme", None, None, 'ק"ג', 1),
-            (TOMATO_SHUF, "עגבניה", "Acme", None, None, 'ק"ג', 1),
             (DEAL_PRODUCT, "מבצע שוקולד", "Acme", "100", 100.0, "g", 0),
             (PLAIN_PRODUCT, "שוקולד רגיל", "Acme", "100", 100.0, "g", 0),
         ],
@@ -75,20 +67,6 @@ def _build_prices_db(path):
             ("RAMI_LEVY", COFFEE, 29.90, 5),
             ("RAMI_LEVY", DEAL_PRODUCT, 10.00, 5),
             ("RAMI_LEVY", PLAIN_PRODUCT, 8.00, 5),
-            # generics_mod.from_db joins chain_products to chain_prices - a
-            # weighed barcode with no chain_prices row is invisible to it.
-            ("RAMI_LEVY", TOMATO_RL, 6.90, 10),
-            ("SHUFERSAL", TOMATO_SHUF, 7.90, 5),
-        ],
-    )
-    # generics_mod.from_db reads chain_products (not chain_prices) to derive
-    # the algorithmic key - both tomato barcodes named identically, weighed,
-    # at two different chains, is exactly what makes them one key.
-    conn.executemany(
-        "INSERT INTO chain_products VALUES (?,?,?,?,?,?)",
-        [
-            ("RAMI_LEVY", TOMATO_RL, "עגבניה", None, 'ק"ג', 1),
-            ("SHUFERSAL", TOMATO_SHUF, "עגבניה", None, 'ק"ג', 1),
         ],
     )
     conn.executemany(
@@ -114,25 +92,7 @@ def _build_prices_db(path):
 @pytest.fixture
 def app_db(tmp_path, monkeypatch):
     """A real app.db, built by build_app_db.build() end to end (KAN-12 Step
-    3's instruction), pointed at fixture produce TSVs mapping tomato's two
-    barcodes onto the one algorithmic generic key both their chains share.
-    """
-    units_tsv = tmp_path / "produce_units.tsv"
-    units_tsv.write_text(
-        "slug\tname_he\tkind\tchain_id\tchain_name\tbarcode\t"
-        "chain_product_name\tprice\tnote\n"
-        f"tomato\tעגבניה\tveg\tRAMI_LEVY\tRami Levy\t{TOMATO_RL}\tעגבניה\t4.90\t\n"
-        f"tomato\tעגבניה\tveg\tSHUFERSAL\tShufersal\t{TOMATO_SHUF}\tעגבניה\t5.90\t\n",
-        encoding="utf-8",
-    )
-    map_tsv = tmp_path / "produce_generic_map.tsv"
-    map_tsv.write_text(
-        f"slug\tgeneric_key\tprimary\tnote\ntomato\t{TOMATO_KEY}\tyes\t\n",
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(build_app_db, "PRODUCE_UNITS_TSV", str(units_tsv))
-    monkeypatch.setattr(build_app_db, "PRODUCE_GENERIC_MAP_TSV", str(map_tsv))
-
+    3's instruction)."""
     prices_path = str(tmp_path / "prices.db")
     _build_prices_db(prices_path)
     out_path = str(tmp_path / "app.db")
@@ -205,24 +165,6 @@ def test_query_with_no_tokens_at_all_returns_empty(client):
     resp = client.get("/search", params={"q": "!!!"})
     assert resp.status_code == 200
     assert resp.json()["results"] == []
-
-
-def test_two_tomato_barcodes_collapse_into_one_generic_result(client):
-    resp = client.get("/search", params={"q": "עגבניה"})
-    assert resp.status_code == 200
-    body = resp.json()
-    generic_rows = [r for r in body["results"] if "generic_key" in r]
-    assert len(generic_rows) == 1, body["results"]
-    row = generic_rows[0]
-    assert row["generic_key"] == TOMATO_KEY
-    assert "barcode" not in row
-    assert row["chains"] == 2
-    assert row["min_price"] == 4.90
-    assert row["weighted"] is True
-    # Neither raw barcode appears as its own row - both fully collapsed.
-    barcodes = {r.get("barcode") for r in body["results"]}
-    assert TOMATO_RL not in barcodes
-    assert TOMATO_SHUF not in barcodes
 
 
 def test_deals_only_returns_only_products_with_a_real_discount(client):

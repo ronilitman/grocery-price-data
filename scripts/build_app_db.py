@@ -30,15 +30,11 @@ from collections import defaultdict
 
 import app_search
 import bitmap
-import generics as generics_mod
 import offers as offers_mod
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CATEGORIES_JSON = os.path.join(ROOT, "data", "categories.json")
 PRODUCT_CATEGORIES_TSV = os.path.join(ROOT, "data", "product_categories.tsv")
-# KAN-9
-PRODUCE_UNITS_TSV = os.path.join(ROOT, "data", "produce_units.tsv")
-PRODUCE_GENERIC_MAP_TSV = os.path.join(ROOT, "data", "produce_generic_map.tsv")
 
 # Same shape as merge_db.SCHEMA for every table we carry over, plus three new
 # columns on products and the deals/store_bits pair. promo_offers,
@@ -64,19 +60,7 @@ CREATE TABLE products(
     -- `products` orders by this instead of `name` so a run of raw double
     -- spaces or leading/trailing junk in the source data can't split a
     -- product's neighbours across pages differently between two builds.
-    sort_key TEXT,
-    -- KAN-17: whether this row appears in a category browse listing at all.
-    -- 1 for every categorised product except a loose-produce generic's
-    -- non-head members (see build_category_browse) - those barcodes still
-    -- carry category_id (nothing else here depends on that changing) but are
-    -- collapsed into their generic's single row instead of appearing twice.
-    browse_visible INTEGER NOT NULL DEFAULT 1,
-    -- KAN-17: set on exactly one member barcode per generic key that has a
-    -- categorised member - the one build_category_browse chose to stand at
-    -- the generic's position in category sort order. The category API reads
-    -- this to know when a row in `products` should render as its generic
-    -- (barcode null, generic_key set) instead of as itself.
-    browse_generic_key TEXT);
+    sort_key TEXT);
 CREATE TABLE chain_prices(
     chain_id TEXT NOT NULL, barcode TEXT NOT NULL, price REAL NOT NULL,
     store_count INTEGER, PRIMARY KEY (chain_id, barcode));
@@ -165,9 +149,7 @@ CREATE TABLE deal_products(
 -- word below a more distinctive match - gets to do the actual work.
 CREATE TABLE fts_filler(token TEXT PRIMARY KEY);
 -- One row per product, every token of its name indexed (scripts.
--- app_search.index_text) - filler included, see fts_filler above. No
--- generics grouping here - out of scope for this table, the API's job per
--- the KAN-8 spec.
+-- app_search.index_text) - filler included, see fts_filler above.
 CREATE VIRTUAL TABLE fts_all USING fts5(
     name, barcode UNINDEXED, tokenize='unicode61 remove_diacritics 2');
 -- Same shape as fts_all, narrowed to the barcodes currently on a real
@@ -178,52 +160,10 @@ CREATE VIRTUAL TABLE fts_deals USING fts5(
     name, barcode UNINDEXED, tokenize='unicode61 remove_diacritics 2');
 -- KAN-17: one row per category (top-level and sub), precomputed at build
 -- time so /categories never counts per request. A sub-category's count is
--- distinct browse-visible products (a collapsed generic counts once, see
--- build_category_browse); a top-level category's is the sum of its
--- children's. Every category gets a row, including count-0 ones - the API
--- filters those out, this table just answers "how many" for any id.
+-- its distinct categorised products; a top-level category's is the sum of
+-- its children's. Every category gets a row, including count-0 ones - the
+-- API filters those out, this table just answers "how many" for any id.
 CREATE TABLE category_counts(category_id INTEGER PRIMARY KEY, count INTEGER NOT NULL);
-"""
-
-# KAN-9: loose produce, layered on top of the algorithmic generics grouping.
-# Its own schema block and its own call site (build_produce, below) so it
-# stays self-contained next to KAN-8's search work in this same file.
-SCHEMA_PRODUCE = """
-CREATE TABLE produce_units(
-    slug TEXT NOT NULL, name_he TEXT, kind TEXT, chain_id TEXT NOT NULL,
-    chain_name TEXT, barcode TEXT NOT NULL, chain_product_name TEXT,
-    price REAL, note TEXT);
--- One row per generics.json key (scripts/generics.py's build_catalog.py
--- output), so a genericKey already saved in Firestore keeps resolving.
-CREATE TABLE generics(
-    key TEXT PRIMARY KEY, name TEXT, weighted INTEGER, unit TEXT,
-    image_id TEXT, aliases_json TEXT);
--- One row per (key, chain_id) pair from a generics.json entry's "p" map -
--- the member barcode that chain prices under this generic.
-CREATE TABLE generic_members(
-    key TEXT NOT NULL, chain_id TEXT NOT NULL, barcode TEXT NOT NULL);
--- One row per (key, barcode) pair from a generics.json entry's full "b"
--- list (KAN-13 post-merge fix) - every barcode a scan of it should resolve
--- to this generic, not just the one representative barcode per chain
--- `generic_members` carries. A barcode can legitimately appear under more
--- than one key (different chains name the same colliding barcode
--- differently); `is_resolved` marks the one row
--- generics_mod.from_db's `of_barcode` map actually picks for that barcode
--- (the group with the most chains behind it - see generics.py's `build()`)
--- - at most one per barcode. The API reads this instead of calling
--- generics_mod.from_db() itself at request time: that call needs
--- data/produce_words.txt and data/pricez_images.json, which
--- api/deploy/deploy.sh does not ship to the VM (api/ and scripts/ only),
--- and it is too slow (3.8s measured on the real box) to redo per process
--- restart on top of that.
-CREATE TABLE generic_barcodes(
-    key TEXT NOT NULL, barcode TEXT NOT NULL, is_resolved INTEGER NOT NULL,
-    PRIMARY KEY (key, barcode));
--- data/produce_generic_map.tsv, decided by reading (see .claude/skills/
--- unify-produce/SKILL.md and the KAN-9 report) - never by pattern or score.
-CREATE TABLE produce_generic_map(
-    slug TEXT NOT NULL, generic_key TEXT NOT NULL, is_primary INTEGER NOT NULL,
-    note TEXT);
 """
 
 INDEXES = [
@@ -239,22 +179,10 @@ INDEXES = [
     "CREATE INDEX idx_deal_products_discount ON deal_products(discount_pct DESC, deal_id)",
     "CREATE INDEX idx_deal_products_chain_cat "
     "ON deal_products(chain_id, category_id, discount_pct DESC, deal_id)",
-    # KAN-9
-    "CREATE INDEX idx_produce_units_barcode ON produce_units(barcode)",
-    "CREATE INDEX idx_produce_units_slug ON produce_units(slug)",
-    "CREATE INDEX idx_generic_members_key ON generic_members(key)",
-    "CREATE INDEX idx_generic_members_barcode ON generic_members(chain_id, barcode)",
-    "CREATE INDEX idx_produce_generic_map_slug ON produce_generic_map(slug)",
-    "CREATE INDEX idx_produce_generic_map_key ON produce_generic_map(generic_key)",
-    # generic_barcodes' PRIMARY KEY (key, barcode) already covers "every
-    # barcode for a key" (the `b` list); this covers the reverse direction -
-    # "which key(s) name this barcode, and which one is resolved" (the `g`
-    # field on /product).
-    "CREATE INDEX idx_generic_barcodes_barcode ON generic_barcodes(barcode)",
 ]
 
 # Tables copied verbatim from the source. products is handled separately
-# because it gains three columns. Named column lists, not SELECT *, so a
+# because it gains extra columns. Named column lists, not SELECT *, so a
 # schema drift between prices.db and this script's SCHEMA fails loudly
 # instead of silently misaligning columns.
 COPY = [
@@ -331,9 +259,6 @@ def copy_products(conn, category_map):
         "VALUES (?,?,?,?,?,?,?,?,?,?)",
         rows,
     )
-    # browse_visible defaults to 1 and browse_generic_key to NULL for every
-    # row via the CREATE TABLE - build_category_browse (after build_produce
-    # has populated generic_barcodes) is what may flip a handful of them.
     return len(rows)
 
 
@@ -387,197 +312,16 @@ def build_store_bits(conn):
     return bit_of, len(rows)
 
 
-def load_tsv(path):
-    """A no-frills TSV reader: header row names the columns, everything else
-    is a plain dict. Used for both produce_units.tsv and
-    produce_generic_map.tsv, which are hand-edited files, not build output.
-    """
-    with open(path, encoding="utf-8") as handle:
-        head = handle.readline().rstrip("\n").split("\t")
-        return [dict(zip(head, line.rstrip("\n").split("\t")))
-                for line in handle if line.strip()]
-
-
-def build_produce(conn, units_tsv=PRODUCE_UNITS_TSV,
-                   map_tsv=PRODUCE_GENERIC_MAP_TSV):
-    """KAN-9: loose produce, on top of the algorithmic generics grouping.
-
-    Loads data/produce_units.tsv verbatim, runs generics_mod.from_db(conn) -
-    the exact function build_catalog.py calls - and loads
-    data/produce_generic_map.tsv, the hand-read slug<->key map.
-
-    Must run after the COPY step above has populated THIS connection's own
-    chain_products/chain_prices/products tables: generics_mod.from_db reads
-    those unqualified (no ``src.`` prefix), so calling it here - after they
-    hold a full copy of the source db's rows - produces byte-identical keys
-    to what build_catalog.py writes to generics.json, which is the whole
-    point: a genericKey already saved in Firestore must keep resolving.
-
-    A mapped key can go stale with no edit to this repo at all: a chain
-    renames or drops a weighed item and generics.py's grouping shifts under
-    it. That is expected to happen over time (KAN-11 will run this nightly),
-    so it must not stop app.db from updating. A stale NON-primary row is
-    skipped and recorded in meta['produce_map_stale'] (a JSON list of
-    ``{"slug", "generic_key"}``), with a loud warning printed - the slug
-    still resolves fine through its other keys or its primary. A stale
-    PRIMARY row still fails the build: that is the one key
-    grocery-list-app's barcode/genericKey resolution actually depends on
-    (KAN-9 step 3), so losing it silently is exactly the orphaned-list-item
-    failure this subtask exists to prevent.
-    """
-    conn.executescript(SCHEMA_PRODUCE)
-
-    units = load_tsv(units_tsv)
-    conn.executemany(
-        "INSERT INTO produce_units "
-        "(slug, name_he, kind, chain_id, chain_name, barcode, "
-        " chain_product_name, price, note) VALUES (?,?,?,?,?,?,?,?,?)",
-        [(r["slug"], r["name_he"], r["kind"], r["chain_id"], r["chain_name"],
-          r["barcode"], r["chain_product_name"], float(r["price"]), r["note"])
-         for r in units])
-
-    generics, of_barcode = generics_mod.from_db(conn)
-    generic_rows, member_rows, barcode_rows = [], [], []
-    for key, entry in generics.items():
-        generic_rows.append((
-            key, entry["n"], entry.get("w", 0), entry.get("u"),
-            entry.get("i"), json.dumps(entry.get("a", []), ensure_ascii=False),
-        ))
-        for chain_id, (_price, _count, barcode) in entry["p"].items():
-            member_rows.append((key, chain_id, barcode))
-        for barcode in entry.get("b", []):
-            is_resolved = 1 if of_barcode.get(barcode) == key else 0
-            barcode_rows.append((key, barcode, is_resolved))
-    conn.executemany(
-        "INSERT INTO generics (key, name, weighted, unit, image_id, aliases_json) "
-        "VALUES (?,?,?,?,?,?)", generic_rows)
-    conn.executemany(
-        "INSERT INTO generic_members (key, chain_id, barcode) VALUES (?,?,?)",
-        member_rows)
-    conn.executemany(
-        "INSERT INTO generic_barcodes (key, barcode, is_resolved) VALUES (?,?,?)",
-        barcode_rows)
-
-    known_keys = set(generics)
-    gmap = load_tsv(map_tsv)
-    map_rows, stale = [], []
-    for r in gmap:
-        if r["generic_key"] not in known_keys:
-            if r["primary"] == "yes":
-                raise ValueError(
-                    f"produce_generic_map.tsv's PRIMARY key for "
-                    f"{r['slug']!r} ({r['generic_key']!r}) is not in this "
-                    f"build's generics_mod.from_db output - a genericKey the "
-                    f"app may have saved to Firestore for this slug would "
-                    f"stop resolving. Re-run the unify-produce skill's "
-                    f"reading step for this slug against a current merged "
-                    f"database and pick a new primary.")
-            print(f"[build_produce] WARNING: stale produce_generic_map row "
-                  f"skipped - {r['slug']!r} -> {r['generic_key']!r} is not "
-                  f"in this build's generics output (non-primary, so the "
-                  f"build continues; other keys still cover this slug)")
-            stale.append({"slug": r["slug"], "generic_key": r["generic_key"]})
-            continue
-        map_rows.append((r["slug"], r["generic_key"],
-                          1 if r["primary"] == "yes" else 0, r["note"]))
-    conn.executemany(
-        "INSERT INTO produce_generic_map (slug, generic_key, is_primary, note) "
-        "VALUES (?,?,?,?)", map_rows)
-    conn.execute(
-        "INSERT INTO meta (key, value) VALUES ('produce_map_stale', ?)",
-        (json.dumps(stale, ensure_ascii=False),))
-
-    return (len(units), len(generic_rows), len(member_rows), len(map_rows),
-            len(barcode_rows))
-
-
-def build_category_browse(conn):
-    """KAN-17: collapse a loose-produce generic's categorised members into a
-    single row for the category browse listing.
-
-    Most categorised barcodes are not generic members at all and are simply
-    browse_visible=1, browse_generic_key=NULL - the defaults set at insert
-    time. This only touches the barcodes that both (a) belong to some
-    generic key (``generic_barcodes``' full per-key barcode list, same set
-    KAN-13's ``/generic`` and ``/search`` treat as "this barcode resolves to
-    this key") and (b) are individually categorised in
-    ``data/product_categories.tsv``. On the real catalogue that is a couple
-    dozen barcodes, not a couple hundred: category coverage (38,555 curated
-    barcodes) and produce coverage (750 rows, 61 slugs) overlap only where a
-    curator separately categorised a loose-produce item.
-
-    For each such generic key: every one of ITS categorised members is
-    expected to share one category_id (a person tagged "tomato" as
-    vegetables at every chain they saw it) - the ``max`` below is a
-    deterministic tie-break for the case it doesn't (a barcode COLLISION,
-    not a disagreement: the same short internal code names an unrelated
-    product at a different chain and picked up that chain's category by
-    accident, e.g. one generic key's members split 1 "ירקות טריים" / 1
-    "חמאה ושמנת" on the real catalogue). Only the largest category cluster
-    for that key gets collapsed; a member outside it is left exactly as an
-    ordinary standalone product, not silently reassigned to a category
-    nothing curated it into.
-
-    The one row that survives per key/category - "the generic's row" - is
-    whichever candidate sorts first by (sort_key, barcode), because that is
-    the position build_category_browse's caller (the /categories/{id}/
-    products keyset walk) will encounter it at; every other candidate is
-    marked browse_visible=0 so the walk (and category_counts) sees it
-    exactly once.
-    """
-    cat_of = dict(conn.execute(
-        "SELECT barcode, category_id FROM products WHERE category_id IS NOT NULL"))
-    sort_of = dict(conn.execute("SELECT barcode, sort_key FROM products"))
-
-    members_of_key = defaultdict(list)
-    for key, barcode in conn.execute("SELECT key, barcode FROM generic_barcodes"):
-        members_of_key[key].append(barcode)
-
-    head_rows = []
-    hidden_barcodes = []
-    for key, barcodes in members_of_key.items():
-        by_category = defaultdict(list)
-        for barcode in barcodes:
-            category_id = cat_of.get(barcode)
-            if category_id is not None:
-                by_category[category_id].append(barcode)
-        if not by_category:
-            continue
-        if len(by_category) > 1:
-            print(f"[build_category_browse] WARNING: generic key {key!r} has "
-                  f"categorised members split across {sorted(by_category)} - "
-                  f"almost certainly a barcode collision (see docstring); "
-                  f"collapsing only the largest cluster, the rest stay as "
-                  f"ordinary standalone rows")
-        chosen_category = max(by_category, key=lambda c: (len(by_category[c]), -c))
-        candidates = by_category[chosen_category]
-        head = min(candidates, key=lambda b: (sort_of.get(b) or "", b))
-        head_rows.append((key, head))
-        hidden_barcodes.extend(b for b in candidates if b != head)
-
-    conn.executemany(
-        "UPDATE products SET browse_generic_key = ? WHERE barcode = ?",
-        [(key, barcode) for key, barcode in head_rows])
-    conn.executemany(
-        "UPDATE products SET browse_visible = 0 WHERE barcode = ?",
-        [(barcode,) for barcode in hidden_barcodes])
-    return len(head_rows), len(hidden_barcodes)
-
-
 def build_category_counts(conn):
     """KAN-17: one row per category in ``categories``, precomputed so
     /categories never runs a COUNT(*) per request.
 
-    A sub-category's count is its browse-visible categorised products
-    (build_category_browse has already collapsed generics by the time this
-    runs); a top-level category's is the sum of its children's - matches
-    ``build_category_browse``'s promise that a collapsed generic is counted
-    exactly once, since it counts once in its one sub-category and that
-    total is all a parent ever sums.
+    A sub-category's count is its distinct categorised products; a
+    top-level category's is the sum of its children's.
     """
     sub_counts = dict(conn.execute(
         "SELECT category_id, COUNT(*) FROM products "
-        "WHERE category_id IS NOT NULL AND browse_visible = 1 "
+        "WHERE category_id IS NOT NULL "
         "GROUP BY category_id"))
     parent_of = dict(conn.execute("SELECT id, parent_id FROM categories"))
 
@@ -797,19 +541,6 @@ def build(db_path, out_path, categories_json=CATEGORIES_JSON,
     category_map = load_category_map(categories_tsv)
     counts["products"] = copy_products(conn, category_map)
 
-    # KAN-9: needs chain_products/chain_prices/products already populated
-    # above (unqualified - no src. prefix - see build_produce's docstring).
-    # Passed explicitly (not via build_produce's own defaults) so a test can
-    # monkeypatch the module-level paths and have it take effect here.
-    (counts["produce_units"], counts["generics"], counts["generic_members"],
-     counts["produce_generic_map"], counts["generic_barcodes"]) = build_produce(
-        conn, units_tsv=PRODUCE_UNITS_TSV, map_tsv=PRODUCE_GENERIC_MAP_TSV)
-
-    # KAN-17: needs generic_barcodes (just populated above) and
-    # products.category_id (populated by copy_products above that).
-    (counts["category_browse_heads"],
-     counts["category_browse_hidden"]) = build_category_browse(conn)
-
     bit_of, store_bits_rows = build_store_bits(conn)
     counts["store_bits"] = store_bits_rows
     deals_rows, merged_total = build_deals(conn, bit_of, category_map)
@@ -824,8 +555,8 @@ def build(db_path, out_path, categories_json=CATEGORIES_JSON,
     counts["categories"] = copy_categories(conn, load_categories(categories_json))
     conn.commit()
 
-    # KAN-17: needs categories (just copied above) and products.browse_visible
-    # (build_category_browse, above).
+    # KAN-17: needs categories (just copied above) and products.category_id
+    # (copy_products, above).
     counts["category_counts"] = build_category_counts(conn)
     conn.commit()
 

@@ -122,11 +122,6 @@ def test_row_counts_match_the_source(fixture_db, tmp_path):
     build_app_db.build(db_path, out_path)
 
     actual = _source_counts(out_path, COPIED_TABLES)
-    # KAN-9: build_produce always appends one meta row of its own
-    # ('produce_map_stale', a JSON list - empty when nothing went stale) on
-    # top of whatever it copied from the source - meta is the one "copied
-    # verbatim" table that isn't purely verbatim any more.
-    expected["meta"] += 1
     assert actual == expected
 
 

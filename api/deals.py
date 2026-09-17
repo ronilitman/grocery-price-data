@@ -62,9 +62,8 @@ MAX_LIMIT = 48
 DEFAULT_LIMIT = 24
 
 # The exact response item shape the spec lists (barcode..chains_on_deal);
-# generic_key is added separately below, and deal_id/category_id are query
-# plumbing only (the cursor and the chain_id/category_id filters), never
-# part of a response item.
+# deal_id/category_id are query plumbing only (the cursor and the
+# chain_id/category_id filters), never part of a response item.
 _ITEM_COLUMNS = (
     "barcode", "name", "chain_id", "base_price", "unit_price", "price",
     "min_qty", "club", "coupon", "ends", "discount_pct", "chains_on_deal",
@@ -176,17 +175,10 @@ def _run_deals_default(conn, built_at, *, limit, cursor, q, category_id):
     has_more = len(rows) > limit
     page = rows[:limit]
 
-    # generic_key ("g"): the same KAN-9-precedence lookup /product uses, so a
-    # deal card that belongs to a generic (loose produce) opens the same
-    # product the modal would via productPath - a generic wins when present.
-    barcodes = [row[0] for row in page]
-    generic_of = catalog.generic_keys_for_barcodes(conn, barcodes)
-
     items = []
     for row in page:
         values = dict(zip(_QUERY_COLUMNS, row))
         del values["deal_id"]
-        values["generic_key"] = generic_of.get(values["barcode"])
         items.append(values)
 
     next_cursor = None
@@ -288,9 +280,6 @@ def _run_deals_for_chain(
     has_more = len(rows) > limit
     page = rows[:limit]
 
-    barcodes = [row[0] for row in page]
-    generic_of = catalog.generic_keys_for_barcodes(conn, barcodes)
-
     items = []
     for row in page:
         values = dict(zip(_CHAIN_QUERY_COLUMNS, row))
@@ -299,7 +288,6 @@ def _run_deals_for_chain(
         if store_id is None:
             values["branches_on_deal"] = _popcount(branches_blob)
             values["branches_total"] = branches_total
-        values["generic_key"] = generic_of.get(values["barcode"])
         items.append(values)
 
     next_cursor = None

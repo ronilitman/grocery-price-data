@@ -10,10 +10,10 @@ proves it stays byte-identical after this split (see the KAN-7 report).
 ``emit_chain`` (KAN-13) is the third piece: turning a chain's surviving
 offers into the published entry shape (``u``/``d``/``e``/``q``/``t``/``c``/
 ``k``/``b``/``s``/``x``). It used to be a private helper inside
-build_catalog.py; it moved here so the API's ``/product`` and ``/generic``
-endpoints can build the exact same ``promo`` shape from ``deals`` rows at
-request time, instead of re-deriving the encoding rules from scratch and
-risking the two disagreeing about, say, when ``s`` beats ``x``.
+build_catalog.py; it moved here so the API's ``/product`` endpoint can build
+the exact same ``promo`` shape from ``deals`` rows at request time, instead of
+re-deriving the encoding rules from scratch and risking the two disagreeing
+about, say, when ``s`` beats ``x``.
 """
 
 from collections import defaultdict

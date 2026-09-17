@@ -5,14 +5,11 @@ Self-contained module + ``APIRouter``, same pattern as KAN-12's
 ``api/search.py`` and KAN-13's ``api/products.py`` - ``api/main.py`` only
 gains a two-line ``include_router``.
 
-``category_counts`` and ``products.browse_visible``/``browse_generic_key``
-(``scripts/build_app_db.py``, KAN-17) do the heavy lifting at build time:
-counts are a straight read, never a COUNT(*) per request, and a loose-produce
-generic's categorised members are already collapsed to one browse-visible
-row before this module ever sees them. This module's own job is keyset
-pagination over that (already-collapsed) row set, and turning each page of
-rows into priced, dealt items - live reads, because price/deal state changes
-without a rebuild while the browse-visible set itself does not.
+``category_counts`` (``scripts/build_app_db.py``, KAN-17) does the heavy
+lifting at build time: counts are a straight read, never a COUNT(*) per
+request. This module's own job is keyset pagination over ``products``, and
+turning each page of rows into priced, dealt items - live reads, because
+price/deal state changes without a rebuild.
 """
 from __future__ import annotations
 
@@ -126,47 +123,8 @@ def _barcodes_on_deal(conn, barcodes) -> set:
     }
 
 
-def _generic_items(conn, generic_keys):
-    """{key: item_dict_or_None} for a page's generic rows, batched through
-    catalog.resolve_generics (KAN-9 precedence: a mapped key's members and
-    prices come from produce_units, an unmapped key's from generic_members -
-    same rule /generic/{key} uses)."""
-    resolved = catalog.resolve_generics(conn, generic_keys)
-
-    all_member_barcodes = set()
-    keys_of_barcode = defaultdict(set)
-    for key, base in resolved.items():
-        if base is None:
-            continue
-        for chain_id, (_price, _count, barcode) in base["p"].items():
-            all_member_barcodes.add(barcode)
-            keys_of_barcode[barcode].add(key)
-
-    dealing_barcodes = _barcodes_on_deal(conn, sorted(all_member_barcodes))
-    keys_on_deal = set()
-    for barcode in dealing_barcodes:
-        keys_on_deal |= keys_of_barcode.get(barcode, set())
-
-    out = {}
-    for key, base in resolved.items():
-        if base is None:
-            out[key] = None
-            continue
-        prices = [row[0] for row in base["p"].values()]
-        out[key] = {
-            "barcode": None,
-            "generic_key": key,
-            "name": base["n"],
-            "min_price": min(prices) if prices else None,
-            "chains": len(base["p"]),
-            "on_deal": key in keys_on_deal,
-            "weighted": bool(base["w"]),
-        }
-    return out
-
-
 def _barcode_items(conn, barcodes):
-    """{barcode: item_dict} for a page's plain (non-generic) rows."""
+    """{barcode: item_dict} for a page's rows."""
     basics = catalog.products_basic(conn, barcodes)
     prices = catalog.chain_prices_for(conn, barcodes)
     dealing = _barcodes_on_deal(conn, barcodes)
@@ -178,7 +136,6 @@ def _barcode_items(conn, barcodes):
         price_values = [row[0] for row in chain_prices.values()]
         out[barcode] = {
             "barcode": barcode,
-            "generic_key": None,
             "name": name,
             "min_price": min(price_values) if price_values else None,
             "chains": len(chain_prices),
@@ -221,16 +178,16 @@ def get_category_products(
         if cursor:
             after_sort_key, after_barcode = _decode_cursor(cursor)
             rows = conn.execute(
-                "SELECT barcode, sort_key, browse_generic_key FROM products "
-                "WHERE category_id = ? AND browse_visible = 1 "
+                "SELECT barcode, sort_key FROM products "
+                "WHERE category_id = ? "
                 "AND (sort_key, barcode) > (?, ?) "
                 "ORDER BY sort_key, barcode LIMIT ?",
                 (category_id, after_sort_key, after_barcode, limit + 1),
             ).fetchall()
         else:
             rows = conn.execute(
-                "SELECT barcode, sort_key, browse_generic_key FROM products "
-                "WHERE category_id = ? AND browse_visible = 1 "
+                "SELECT barcode, sort_key FROM products "
+                "WHERE category_id = ? "
                 "ORDER BY sort_key, barcode LIMIT ?",
                 (category_id, limit + 1),
             ).fetchall()
@@ -238,21 +195,18 @@ def get_category_products(
         has_more = len(rows) > limit
         page = rows[:limit]
 
-        plain_barcodes = sorted({b for b, _sk, g in page if g is None})
-        generic_keys = sorted({g for _b, _sk, g in page if g is not None})
-        barcode_items = _barcode_items(conn, plain_barcodes)
-        generic_items = _generic_items(conn, generic_keys)
+        barcodes = sorted({b for b, _sk in page})
+        barcode_items = _barcode_items(conn, barcodes)
 
         items = []
-        for barcode, _sort_key, generic_key in page:
-            item = generic_items.get(generic_key) if generic_key is not None \
-                else barcode_items.get(barcode)
+        for barcode, _sort_key in page:
+            item = barcode_items.get(barcode)
             if item is not None:
                 items.append(item)
 
         next_cursor = None
         if has_more:
-            last_barcode, last_sort_key, _last_generic_key = page[-1]
+            last_barcode, last_sort_key = page[-1]
             next_cursor = _encode_cursor(last_sort_key, last_barcode)
 
         return {"count": count, "items": items, "next_cursor": next_cursor}
