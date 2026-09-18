@@ -12,9 +12,11 @@ test exercises the same loader against a small synthetic file in the
 meantime, so the parsing logic itself is still covered.
 """
 
+import io
 import json
 import os
 import sys
+import urllib.error
 
 import pytest
 
@@ -211,3 +213,116 @@ def test_state_is_saved_after_each_successful_probe_not_only_at_the_end(tmp_path
     )
 
     assert "s1" in seen_on_disk_before_second_probe
+
+
+# --- HTTP status handling: a 404 is a normal answer, not a ban; 429/5xx is
+# a real backoff but still not the IP ban; other 4xx is recorded and
+# skipped; only a connection failure is treated as the ban. ---
+
+def _http_error(code, msg="error"):
+    return urllib.error.HTTPError("http://x.invalid", code, msg, {}, io.BytesIO(b""))
+
+
+def test_404_advances_without_sleeping_or_retrying(tmp_path, monkeypatch):
+    state_path = str(tmp_path / "state.json")
+    calls = {"n": 0}
+    sleep_calls = []
+
+    def fake_probe(barcode, lon, lat):
+        calls["n"] += 1
+        raise _http_error(404, "Not Found")
+
+    monkeypatch.setattr(harvest_store_snapshot, "probe", fake_probe)
+
+    stores, log, stopped_early, gave_up = harvest_store_snapshot.harvest(
+        barcodes={"item": "111"}, locations={"CityA": (34.0, 32.0)},
+        patience=10, delay=0, state_path=state_path,
+        sleep_fn=lambda s: sleep_calls.append(s),
+    )
+
+    assert calls["n"] == 1  # not retried
+    assert sleep_calls == [0]  # only the normal --delay(=0), never the ban wait
+    assert gave_up is False
+    assert stores == {}
+    assert log[0]["ok"] is True
+    assert log[0]["new"] == 0
+
+    saved = harvest_store_snapshot.load_state(state_path)
+    assert harvest_store_snapshot._pair_key("CityA", "item") in saved["done_pairs"]
+
+
+def test_429_sleeps_the_ban_wait_and_retries_the_same_pair(tmp_path, monkeypatch):
+    state_path = str(tmp_path / "state.json")
+    attempts = {"n": 0}
+    sleep_calls = []
+
+    def fake_probe(barcode, lon, lat):
+        attempts["n"] += 1
+        if attempts["n"] == 1:
+            raise _http_error(429, "Too Many Requests")
+        return [{"_id": "s1", "chainName": "X"}]
+
+    monkeypatch.setattr(harvest_store_snapshot, "probe", fake_probe)
+
+    stores, log, stopped_early, gave_up = harvest_store_snapshot.harvest(
+        barcodes={"item": "111"}, locations={"CityA": (34.0, 32.0)},
+        patience=10, delay=0, state_path=state_path,
+        sleep_fn=lambda s: sleep_calls.append(s), ban_wait=1800,
+    )
+
+    assert attempts["n"] == 2  # retried the same pair after backing off
+    assert sleep_calls[0] == 1800  # the ban wait, not the ordinary delay
+    assert gave_up is False
+    assert "s1" in stores
+
+
+def test_connection_refusal_still_takes_the_ban_path(tmp_path, monkeypatch):
+    state_path = str(tmp_path / "state.json")
+    attempts = {"n": 0}
+    sleep_calls = []
+
+    def fake_probe(barcode, lon, lat):
+        attempts["n"] += 1
+        if attempts["n"] == 1:
+            raise ConnectionRefusedError("[Errno 61] Connection refused")
+        return [{"_id": "s1", "chainName": "X"}]
+
+    monkeypatch.setattr(harvest_store_snapshot, "probe", fake_probe)
+
+    stores, log, stopped_early, gave_up = harvest_store_snapshot.harvest(
+        barcodes={"item": "111"}, locations={"CityA": (34.0, 32.0)},
+        patience=10, delay=0, state_path=state_path,
+        sleep_fn=lambda s: sleep_calls.append(s), ban_wait=2700,
+    )
+
+    assert attempts["n"] == 2
+    assert sleep_calls[0] == 2700
+    assert gave_up is False
+    assert "s1" in stores
+
+
+def test_other_4xx_is_recorded_and_skipped_without_retry_or_sleep(tmp_path, monkeypatch):
+    state_path = str(tmp_path / "state.json")
+    calls = {"n": 0}
+    sleep_calls = []
+
+    def fake_probe(barcode, lon, lat):
+        calls["n"] += 1
+        raise _http_error(400, "Bad Request")
+
+    monkeypatch.setattr(harvest_store_snapshot, "probe", fake_probe)
+
+    stores, log, stopped_early, gave_up = harvest_store_snapshot.harvest(
+        barcodes={"item": "111"}, locations={"CityA": (34.0, 32.0)},
+        patience=10, delay=0, state_path=state_path,
+        sleep_fn=lambda s: sleep_calls.append(s),
+    )
+
+    assert calls["n"] == 1  # not retried
+    assert sleep_calls == []  # no delay, no ban wait
+    assert gave_up is False
+    assert stores == {}
+    assert log[0]["ok"] is False
+
+    saved = harvest_store_snapshot.load_state(state_path)
+    assert harvest_store_snapshot._pair_key("CityA", "item") in saved["done_pairs"]

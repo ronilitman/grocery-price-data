@@ -33,6 +33,14 @@ resumes rather than treating it as fatal. It is safe to kill at any point;
 re-running it picks up from outputs/cheapersal_harvest_state.json (not
 committed - see .gitignore) instead of starting over.
 
+A connection failure (URLError/OSError/TimeoutError - no HTTP reached) is
+the only thing treated as the IP ban. A 404 from probe() is a genuine,
+expected HTTP response meaning "no store near here stocks this barcode" and
+is handled as a normal zero-result probe, not an error. 429 and 5xx are
+real HTTP responses too - a server-side throttle or overload, not the IP
+ban - so they get the same wait-and-retry treatment but are logged
+separately. Any other 4xx is recorded and skipped, without retrying it.
+
 Usage:
     python3 scripts/harvest_store_snapshot.py
     python3 scripts/harvest_store_snapshot.py --out data/cheapersal_stores.json --report review/cheapersal_harvest.md
@@ -186,7 +194,47 @@ def harvest(barcodes=None, locations=None, patience=DEFAULT_PATIENCE, delay=DELA
         entry = {"city": city, "barcode_label": label, "barcode": barcode}
         try:
             result = probe(barcode, lon, lat)
-        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError) as e:
+        except urllib.error.HTTPError as e:
+            # We reached their server and it answered with a status - the
+            # opposite of the IP ban, which never reaches HTTP at all.
+            if e.code == 404:
+                # A clean "no store stocks this item here" answer, not an
+                # error - falls straight through to the normal success path.
+                result = []
+                entry["note"] = "404: no stores for this barcode here"
+            elif e.code == 429 or 500 <= e.code < 600:
+                entry.update(ok=False, error=str(e), returned=0, new=0, total_after=len(stores))
+                log.append(entry)
+                print(f"{city:12s} {label:38s} HTTP {e.code} - throttled/server "
+                      "error, backing off (not the IP ban)")
+
+                if progressed_since_last_ban:
+                    ban_cycles_no_progress = 0
+                    progressed_since_last_ban = False
+                ban_cycles_no_progress += 1
+
+                if ban_cycles_no_progress >= max_ban_cycles:
+                    gave_up = True
+                    print(f"Gave up: {ban_cycles_no_progress} backoff cycles in a "
+                          "row with no successful probe in between.")
+                    save_state({"stores": stores, "done_pairs": sorted(done_pairs),
+                                "zero_streak": zero_streak, "log": log}, state_path)
+                    break
+
+                print(f"Waiting {ban_wait}s before retrying...")
+                sleep_fn(ban_wait)
+                continue  # retry the same pair, don't advance i
+            else:
+                entry.update(ok=False, error=str(e), returned=0, new=0, total_after=len(stores))
+                log.append(entry)
+                done_pairs.add(key)
+                print(f"{city:12s} {label:38s} HTTP {e.code} - recording and "
+                      "moving on (not retried)")
+                save_state({"stores": stores, "done_pairs": sorted(done_pairs),
+                            "zero_streak": zero_streak, "log": log}, state_path)
+                i += 1
+                continue  # no retry, no sleep - this pair is just done
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
             entry.update(ok=False, error=str(e), returned=0, new=0, total_after=len(stores))
             log.append(entry)
             print(f"{city:12s} {label:38s} connection failure ({e}) - treating as a ban")
@@ -224,7 +272,8 @@ def harvest(barcodes=None, locations=None, patience=DEFAULT_PATIENCE, delay=DELA
 
         log.append(entry)
         done_pairs.add(key)
-        print(f"{city:12s} {label:38s} +{entry['new']:<4d} total={len(stores)}")
+        note = f"  ({entry['note']})" if entry.get("note") else ""
+        print(f"{city:12s} {label:38s} +{entry['new']:<4d} total={len(stores)}{note}")
 
         save_state({"stores": stores, "done_pairs": sorted(done_pairs),
                     "zero_streak": zero_streak, "log": log}, state_path)
