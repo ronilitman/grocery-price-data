@@ -1,0 +1,601 @@
+barcode	current_name	proposed_name	decision	reason
+0000098184064	ביצים L תבנית 30	ביציםL 30	reject	merges words with no space, drops "tray"
+008421363650	בובת טוי	בובת טיי	accept	TY is the actual brand (confirmed by another row with "בובת TY"), not generic "toy"
+008421364664	בובת טוי	בובת טיי	accept	same TY-brand correction
+008421364770	בובת טוי	בובה ריח	reject	unclear/likely wrong candidate ("scented doll"), not a clear improvement
+008421364923	בובה כלב פיראט	בובת טוי	reject	loses specific character identity (dog pirate) for generic "toy doll"
+008421425136	בובת TY כחולה	בובת טיי	reject	loses color (blue)
+010900000840	רדיד אלומיניות קטן	נייר כסף121.	reject	garbled, stray "121." suffix
+010900000871	רדיד אלומיניום גדול	נייר כסף.	reject	loses size (large)
+010900100878	נייר אלומיניום דיימונד ארוך	נייר כסף דיימונד	reject	loses size (long)
+011543345145	מכונית	כבאית	accept	more specific vehicle type (fire truck) than generic "car", same length
+015300200548	מקרונים ציטוס	מק אנד ציז	accept	clarifies actual product (Mac & Cheese) vs garbled brand reference
+016000125933	דגני בוקר קינמון	קינמונים קראנץ	reject	drops "cereal" category word, grammatically odd plural
+025675300507	סוכריות ג'לי תות	ג'לי בינס	reject	loses strawberry flavor distinction
+025675300521	סוכריות ג'לי פירות	ג'לי בינס	reject	loses fruit flavor distinction
+025675810709	קרקר ללא גלוטן טבעי	פצקס קרקר ללא גלוטן	reject	loses flavor variant (natural) needed to distinguish from seasoned/pepper SKUs
+025675810730	קרקר ללא גלוטן מתובל	פצקס קרקר ללא גלוטן	reject	loses flavor variant (seasoned)
+025675810747	קרקר ללא גלוטן פלפל שחור	פצקס קרקר ללא גלוטן	reject	loses flavor variant (black pepper)
+025700005681	20 שקיות לאחסון בינוניות	שקיות זיפ	reject	loses count (20) and size (medium)
+029424000571	וופל מנעמים אגוזים	מנעמים 800 גר	reject	loses "waffle" and "nuts" flavor for a weight figure
+029424000793	ופל מנעמים מצופה	וופל מנעמים	reject	loses "coated" variant descriptor
+029424000854	מנעמים גליליות	גלילי ופל	accept	clarifies it's a waffle-roll product, current name alone doesn't say what kind of roll
+029617	יטבתה שמנת 100 גרם	שמנת100 .	reject	garbled, loses brand (Yotvata)
+031290140237	גודייבה אצבעות שוקולד חלב 90 גרם	GODIVA	reject	massive info loss (flavor, form, weight all dropped)
+031290721894	גודיבה תפוז מריר	גודיבה מריר תפוז	reject	same words reordered, no real change
+032134227008	סוכריות חמוצות	סכריות חמוצות	reject	introduces misspelling (missing ו)
+032134271025	נרדס דובונים חמוצים	סוכריות חמוצות פטל	reject	loses distinctive "bears" shape/product identity
+034000432905	ריסז מיניאטורס עטופים	ריזס מיני עטופים	reject	no meaningful gain, just reworded
+034000473557	REESES PEANUT BUTTER	בית שוקולד ריזס	reject	loses "peanut butter" flavor, vague replacement
+038000276453	חטיף פרינגלס בטעם דבש חריף	פרינגלס הוט דבש	accept	keeps flavor identity (Hot Honey) concisely, only drops generic "snack" word
+038000284472	פרינגלס הבנרו (ורוד)	פרינגלס מקסיקני ליים	reject	flavor identity looks mismatched (Habanero vs Mexican Lime)
+038000844980	פרינגלס צאדר	פרינגלס כתום	reject	loses specific flavor name (Cheddar) for vague color (orange)
+038200000940	מלפפון ואן הולטנס סוואר	מלפפון חמוץ חריף	reject	loses brand (Van Holten's)
+04139548	רוטב טריאקי	קיקומן	reject	loses product type (teriyaki sauce), brand alone is ambiguous
+042400236627	דיגני בוקר עם מרשמלו	מרשמלו מייטיס 320 גר	accept	adds actual product name (Marshmallow Mateys) and weight, more useful than generic (typo'd) current name
+044600317151	כלורקס בעלי חיים	כלורקס לכלבים	accept	more specific target (dogs) than generic "animals"
+049508004219	בייגלה	פרעצל	reject	no clear improvement, current is the established local name for this snack
+049508004233	בייגלה	פרעצל	reject	same as above
+050000051472	פריסקיז מעדני הבית	חתול	reject	massive info loss, drops brand and product line entirely
+050000169238	חטיפי פריסקיז	מזון לחתולים	reject	loses brand, changes category (treats -> food)
+050000428946	פנסי פיסט דג קוד ושרימפס {אסם	פנסי דגי קוד	reject	loses "shrimp" ingredient despite current's cosmetic garbling
+050000577958	פריסקיז נתחי עוף וטונה ברוטב	פריסקיז טייסטי	reject	loses ingredient specificity (chicken, tuna, gravy)
+054881005654	תה ירוק פרחי יסמין	תה אחמד יסמין	reject	loses "green" tea type qualifier
+054881007115	תה שחור וניל 20 שקיות	תה אחמד ונילה	reject	loses tea type (black) and count (20 bags)
+05996160	נקניקיות פרימיום צוריטוס	נקניקיות עוף	reject	conflicting flavor identity (chorizo vs generic chicken)
+0608614323746	גרעיני חמנייה זריפה	זריפה גרעיני חמניה	reject	same words reordered, no real change
+070462006605	סואר קידס	סאוור פאץ	accept	corrects to the actual recognized brand name (Sour Patch) vs a garbled rendering
+070462006629	סוכריות גומי פירות טרופיים	סאוור פאץ	reject	loses flavor (tropical fruits) for a bare brand name
+070970000324	מייק אנד לייק	סוכריות גלי	reject	loses actual brand name (Mike and Ike), replaced with vague term
+070970475269	מייק לייק אמריקה	מייק & לייק מגה	reject	variant name conflict (America vs Mega), unverifiable
+074570004003	פיינט גלידת האגן דאז וניל	גלידה האגן דאז בטעם וניל	accept	clearer phrasing, keeps brand+flavor; "pint" alone wasn't a quantitative size
+076406021901	ג'ומקס משקה אפרסק	ג'ומקס אפרסק פחית	accept	"can" is a real container detail, keeps brand+flavor
+078000035483	דוקטור פפר זירו	ד"ר פפר זירו	accept	standard Hebrew abbreviation, no info loss
+1000001	3 אקסל ב-11.90 ש"ח	3 אקסל ב-10	reject	embedded price changed (11.90 -> 10), unverifiable/not an improvement
+1000001905167	מלקחיים (190516) ניר	מלקחיים נירוסטה גדול	accept	drops internal code artifact, adds real descriptive info (material, size)
+1000006348037	סופר שוטר	צעצוע	reject	massive info loss (specific toy name -> generic "toy")
+1000010621539	סולמות וחבלים	נחשים וסולמות	accept	corrects to the actual standard game name (Snakes and Ladders)
+1000021799821	מסוק שלט שעון יד	מטוס על שלט	reject	conflicting product type (helicopter vs airplane)
+1000029036300	חביב משטח לייבוש כלי	משטח מיקרופייבר	reject	loses brand and specific use-case (dish drying)
+1000043111304	ערכת צבעים	משחק	reject	massive info loss (coloring kit -> generic "game")
+1000044298639	אקדח ברטה	רובה חצים	reject	conflicting product type (pistol vs rifle), loses brand
+1014158	לשון בקר מחפוד קפוא	לשון בקר חלק מחפוד.	reject	trailing-period artifact suggests truncation, loses "frozen" status
+1053003	פילה נסיכת הנילוס פרוס.	נסיכת הנילוס פרוס קפוא	accept	fixes truncation artifact, adds "frozen" status
+10900000871	דיאמונד נייר כסף 37.	נייר כסף.	reject	loses brand (Diamond) and size number, still truncated itself
+10900035194	דיימונד שקיות זיפר למזון גדול 20 יח	שקיות זיפר L 20 יחידות	reject	loses brand (Diamond)
+109580166	פרימים סוורלד קלאסי	פרימיום סרוו	reject	both unclear/garbled, no confident improvement
+109580739	נקניקות עוף ובקר	צוריסו עוף	reject	conflicting meat composition/type (chicken+beef vs chorizo chicken)
+109581118	קציצות עוף בעגבניות על אורז	קציצות עוף ברוטב עגבניות	reject	loses "over rice" serving detail
+109581149	צילי קון קרנה 400 גרם	צילי קון קרנה 400 ג'	reject	no genuine improvement, just abbreviation swap
+11182701388	קינג קול שעועית פינטו 454 גרם	קינג קול שעועית פינטו 439 גרם	reject	conflicting weight figure (454 vs 439), unverifiable
+11210694156	טבסקו סרירצה מתוק חריף 256 גר`	טבסקו מתוק חריף 256 מ"ל	reject	loses "Sriracha" product line name
+11210697003	רוטב טבסקו פלפל צילי	טבסקו רוטב סיראגה לח	reject	low-confidence capping-fallback source, garbled text
+11778224	ביצים מן הטבע תבנית	מן הטבע תבנית 30 L	reject	low-confidence capping-fallback, drops the actual product word "eggs"
+1210000100269	סאות'רן קומפורט 1 ל'	ויסקי סאות'רן	reject	loses size (1L) and truncates brand name (drops "Comfort")
+1230000147576	נאגטס בסגנון עוף ביונד מיט	נאגטס ביונד מיט 200 גרם	accept	adds concrete weight; product line (Beyond Meat nuggets) already implies chicken-style
+131255	משמש אוזבקי	מניעת אובדן	reject	clearly wrong/garbled, "loss prevention" does not correspond to the product
+13409351000	רוטב ברביקיו סוויט ב	רוטב ברביקיו בטעם מע	reject	low-confidence capping-fallback, proposal more garbled than current
+13409351505	רוטב סוויט בייבי ריי	רוטב ברביקיו בטעם מע	reject	low-confidence capping-fallback, loses clear brand (Sweet Baby Ray's)
+13495113537	קליק חום לבן 75 גרם.	קליק חום-לבן.	reject	loses weight (75g)
+135342	טמפו סודה 500 מ"ל	סודה טמפו 500 מ"ל	reject	same words reordered, no real change
+14046474	נקנקיות עוף 1.5 קג	נקניקיות עוף	reject	loses weight (1.5kg) despite fixing a spelling typo
+14100077084	עוגיות פפרידג' עם עו	פפרידג פארם עוגיות צ	reject	low-confidence capping-fallback, both fragments incomplete
+14100078845	פפריג' עוגיות פפרידג	פפריג' שיש צימוק 244	reject	low-confidence capping-fallback, truncated, can't verify completeness
+14100079477	עוגיות פפרידג' מילנו	עוגיות מילאנו סנדווי	reject	low-confidence capping-fallback, loses brand, current already clear and complete
+1478318	אסאדו עם עצם קפוא בעדני	אסדו עם עצם בעדני קפוא	reject	reordering only, introduces a spelling issue (אסאדו -> אסדו)
+1521430376309	תות פקיסטני/אפגני	אננס	reject	conflicting fruit identity (strawberry vs pineapple)
+1567142	סלמי תה מפולפל שקיל {יחיעם}	סלמי תה מפולפל שקיל{יחיעם}	reject	purely a missing-space formatting difference, no real improvement
+16000122543	ג'נרל מילס דגני בוקר	דגניי בוקר קינמון	accept	adds the actual distinguishing flavor (cinnamon), which current's brand-only name lacks; minor typo tolerated
+16000182424	נייטשר ואלי נאט קרים עם שקדים	נייטשר וואלי נאט קרי	reject	truncated capping-fallback, drops "with almonds" ingredient info
+16229906436	מחית קארי צהוב ארוי	מחית קארי צהוב כשר 4	reject	truncated/incomplete capping-fallback source
+16229910556	רוטב תמרינדי מרוכז א	רוטב תמרינדי מרוכז 4	reject	both truncated capping-fallback, no confident improvement
+16229914578	מי קוקוס טבעי פוקו 1 ל'	מי קוקוס טבעי פוקו 1 ל	reject	trivial punctuation-only difference, not worth changing
+16500980322	S.O.Sצמר פלדה עם חומ	צמר פלדה עם חומר פעי	reject	both truncated, proposal loses brand (S.O.S), capping-fallback
+1724826114510	יין סטון וואלי זינפנ	סטאן וואלי זיפנדל	reject	introduces brand typo (Stan vs Stone) despite completing varietal name
+1724826154516	יין סטון וואלי ק.סוב	יין סטון וואלי קברנה	accept	clarifies varietal (Cabernet) vs a cryptic abbreviation, brand kept
+17619025065	יין אופרה פרימה מימו	אופר פרימה מימוזה 75	reject	capping-fallback, still truncated, brand possibly misspelled (אופר vs אופרה), drops "wine"
+18000703517	פילסברי עוגת שיש 425	תערובת לעוגת שיש	accept	clarifies critical product type (cake mix vs cake) despite losing brand and weight
+18176783009	נפוליטנס שוקולד מריר	סוויס מריר 100 גר	reject	loses specific product line name (Napolitains) for vague "Swiss"
+18176785508	שוקולד טורינו חלב 100 גר	שוקולד טורינו חלבי 100גר	reject	no meaningful content difference
+189274	תחליף גבינה מעושנת	צהובה מעושנת במשקל	reject	loses critical "substitute" (non-dairy alternative) designation
+191187	דג הרינג שלם בוואקום	הרינג שלם מלוח	accept	"salted" is a more meaningful distinguishing trait than "vacuum packed" packaging note
+192568960008	ממתק אבקת כוכבים גומ	לקקן גריקן אבקת קסם	reject	conflicting product type/brand, likely mismatched candidate
+194048	ירכיים עוף טרי תפזורת מחפוד	ירכיים עוף טרי בקצביה מחפוד	reject	swaps one descriptor for another with no net gain
+194055	שוקיים עוף טרי תפזורת מחפוד	שוקיים עוף טרי בקצביה מחפוד	reject	same as above
+194536	חזה עוף טרי ארוז מחפוד	חזה עוף טרי מחפוד ארוז	reject	same words reordered, no info change
+194543	כרעיים עוף מחפוד טרי ארוז	כרעיים עוף טרי מחפוד ארוז	reject	same words reordered, no info change
+194574	מחפוד שוקיים עוף טרי ארוז	שוקיים עוף טרי מחפוד ארוז	reject	same words reordered, no info change
+194734000075	ליקריץ אולסורט 200 ג	לקריץ אולסורט	reject	loses weight (200g), introduces spelling issue
+194961002408	שניידרס וופל בלגי מי	שניידרס ופל בלגי	reject	introduces misspelling (ופל instead of וופל)
+19582000568	בולס איי רוטב ברביקיו אוריגינל 496 גר	בולס-איי רוטב ברביקיו אוריג`ינל 497גר	reject	conflicting weight (496 vs 497) and stray backtick artifact
+195949121487	אוזניה טייפ סי	אוזניות טייפסי	reject	no clear net improvement, both have wording issues
+196633886255	שקיות פסגור קירקלנד	זיפלוק קירק לנד	accept	corrects to the recognizable brand term (Ziploc) vs an unclear term
+196633886262	שקיות פסגור קירקלנד	זיפלוק קירק לנד	accept	same as above
+1979853	בוטנים מצופים בטעמים במשקל	בוטנים מצופים בטעמים שקיל	reject	no genuine improvement, same meaning
+1979891	מנגו מיובש דל סוכר במשקל	מנגו מיובש דל סוכר שקיל.	reject	no genuine improvement, trailing-period artifact
+2018011151497	מכונת צעצוע	לגו	accept	adds a specific, useful brand identity (Lego) vs a vague generic description
+2029526	עוף טרי ארוז שארית ישראל.	עוף טרי ארוז גלאט ירושלים	reject	conflicting kosher certification/brand (She'erit Israel vs Glatt Jerusalem)
+2029533	חזה עוף טרי ארוז שארית ישראל.	חזה עוף טרי ארוז גלאט ירושלים	reject	same kosher-brand conflict
+2029540	כרעיים עוף טרי ארוז שארית ישראל.	כרעיים עוף טרי ארוז גלאט ירושלים	reject	same kosher-brand conflict
+2029557	כנפיים עוף טרי ארוז שארית ישראל.	כנפיים עוף טרי ארוז גלאט ירושלים	reject	same kosher-brand conflict
+20456917	מגבונים לניקוי משטחים	מגבון ניקוי כללי	reject	no genuine improvement, less grammatically accurate for a multi-wipe pack
+205915	האגיס אקסטרא קר מידה 4	האגיס אקסטרה קר מידה 4	reject	trivial spelling variant only
+20714004507	ALMOST L/S-BLACK HONEY 1.9 גרם	שפתון מראה טבעי שחור דבש	accept	clarifies product type (lipstick) and shade in readable Hebrew vs a cryptic English SKU code
+2105015	רבע כבש חלק קפוא מחפ	רבע כבש מחפוד קפוא.	reject	loses kosher chalak designation
+2105220	בשר מס 8 קפוא חלק מחפוד שריר	שריר הזרוע 8 בקר קפוא מחפוד.	reject	loses kosher chalak designation despite added cut precision
+2105749	טחון בקר%100ק"ג קפוא מחפוד	טחון בקר מחפוד 100% 1 ק"ג	accept	fixes garbled spacing/formatting, same information content, clearer
+2111672	רוטב עגבניות 22% מבורך	רוטב עגבניות מרוכז פ"מ	reject	loses concentration % and brand, unclear replacement
+2112249643004	גומי דובדבן	גומי ענק	reject	loses flavor (cherry) for an unrelated size claim, likely mismatched
+2129943	פילה מדומה טרי יבוא חלק צרפתי/ פולני	פילה מדומה טרי יבוא חלק צרפתי / פולני	reject	purely cosmetic spacing difference
+21723339994	רוטב דגים 300 מ"ל	רוטב דגים 300מ"ל	reject	purely cosmetic, removes a space, no improvement
+2225935	מחפוד הודו אדום טרי ארוז	הודו אדום מחפוד טרי**.	reject	introduces garbage artifact, loses "packaged"
+225356700026	ואזלין	וזלין	reject	trivial spelling variant, no meaningful improvement
+225935	בשר הודו אדום טרי ארוז מחפוד	הודו אדום א. מחפוד	reject	massive info loss (meat/fresh/packaged all dropped)
+2370932	גבינת גאודה הולנדית-מעדניה	גבינת גאודה הולנדית שקיל.	reject	no clear net gain, trailing-period artifact
+241541141	כובנה בעבודת יד	קובנה	reject	loses "handmade" quality descriptor
+241541151	כובנה אישית	קובנה אישית	accept	spelling correction (ק vs כ) with no information loss, "individual" retained
+2439714	כתף מרכזי טרי יבוא מוכשר ארגנטיני/ חסינ	כתף מרכזי טרי יבוא מוכשר ארגנטיני / חסינ	reject	purely cosmetic spacing fix, both still truncated identically
+251071736388	פחמים לנרגילה	גחלים לנרגילה	reject	synonym swap, no genuine improvement
+2511243	גבינה בולגרית 16% במשקל	בולגרית פח/רשת שקיל 16%	accept	adds a real packaging distinction (tin vs net) that differentiates actual SKUs, keeps fat %
+2559030	כתף כבש עטרה קפוא	כתף כבש שלם עטרה	reject	loses "frozen" status, a significant fact for meat
+25675120181	חמצוצים ממולא בטעם פירות 125 גר גורי	חמצוצים ממולא בטעמי פירות 125 גרם	reject	loses brand (Guri)
+25675120198	חמצוצים ממולא בטעם תות שדה 125 גר גורי	חמצוצים ממולא בטעם תות שדה 125 גרם	reject	loses brand (Guri)
+25675125438	פרוט רילס פירות 128 גרם	פרוט רילס פירות 127 גרם	reject	conflicting weight (128 vs 127), unverifiable
+25675300231	נאטי צוז בר 50 גרם	פשקס נאטי צ`וז מגש	reject	loses weight, adds unclear/unverified prefix term
+25675301795	מטבעות שוקולד ברשת חנוכה	מטבעות שוקולד ברשת פשקס	reject	loses meaningful "Hanukkah" seasonal descriptor for an unclear term
+2587590	שקדים מסוכרים במשקל	לביבות כרובית 490גר	reject	completely wrong/mismatched product (almonds vs cauliflower latkes)
+2603740	פילה סלמון קפוא (נטו)	פילה סלמון קפוא צ'ילה	accept	origin (Chile) is more useful to a shopper than the "(net)" weight notation it replaces
+26635299541	בלון מיילר 26 צורות	בלון מיניונים	accept	specific theme (Minions) more useful than generic "shapes", despite losing the size number
+26635301794	בלון מיילר 18- מרובע	בלון כלבים	accept	specific theme (dogs) likely more useful than a vague shape descriptor, despite losing size
+26635360920	בלון מיילר 26 HB עברית-יום הולדת שמח נרות	בלון יום הולדת שמח נרות	reject	loses size and Hebrew-language specification
+26635371773	בלון מיילר 18 HB - ק	בלון יום הולדת זהב	accept	current is truncated/unusable, proposed gives a complete usable descriptor
+26635384469	בלון מיילר 26 צורות	בלון לול ענק	reject	unclear/likely mismatched word replacing generic "shapes"
+27000001127	רוטב ברביקיו בטעם ח	רוטב ברביקיו האנטס	accept	completes with an actual brand name (Hunt's) vs a truncated fragment
+27000001455	רוטב ברביקיו לתיבול	רוטב ברביקיו האנטס	accept	adds brand identity (Hunt's), purpose word is less critical
+27271904011	מרינדת שום צילי ועשב	מרינדת שום צ'ילי ועש	reject	truncated capping-fallback, no improvement over already-clear current
+27271904035	מרינדת דבש גינגר סרי	מרינדת דבש ג'ינג'ר ו	reject	both truncated capping-fallback, no clear winner
+28200112507	פרלמנט ארוך פאקט 10*	קופסה פרלמנט נייט 10	reject	low-confidence capping-fallback, introduces unverified variant claim (Night)
+28200133502	מרלבורו רד פאקט 10*2	קופסא מרלבורו רד קצר	reject	capping-fallback, loses pack count, unverified "short" claim
+28200174604	פרלמנט בלו ארוך פאקט	קופסא פרלמנט בלו ארו	reject	both truncated capping-fallback, no improvement
+2833923	פרלמנט סילבר בודד	PARLIAMENT SULVER	reject	typo in brand (SULVER), loses "single" designation
+288659	סנו די גונגל 50מ"ל	סנו די !ג'ונגל	reject	loses size (50ml), stray punctuation artifact
+2909804	פילה בקלה(מרלוזה)ארוז ללא עור.	פילה בקלה ללא עור קפוא	reject	loses species clarification (Merluza) and "packaged" status
+298991	חזה אסאדו טלה טרי מחפוד	חזה כבש טרי מחפוד ש.ארץ	reject	changes meat type (lamb vs sheep) and cut name, unclear abbreviation added
+30058569	נייר גלגול OCB גדול	אוסיבי	reject	massive info loss, drops product type and size
+300884	צ'דר אנגלי כתום	צ`דר אנגלי שקיל	reject	loses color variant (orange) that distinguishes from white cheddar
+30100487197	סנדוויץ קרקר ג. צדר	קרקר גבינה	reject	loses "sandwich" format and specific cheddar flavor
+3010470155299	פריסקיז פטה בקר וירק	פריסקס בקר	reject	loses format (pate) and ingredient (vegetables), spelling issue
+3012991021008	משקה רום נגריטה כהה	נגריטה רום אורג'ינל	reject	conflicting variant claim (dark vs original), capping-fallback
+3012993057012	יין סקארלט דארק ברדי	יין אדום	reject	massive info loss, drops name entirely
+3014260302818	אדוונטג' סנסטיב 35 רך	אורל בי מברשת שיניים	reject	conflicting brand claim, low-confidence capping-fallback, loses model/firmness
+3014260306779	מברשת שיניים אורל בי לילדים 3-5	אורל בי מברשת שיניים לילדים 3-5	reject	same words reordered, no info change
+30145221	אססי לק מקצועי 859	אססי - לק גוון 859	reject	lateral wording change, no informational gain
+30147775	אססי לק מקצועי 856	אססי - לק גוון 856	reject	lateral wording change, no informational gain
+30149403	אססי גל קוטור לק 138	אססי - ג'ל קוטור 138	reject	drops the word "polish" (לק) that specifies product type
+30149410	אססי גל קוטור לק 10	אססי - ג'ל קוטור 10	reject	drops the word "polish" (לק)
+30150331	אססי לק מקצועי 857	אססי - לק גוון 857	reject	lateral wording change, no informational gain
+30151857	אססי גל קוטור לק 40	אססי - ג'ל קוטור 40	reject	drops the word "polish" (לק)
+30151901	אססי גל קוטור לק 260	אססי - ג'ל קוטור 260	reject	drops the word "polish" (לק)
+30151918	אססי גל קוטור לק 470	אססי - ג'ל קוטור 470	reject	drops the word "polish" (לק)
+30151925	אססי גל קוטור לק 270	אססי - ג'ל קוטור 270	reject	drops the word "polish" (לק)
+30151932	אססי גל קוטור לק 345	אססי - ג'ל קוטור 345	reject	drops the word "polish" (לק)
+30151949	אססי גל קוטור לק 509	אססי - ג'ל קוטור 509	reject	drops the word "polish" (לק)
+30151956	אססי גל קוטור לק 360	אססי - ג'ל קוטור 360	reject	drops the word "polish" (לק)
+30151963	אססי גל קוטור לק 473	אססי - ג'ל קוטור 473	reject	drops the word "polish" (לק)
+30151970	אססי גל קוטור לק 370	אססי - ג'ל קוטור 370	reject	drops the word "polish" (לק)
+30152892	אססי לק מקצועי 858	אססי - לק גוון 858	reject	lateral wording change, no informational gain
+30158863	אססי גל קוטור לק 514	אססי - ג'ל קוטור 514	reject	drops the word "polish" (לק)
+30158887	אססי גל קוטור לק 484	אססי - ג'ל קוטור 484	reject	drops the word "polish" (לק)
+30166677	אססי גל קוטור לק 50	אססי - ג'ל קוטור 50	reject	drops the word "polish" (לק)
+3017800003558	אפונה וגזר דוסי 800	אפונה וגזר 800 גרם	reject	loses brand (Dosi)
+3017800207901	שעועית ירוקה דוסי 80	שעועית ירוקה 800 גרם	reject	loses brand (Dosi) despite completing the weight
+3017800245033	גרגרי חומוס דוסי 300	גרגרי חומוס 300 גרם	reject	loses brand (Dosi)
+3017800501658	גרעיני תירס דוסי 300	תירס מתוק 300 גרם	reject	loses brand (Dosi)
+3027030012541	תערובת להכנת קרם פטי	אבקה להכנת קרם פטיסי	reject	low-confidence capping-fallback, conflicting product-form claim (mix vs powder)
+30271034077	רוטב פיצה דון פפינו 411 גרם	רוטב פיצה 425 גרם דון פפינו	reject	conflicting weight figure (411 vs 425), unverifiable
+3029330032120	מארז 4יח לחמניות מקס	לחמניות המבורגיר	reject	loses count (4 units) and brand fragment
+3029330072577	לחם פרוס טבעי	לחם צרפתי	reject	conflicting bread type/descriptor claim
+3045140280803	שוקולד חלב מילקה פצפ	מילקה פצפוצי אורז	accept	completes the truncated variant name (rice crispies) that current cuts off
+3046920010047	לינדט אקסלנס 78% 100	COCOA	reject	massive info loss (brand, cocoa %, weight all dropped)
+3046920028004	לינדט אקסלנס שוקולד	שוקולד מריר מעולה	reject	loses brand (Lindt Excellence)
+3046920029674	לינדט אקסלנס שוקולד	שוקולד מריר	reject	loses brand (Lindt Excellence)
+3052910018924	ליקר מונין אבטיח 700	מונין אבטיח 700 מ"ל	reject	loses "liqueur" category designation, capping-fallback
+3052910018948	ליקר מונין אלדברי 70	מונין אלדברי 700 מ"ל	reject	loses "liqueur" category designation, capping-fallback
+3052911103063	ליקר מונין סאוור מיק	מונין סאוור מיקס SWE	reject	capping-fallback, truncated, loses "liqueur" word, adds unclear fragment
+3061990144072	HERO Choco - ביסקווי	ביסקווטים	reject	massive info loss (brand, flavor dropped)
+3068320011707	שישייה מים מינרלים ט	אויאן ליטר ששיה	accept	completes brand name (Evian) and adds size, vs a truncated fragment
+3068320099651	מים מינרלים אוויאן 500 מל	מים מינרלים אוויאן 500מ"ל	reject	purely cosmetic unit-format change, no real improvement
+3068320105314	שישיית מים מינרלים ט	ששיית אויאן 750	accept	completes brand name (Evian) and size (750), vs a truncated fragment
+3068320111926	שישיית מים אויאן 1.5	מים מנרלים	reject	massive info loss (brand, size, pack count all dropped), misspelling
+3073780591591	גבינה לה וואש קירי 12 192 גרם	גבינה לואש קירי 12 יח' 192 ג'	reject	degrades brand name (drops "La" prefix), no clear net gain
+3073780828628	גבינת בייבי בל אדום	גבינה בייביבל	reject	loses "red" variant descriptor
+3086123128323	מצת בודד	מצת קופה	reject	unclear replacement term, loses clear "single" quantity descriptor
+3086123646278	מצית ארוקה	מצת ביג	reject	conflicting product category (lighter vs matzah), likely wrong match
+3090291123035	גבינה אמנטל בפרוסות	מוטאבר	reject	garbled/unclear replacement, loses "sliced" format
+3092718637927	סירופ טסייר בטעם פטל	סירופ צרפת טסייר פטל	accept	retains brand and flavor, adds origin (France), no real info loss
+3107872600783	טקילה סאן חוסה גולד	טקילה סאן חוזה גולד	reject	trivial spelling variant, no real change
+3141360054405	מפיץ ריח למדיח בניחו	מפיץ ריח למדיח לימון	accept	completes the truncated scent name (lemon)
+3142640618102	יין סטורי פרובנס 750	יין סטורי 750 מל שקד	reject	loses region name (Provence), replaced by an unclear fragment
+3142640618867	יין סטורי קוט דה פרו	יין סטורי 750 מל	reject	loses the specific appellation name (Côtes de Provence)
+3147699101186	רום סיינט ג'יימס אימ	סיינט גיימס	reject	loses "rum" category word
+3147699111154	גלן טרנר הריטג' סינג	GLEN TURUNER	reject	typo in brand name (TURUNER), massive info loss
+3159560603279	יין ורייאטלז מרלו קא	קאלווה מרלו יין אדום	accept	completes the truncated brand (Calvet, matching the "קא" fragment), adds wine color
+3159560603286	יין ורייאטלז קברנה ק	קאלווה קברנה סוביניו	accept	completes truncated brand (Calvet) and adds full varietal name (Cabernet Sauvignon)
+3161911393210	חמאה נורמנדי מלוחה א	חמאת נורמנדי מלוחה	accept	drops a meaningless truncated trailing fragment, same substantive content
+3168930008088	ציפס לייס בטעם בולונז	לייס ציפס 130 גר	reject	loses specific flavor (Bolognese), the main distinguishing trait
+3168930159803	משקה 7אפ בטעם מוחיטו	סבן אפ מוחיטו	reject	no genuine improvement, just re-transliteration
+3168930159834	משקה 7אפ בטעם דובדבן	סבן אפ שרי	reject	no genuine improvement, just re-transliteration
+3168930159865	7 אפ טרופי	סבן אפ	reject	loses flavor (tropical)
+3168930159896	משקה תה קר ליפטון אפ	LIPTON	reject	massive info loss, drops category and flavor
+3168930159926	משקה תה קר ליפטון מו	ליפטוניק	reject	loses category info, unclear/garbled term
+3168930159988	משקה תה קר ליפטון טע	משקה תיי	reject	loses brand and flavor
+3168930162711	משקה תה קר ליפטון אב	מנט תאה	reject	drops brand, garbled/misspelled, unverified flavor claim
+3168930168133	לייס בטעם תפוח אדמה טבעי	לייס ציפס טבעי 155 גר	accept	adds weight info without real loss, Lay's + chips already implies potato
+3168930174462	משקה תה קר ליפטון לי	ליפטון לימון	accept	completes the truncated flavor (lemon) plausibly matching the "לי" fragment
+3177383429012	קוניאק קרויזט 700 מל	וויסקי	reject	conflicting product category (cognac vs whiskey)
+3179732348913	מים מינרליים פרייה 1	פרייה 1 ליטר פלסטיק	accept	completes size (1 liter) and adds packaging material, brand implies mineral water
+3199240000646	גבינת עיזים למריחה 1	גבינת עזים למריחה צר	reject	both truncated, capping-fallback, no clear improvement
+3228851000643	הריס לחם גדול	חלת בריוש	reject	loses brand (Harris), unverified bread-type change
+322925	בשר צלי כתף מס' 5 בעדני פרגוואי	צלי כתף מס`5 קפוא הרב עדני	reject	loses origin (Paraguay), possibly conflicting brand name
+3245390181022	ממרח ערמונים 325 גרם	קרפור ממרח ערמונים 3	reject	truncates weight info, low-confidence capping-fallback
+3245412211393	שוקולד חלב מעולה 3*1	קרפור שוקולד חלב מעו	reject	loses pack format info, truncated, capping-fallback
+3245412305115	שוקולד מריר עם מילוי	קרפור שוקולד מריר עם	reject	truncated, loses "with filling" completion, capping-fallback
+3245413058881	פתי בר חמאה עם ציפוי	קרפור ביסקוויט עם שו	reject	loses specific biscuit type (Petit Beurre), truncated, capping-fallback
+3245413200198	ביסקווייט בשוקולד לב	קרפור ביסקוויט בשוקו	reject	both truncated, capping-fallback, no confident improvement
+3245990043317	מארז קוניאק הנסי 700	HENNESSY	reject	massive info loss
+3253922004039	מברשת אסלה סרוג לבן	מברשת אסלה סרוג-לבן	reject	trivial punctuation difference only
+3263280115933	יין ברון דארינאק מוס	יין ברון מוסקט 750 מ	reject	loses estate/producer name portion, capping-fallback
+3263286344269	יין ויקטור ברארד דה	יין אדום יבש	reject	massive info loss, drops producer name entirely
+3263286355906	יין גי פי שאנה סובינ	שאנה סובניון בלאן	accept	completes the varietal name more fully, loses only uninformative producer initials
+3263289998711	יין גי פי שאנה שיראז	ג'יי פי שאנה שיראז	reject	no genuine improvement, just respelled initials
+3270190005094	סירופ מנטה 750 מ"ל -	קרפור סירופ מנטה 750	reject	low-confidence capping-fallback, truncates unit
+3270190005100	סירופ גרנדין 750 מ"ל	קרפור סירופ גרנדין 7	reject	truncated, capping-fallback, current already complete
+3270190117209	שוקולד מריר עם שקדים	קרפור שוקולד מריר עם	reject	loses "almonds" ingredient, truncated, capping-fallback
+3270190118817	שלישיית ספוגים לקרצו	קרפור אקספרט שלישיית	reject	truncated, loses purpose descriptor, capping-fallback
+3270190121909	ממרח על בסיס זרעי חר	קרפור ממרח על בסיס ז	reject	more severely truncated than current, capping-fallback
+3270190127765	שוקולד מריר 74% אורג	קרפר ביו שוקולד מריר	reject	loses specific cocoa percentage (74%), brand typo, capping-fallback
+3270190129639	שמן שומשום בכבישה קר	קרפור שמן שומשום בכב	reject	truncated similarly/worse, capping-fallback
+3270190151654	שוקולד מריר מעולה עם	קרפור שוקולד מריר מע	reject	truncated, capping-fallback
+3270190171720	מחית תפוחי עץ ובננה	קרפור מחית תפוחי עץ	reject	loses "banana" ingredient, truncated, capping-fallback
+3270190172079	פקאן קלוי עם מלח 100	קרפור פקאן קלוי עם מ	reject	more severely truncated, loses weight, capping-fallback
+3270190174936	שוקולד חלב עם תכולת	קרפור שוקולד חלב עם	reject	similarly truncated, capping-fallback, no gain
+3270190178460	עגבניות שלמות מקולפו	קרפור- עגבניות שלמות	reject	loses "peeled" descriptor, capping-fallback
+3270190192749	עגבניות שלמות מקולפו	קרפור- עגבניות שלמות	reject	loses "peeled" descriptor, capping-fallback
+3270190194705	שלישיית ספוגים טבעיי	קרפור אקספרט שלישיית	reject	loses "natural" descriptor, capping-fallback
+3274664178482	קיט קט שלגונים מארז	מאגדת קיט קט רביעיה	reject	conflicting product form (popsicle vs regular bar 4-pack)
+3296180000047	פרין לה וייה פרם לבן	יין פרין לה וייה	reject	loses product line name (Ferme) and color (white)
+3296180000160	יין פרין קוט דה רון	יין פרין קוט דו רון	reject	trivial spelling variant, no real improvement
+3296180004229	פרין לה וייה פרם רו	יין פרין לה	reject	more severely truncated than current, loses brand line name
+3296311117095	אלבר בישו שבלי כשר	אלבר בישו שאבלי	reject	loses kosher designation
+333052	בשר מס 8 חלק קפוא	חמוציות חצאים במשקל	reject	completely wrong/mismatched product (meat vs cranberries)
+3331300097238	סטרימר בייבי תרסיס אף איזוטוני 50 מל	סטרימר - תרסיס בייבי איזוטוני 50 מ"ל	reject	loses "nasal" (אף) specification
+3331300097498	סטרימר בייבי תרסיס אף היפרטוני 50 מל	סטרימר - תרסיס בייבי היפרטוני 50 מ"ל	reject	loses "nasal" (אף) specification
+3332418010232	לה שאבליזין כשר שבלי	יין לבן לה שאבליזיי	reject	loses kosher designation and appellation name, capping-fallback truncated
+3335121614933	חרדל דיג'ון עם גרגיר	חרדל דיז'ון גרגירים	accept	completes the truncated word (seeds/גרגירים) that current cuts off mid-word
+333698	מארז מתנה לחג 149.9	פפריקה מתוקה מועשנת	reject	completely different/mismatched product identity
+3337871324568	וישי אקוואליה טרמל ספא קרם פנים ללילה 75	וישי - אקוואליה קרם לחות ספא לילה 75 מ"ל	reject	loses "Thermal" product line qualifier
+3352685	שריר לא מעובד עטרה מספר 8	שריר צרכני עטרה מספר 8	reject	changes qualifier meaning without clear improvement or verification
+3356225	סטייק מינוט נברסקה טרי ארוז	סטייק מינוט נברסקה טרי במגש	accept	more specific packaging format (tray) than generic "packaged"
+3356607	צלי כתף בקר טרי ארוז	צלי כתף בקר טרי במגש	accept	more specific packaging format (tray) than generic "packaged"
+3356706	פילה מדומה טרי ארוז	פילה מדומה טרי במגש	accept	more specific packaging format (tray) than generic "packaged"
+3356737	סטייק דלמוניקו נברסקה טרי ארוז	סטייק דלמוניקו נברסקה טרי במגש	accept	more specific packaging format (tray) than generic "packaged"
+3360741	צלעות כבש עטרה קפוא	צלעות כבש פרוס עטרה	reject	loses "frozen" status, a significant fact for meat
+33617000026	פת מקמח מלא 260 גרם	פת פריכה מקמח מלא	reject	loses weight (260g)
+33617340610	פת מקמח שיפון 275 גר	פת פריכה מקמח שיפון	reject	loses weight (275g)
+3387390320244	דגני פיטנס פירות 375	פיטנס פירות 375 גרם	accept	completes the weight unit, brand (Fitness) already implies cereal category
+33984009165	קו אנזים Q10 נוטרי ננו	סולגאר 10Q נוטרי ננו 50	reject	garbles the Q10 designation (should be Q10, not "10Q"), a naming error
+33984031203	ויטמין B6 (מינון 100 מג)	סולגאר B-6 ללא שמרים 100	accept	adds brand and a valuable dietary claim (yeast-free), unit ambiguity is minor
+34000250103	ריסז קרמל 39גר הרשי	ריסז קרמל 39 גרם	accept	cleaner formatting, loses only a redundant parent-brand mention (Reese's is Hershey's)
+3401578653709	ביודרמה סביום גל מוס 200 מל משאבה	ביודרמה - סביום ג'ל מוסנט 200 מ"ל	reject	loses "pump" dispenser type descriptor
+3405204	ריסז פאסט ברייק 51 גר הרשי	ריסז פאסט ברייק 51 גרם	accept	cleaner formatting, loses only a redundant parent-brand mention
+3412290023640	אמנטל צרפתי ארוז 250 גר	אמנטל צרפתי ארוז 250 ג'	reject	no genuine improvement, just abbreviation swap
+3415582300924	האגן דאז דואו שוקולד	גלידה חגנדס	reject	massive info loss, brand misspelled
+3415582301921	האגן דאז דואו שוקולד	גלידה	reject	massive info loss
+3415583003053	האגן- דאז פיסטוק 420	האגן דאז	reject	loses flavor (pistachio) and size
+3415587400186	שלגון אגוזי מקדמיה 7	האגנדאס שלגון	reject	loses flavor (macadamia nuts), brand misspelled
+3428681000978	קוניאק דופוי 700 מל	ברנדי	reject	generalizes cognac to brandy (loses specificity), drops brand+size
+3451492750190	יין בורגון שאבלי קוו	יין שאבלי כשר קווה	accept	adds kosher designation, a significant purchase-relevant fact
+3451790550324	ממרח חמאת אלוויר אקס	אלוויר ממרח קל	reject	loses "butter" product category word
+3455720750457	יין שמפנייה בלאן דה	שמפניה בלאן דה נואר	accept	completes the truncated appellation (Blanc de Noir), "wine" word is redundant with "Champagne"
+3458081002340	לה קלאף יין אדום 750	יין שאטו מרמורייר אד	reject	conflicting producer/estate name, capping-fallback low confidence
+3458081003781	יין לבן דומיין 750 מ	יין לבן גרנאש דומיין	accept	adds a real varietal name (Grenache) vs a near-empty generic word ("Domaine")
+3500610005503	יין לואי אשנואר קברנ	קברנה סובניון	reject	loses brand name (Louis Eschenauer)
+3500610005534	יין לואי אשנואר סינס	יין רוזה יבש	reject	massive info loss (brand + varietal dropped)
+3500610007194	יין לואי אשנואר סירה	יין אדום יבש	reject	massive info loss (brand + varietal dropped)
+3500610007200	יין לואי אשנואר שרדו	יין לבן יבש	reject	massive info loss (brand + varietal dropped)
+3500610035111	יין גי פי שאנה דלישס	שאנה דלישס רוזה	accept	completes with color (rosé), loses only uninformative producer initials
+3500610044564	יין דומיין דה לה ויו	יין דומיין דה לה באו	accept	completes the estate name (de la Baume), corroborated by the brand field
+3500610044588	יין דומיין דה לה ס.ב	יין דומיין דה לה באו	accept	completes/corrects estate name (de la Baume), corroborated by brand field
+3500610051111	יין ברון דארנייק רוז	יין ברון דאריניאק רו	reject	both truncated similarly, no real informational gain, just respelled
+3500610054556	יין דומיין דה לה פינ	יין דומיין דה לה באו	accept	brand field independently confirms "de la Baume" as the correct estate name
+3500610063190	יין גי פי שאנה מרלו	שאנה מרלו רוזה	accept	adds color (rosé), loses only uninformative producer initials
+3500610112720	יין סאנסו רוזה קאלוו	קאלווה סאנסו רוזה 75	accept	completes brand name fully and adds a size fragment, drops only the generic "wine" word
+3500610117992	יין אנדיווידד פינו נ	אנדיווידד פינו נואר	accept	completes the varietal name fully (Pinot Noir), drops only the generic "wine" word
+3500610118005	יין אנדיווידד שרדונה	אנדיווידד - שרדונה	reject	no genuine improvement, just drops "wine" and adds punctuation
+3500610120114	יין פרובנס פלור דה פ	פלור דה פריירי	accept	completes the truncated cuvée name (Fleur de Prairie) meaningfully
+3500610142734	יין שאטו ורדאלה בורד	שאטו כשר בורדו יין	reject	loses the specific chateau name (Verdalle), the core wine identity
+3500610144806	יין ויקטורי רוזה יבש	יין רוזה ויקטוריה	reject	drops "dry" designation, changes brand spelling in a way that could be a different brand
+3500610146862	יין גי פי אי שאנה אפ	שאנה ללא אלכוהול	reject	unverified, high-stakes claim change (non-alcoholic)
+3500610146879	יין גי פי אי שאנה אפ	גפ צאנל רוזה	reject	garbled/unclear brand rendering, conflicting with current's fragment
+3500610178535	לואי אשנואר קברנה סוביניון יין אדום יבש	יין לואי אשנואר קברנ	reject	truncates an already-complete current name, capping-fallback
+3502110009234	משקה תה קר ליפטון תה	משקה קלה	reject	massive info loss, drops brand (Lipton) and category (tea)
+3523230038959	בושה מפוחם של נני 12	גבינת עיזים סואניון	reject	loses specific shape (Bûche), ash-coating trait, and brand
+3525490010027	יין לה גומלייה קברנה	יין לה ז'אמלה	reject	conflicting/unverified brand name, loses varietal (Cabernet)
+3525490010034	יין לה גומלייה סירה	יין אדום	reject	massive info loss (brand + varietal dropped)
+3525490010119	יין לה גומלייה סובינ	יין לה ג'אמל	reject	conflicting/unverified brand name, loses varietal
+3525490010126	יין לה גומלייה סינסא	יין לה ז'אמלה סאנסו	reject	conflicting/unverified brand name spelling
+3525490010317	יין לה גומלייה פינו	יין לבן יבש	reject	massive info loss (brand + varietal dropped)
+3525490011987	יין לה גומלייה שרדונ	יין לה ג'אמלה	reject	conflicting/unverified brand name, loses varietal (Chardonnay)
+3525490015497	יין לה גומלייה קריני	לה גאמל קרינאן	reject	conflicting/unverified brand name spelling
+3525490016302	יין לה גומלייה מלבק	לה ז'אמלה מלבק	reject	conflicting/unverified brand name spelling
+3525490021061	יין לה בל אנג'ל רוזה	אנגל רוזה שקד	reject	degrades brand name, unclear addition
+3525490024970	יין לה ויט שרדונה 75	לה וילט שרדונה	reject	loses the size fragment, spelling change unverified
+3525490024987	יין לה ויט פינו נואר	לה וילט פינו נואר	reject	no genuine improvement, just a spelling variant
+3525490097219	יין לה בלה אנגל קברנ	בל אנגל קברנה	reject	degrades/alters the estate name (La Bella Ange -> Bel Ange), unverified
+3525490097233	יין לה בלה אנג'ל שרד	בל אנגל שרדונה	reject	degrades/alters the estate name, unverified
+3525490098476	יין לה בלה אנג'ל רוז	בל אנגל רוזה	reject	degrades/alters the estate name, unverified
+3525490098506	יין לה בלה אנג'ל פינ	בל אנגל פינו נואר	reject	degrades/alters the estate name, unverified
+3525490098636	יין לה בלה אנגל קולו	בל אנגל קולומברד	reject	degrades/alters the estate name, unverified
+3525490098667	לה בלה אנג'ל גאמ	בל אנגל גמאי	reject	degrades/alters the estate name, unverified
+3525490098728	יין לה בלה אנגל גוור	יין לבן	reject	massive info loss (brand + varietal dropped)
+3530705000199	יין ברוט דארזאן שרדו	יין מבעבע דארזאן ברו	reject	loses varietal (Chardonnay), capping-fallback low confidence
+3535923020004	יין בורגון לואי זאדו	לואי זאדו פינו נואר	accept	adds the actual varietal (Pinot Noir), more useful than the generic region prefix it replaces
+3535927200006	יין בורגון לואי זאדו	לואי ז'אדו אליגוטה ב	accept	adds a specific, real varietal name (Aligoté), more useful than the generic region prefix
+3543217170168	יין שאטו דה לאסקארל	שאטו דה ל'אסקארל דה	reject	both truncated, capping-fallback, no clear improvement
+3550190500752	סט 4 קעריות גיגון -6	קערית לחרוסת דורלקס	reject	multiple conflicting changes (count, brand), too risky/unverified
+3550510006001	יין רוזה גיירואר 750	יין שאטו גייראור רוז	reject	loses size (750ml), capping-fallback
+3554569240171	ללייה שמפניה רוזה 75	ללייה שמפניה רוזה 12	reject	conflicting size figure (75 vs 12), unverifiable, capping-fallback
+3560070153572	טישו תלת שכבתי בקופס	קרפור סופט ממחטות אף	reject	loses "three-ply" and "boxed" format details, capping-fallback
+3560070179169	מגני תחתון לארג' *30	קרפור סופט - מגני תח	reject	loses size and count, capping-fallback
+3560070179190	מגני תחתון נורמל*60-	קרפור סופט - מגני תח	reject	loses size and count, capping-fallback
+3560070227556	פתיבר חמאה בציפוי שו	קרפור ביסקוויט בשוקו	reject	loses specific biscuit type (Petit Beurre butter), capping-fallback
+3560070249343	שוקולד חלב עם שבבי ק	קרפור- שוקולד חלב עם	reject	more severely truncated, capping-fallback
+3560070309542	פסאטה מחית עגבניות 7	קרפור פסאטה מחית עגב	reject	loses weight, capping-fallback
+3560070316991	מארז 15X9 יחידות ממח	קרפור סופט מארז 15X9	accept	retains the count format (15X9), adds brand, loses only an implied trailing word
+3560070425174	פנה ריגאטה ללא גלוטן	קרפור - פנה ריגאטה ל	reject	truncates an already-complete current name, capping-fallback
+3560070425235	אורז ריזוטו ארבוריו	קרפור - אורז ריזוטו	reject	loses specific rice variety (Arborio), capping-fallback
+3560070465491	חרדל גרגירים 350 גרם	קרפור חרדל גרגירים 3	reject	truncates weight, capping-fallback
+3560070484225	מיני ספארי ביסקוויטי	קרפור עוגיות בצורת ח	reject	loses specific product name (Mini Safari), capping-fallback
+3560070510047	פנה אורגני 500 גרם -	קרפור -פנה אורגני 50	reject	truncates weight, capping-fallback
+3560070582884	סטייליס עם שוקולד חל	קרפור סטייליס עם שוק	reject	similarly truncated, capping-fallback, no clear gain
+3560070595525	תערובת להכנת עוגה 50	קרפור מיקס להכנת פונ	reject	loses weight, unclear/truncated type change, capping-fallback
+3560070628377	סיינס פרופשיונל שמפו	קרפור סיינס פרופשיונ	reject	loses "shampoo" product-type word, capping-fallback
+3560070669981	שוקולד מריר מעולה 80	קרפור שוקולד מריר מע	reject	loses percentage figure, capping-fallback
+3560070720859	שוקולד מריר מעולה 72	קרפור שוקולד מריר מע	reject	loses percentage figure, capping-fallback
+3560070759323	ביסקווייט בשוקולד חל	קרפור ביסקוויט בשוקו	reject	similarly truncated, capping-fallback, no gain
+3560070776238	שוקולד חלב עם אגוזי	קרפור שוקולד חלב עם	reject	more severely truncated, capping-fallback
+3560070800230	שוקו קרלס 375 גרם -	קרפור שוקו קרלס 375	accept	retains the weight number, adds brand, loses only an inferable unit word and a stray dash
+3560070800322	סנופלקס 375 גרם - קר	קרפור סנופלקס 375 גר	accept	reorganizes brand to the front and keeps the weight number, current's own fragment was already garbled
+3560070800353	האני בולז 375 גרם -	קרפור האני בולז 375	accept	retains the weight number, adds brand, loses only an inferable unit word
+3560070806829	תערובת להכנת פלאן 36	קרפור אבקה להכנת פלא	reject	conflicting product-form claim (mix vs powder), loses weight, capping-fallback
+3560070811373	שימורי מחית עגבניות	קרפור - שימורי מחית	reject	loses the ingredient word "tomatoes", capping-fallback
+3560070815531	ספריי מקבע חזק לשיער	קרפור ספריי מקבע חז	reject	truncates an already-complete descriptor, capping-fallback
+3560070852116	תה ירוק נענע 50 יחיד	קרפור-תה ירוק נענע 5	reject	loses a digit in the count (50 -> 5), capping-fallback
+3560070888115	חליטת טיליה 25יחידות	קרפור-חליטת טיליה 25	accept	retains the count number, adds brand, loses only the inferable "units" word
+3560070888139	תה שחור בטעם פירות א	קרפור-תה שחור בטעם פ	reject	both truncated at the flavor name with conflicting fragments, capping-fallback
+3560070894550	אצבעות ביסקווייט בשו	קרפור ביו אצבעות ביס	reject	trades a virtually-conveyed flavor completion for an unconfirmed organic claim, capping-fallback
+3560070928347	חליטת רויבוש ווניל 2	קרפור-חליטת רויבוש ו	reject	loses the count figure, capping-fallback
+3560070947546	שמפו תפוח עדין מאד ל	קרפור סופט שמפו תפוח	reject	loses "very gentle" descriptor, capping-fallback
+3560070967230	פאוצ' מחית תפוח ותות	קרפור פאוצ' מחית תפו	reject	loses "strawberry" ingredient, capping-fallback
+3560070996131	ביסקוויט לתה 335 גרם	קרפור ביסקוויט תה 33	reject	truncates weight, capping-fallback
+3560071005191	שוקולד לבן עם פסטוקי	קרפור -שוקולד לבן עם	reject	loses "pistachio" ingredient, capping-fallback
+3560071005214	שוקולד מריר 90% מוצק	קרפור - סלקשיין- שוק	reject	loses specific cocoa percentage (90%), capping-fallback
+3560071006310	שוקולד לבן מתאים לבי	קרפור - שוקולד לבן מ	reject	more severely truncated, capping-fallback
+3560071015725	פיברה עם 5 פירות יבש	קרפור פיברה עם 5 פיר	reject	loses "dried" qualifier completion, capping-fallback
+3560071016074	קורנפלקס 500 גרם - ק	קרפור קורנפלקס 500 ג	accept	retains weight number and product name, fixes the awkward trailing artifact from current
+3560071051181	שקדים טבעיים אורגניי	קרפור שקדים טבעיים א	reject	more severely truncated, loses "organic" completion, capping-fallback
+3560071080990	ממחטות אף 2 שכבות קו	קרפור סופט ממחטות אף	reject	loses "2-ply" descriptor, capping-fallback
+3560071082727	פנה אורגני מכיל חיטה	קרפור -פנה אורגני מכ	reject	loses allergen info (wheat), capping-fallback
+3560071085001	ג'ל ניקוי וחיטוי ל ש	קרפור אקספרט ג'ל ניק	reject	loses "disinfecting" claim and target surface, capping-fallback
+3560071085988	שוקולד חלב עם אגוזי	קרפור שוקולד חלב עם	reject	more severely truncated, capping-fallback
+3560071086084	פסטת ביצים 250 גרם -	קרפור פסטת ביצים 250	accept	retains the weight number, adds brand, loses only inferable unit word
+3560071090821	שוקו בולז 375 גרם -	קרפור שוקו בולז 375	accept	retains the weight number, adds brand, loses only inferable unit word
+3560071096786	ג'ל ניקוי לשירותים ב	קרפור אקספרט ג'ל ניק	reject	loses the target surface (toilets) and further completion, capping-fallback
+3560071112974	פיסטוק קלוי עם מלח 1	קרפור פיסטוק קלוי עם	reject	more severely truncated, loses "salt" and weight, capping-fallback
+3560071117085	עוגיות סנדויץ' במילו	קרפור עוגיות ללא גלו	reject	conflicting/unverified claim change (sandwich-filled vs gluten-free), capping-fallback
+3560071163150	תרסיס לניקוי מטבח בנ	קרפור - אסנשיאל תרסי	reject	more severely truncated, loses "kitchen" target, capping-fallback
+3560071163662	מגבון לוכד צבע למכונ	קרפור מגבון לוכד צב	reject	more severely truncated, loses target appliance, capping-fallback
+3560071163884	מסיר אבק מרהיטים 300	קרפור אקספרט מסיר אב	reject	more severely truncated, capping-fallback
+3560071163914	תרסיס דוחה אבק מעץ 3	קרפור אקספרט תרסיס ד	reject	more severely truncated, capping-fallback
+3560071177294	חטיפי אנרגיה 4 דגנים	קרפור חטיפי אנרגיה 4	reject	truncates an already-complete descriptor, capping-fallback
+3560071196059	ג'ל לניקוי עם כוח הא	קרפור - אקספרט ג'ל ל	reject	more severely truncated, capping-fallback
+3560071196110	ספריי לניקוי כללי עם	קרפור - אקספרט ספריי	reject	loses "general cleaning" purpose descriptor, capping-fallback
+3560071199999	ספוט מקלות צמר גפן 1	קרפור ספוט מקלות צמר	reject	more severely truncated, capping-fallback
+3560071227210	TECHNIC3 סכיני גילוח	קרפור מן מארז 8 מכשי	reject	loses specific brand/model (Technic3), capping-fallback
+3560071231774	קשיו קלוי מומלח אורג	קרפור קשיו קלוי מומל	reject	more severely truncated, loses "organic" completion, capping-fallback
+3560071236380	נוזל ניקוי רב תכליתי	קרפור אסנשיאל נוזל נ	reject	loses "multi-purpose" descriptor, capping-fallback
+3560071241247	פאוור קלין נוזל לניק	קרפור אקספרט נוזל לנ	reject	loses specific brand name (Power Clean), capping-fallback
+3560071243517	פוואר קלין נוזל לניק	קרפור אקספרט נוזל לנ	reject	loses specific brand name (Power Clean), capping-fallback
+3560071247935	חטיפי קרח ללא חומרים	קרפור קלאסיק חטיפי ק	reject	loses "no additives" dietary claim, capping-fallback
+3560071252847	אטריות דקות אורגני 5	קרפור אטריות דקות או	reject	more severely truncated, capping-fallback
+3560071256203	מי פה מולטי אקשן לשמ	קרפור סופט מי פה מול	reject	more severely truncated, capping-fallback
+3560071264574	תה שחור צ'אי עם תבלי	קרפור ביו תה צאי שחו	reject	loses "with spices" completion, capping-fallback low confidence
+3560071267032	צדפי דגנים בטעם שוקו	קרפור צדפי דגנים בטע	reject	more severely truncated, loses flavor completion, capping-fallback
+3560071267117	תה ירוק אורגני עם ג'	קרפור ביו תה ירוק או	reject	more severely truncated, loses ingredient completion, capping-fallback
+3560071269494	חטיף דגנים עם שבבי ש	קרפור- חטיף דגנים עם	reject	more severely truncated, capping-fallback
+3560071271862	מטהר אוויר בניחוח ונ	קרפור - אסנשיאל מטהר	reject	loses scent name completion, capping-fallback
+3560071353858	קוביות אננס קפואות 4	קרפור קוביות אננס קפ	reject	more severely truncated, capping-fallback
+3560071353971	אוכמניות כחולות מוקפ	קרפור אוכמניות כחולו	reject	loses "frozen" state completion, capping-fallback
+3560071354695	מארז רביעיה של מגבונ	קרפור בייבי מארז רבי	reject	proposed is truncated before ever naming the product (wipes), a bigger loss than current
+3560071354756	מגבונים לחים לתינוק	קרפור בייבי מגבונים	reject	loses "wet" descriptor, truncates an already-complete current name, capping-fallback
+3560071356279	שישיית בירה בלונד 4.	בירה SAER BRAU 6*250	reject	unverified specific brand claim with no corroboration, capping-fallback, loses alcohol % info
+3560071356309	שישיית בירה בלונד אי	שישיית Walbergem ביר	reject	unverified specific brand claim, capping-fallback
+3560071356330	שישיית בירה בלונד לא	בירה SAER BRAU 6*250	reject	loses the "non-alcoholic" claim implied by current's fragment, unverified brand, capping-fallback
+3560071369057	שבבי בצל 30 גרם - קר	קרפור שבבי בצל 30 גר	accept	retains the weight number, properly reorganizes brand to front, fixes awkward trailing artifact
+3560071369118	תערובת עשבי תיבול פר	קרפור תערובת עשבי תי	reject	more severely truncated, loses region/variant completion, capping-fallback
+3560071403362	פסי שעווה ומגבונים ל	קרפור סופט-פסי שעווה	reject	loses "and wipes" (part of a combo product), capping-fallback
+3560071413750	שוקולד מריר 80% קקאו	קרפור-שוקולד מריר 80	reject	truncates an already-complete percentage descriptor, capping-fallback
+3560071431945	קפסולות קפה עוצמה 10	קרפור קפסולות קפה עו	reject	more severely truncated, loses intensity number, capping-fallback
+3560071432034	קפסולות קפה נטול עוצ	קרפור קפסולות קפה נט	reject	similarly truncated, capping-fallback, no clear gain
+3560071432249	קפסולות קפה ברזיל עו	קרפור קפסולות קפה בר	reject	more severely truncated, capping-fallback
+3560071432270	קפסולות קפה קולומביה	קרפור קפסולות קפה קו	reject	truncates an already-complete origin name, capping-fallback
+3560071432454	קפסולות קפה עוצמה 11	קרפור קפסולות קפה ע	reject	loses the specific intensity number (11), capping-fallback
+3560071432690	קפסולות קפה עוצמה 12	קרפור קפסולות קפה עו	reject	loses the specific intensity number (12), capping-fallback
+3560071440633	ספריי להסרת כתמי טקס	קרפור אקספרט ספריי ל	reject	more severely truncated, capping-fallback
+3560071451578	סירופ מוחיטו 750 מ"ל	קרפור סירופ מוחיטו 7	reject	truncates an already-complete current name, capping-fallback
+3560071483234	קרם אגוזי לוז וקקאו	קרפור קרם אגוזי לוז	reject	loses "cocoa" ingredient, capping-fallback
+3560071483265	דואו קרם אגוזי לוז ו	קרפור דואו קרם אגוזי	reject	loses ingredient completion, capping-fallback
+3560071483296	קרם אגוזי לוז וקקאו	קרפור קרם אגוזי לוז	reject	loses "cocoa" ingredient, capping-fallback
+3560071494865	מרכך כביסה מרוכז פרי	קרפור - אסנשיאל מרכ	reject	more severely truncated, capping-fallback
+3560071494896	מרכך כביסה מרוכז פרי	קרפור מרכך כביסה מרו	reject	loses scent name completion, capping-fallback
+3560232569654	צנצנת זכוכית ג'ארו 2	צנצנת פטנט 2 ליטר זכ	accept	completes the size (2 liter) and clarifies jar closure type (patent/clamp), a real product category
+3560237567648	סט סכו״ם דקה 24 חלקי	סט סכום נירוסטה 24 י	reject	unverified material claim replacing a design descriptor, capping-fallback
+3574660039559	מגן תחתון קרפרי	תחבושות	reject	conflicting/unclear product-type change, massive info loss
+3574660058857	ג'ונסון בייבי שמן 50	שמן לתינוק	reject	loses brand (Johnson's) and size, massive info loss
+3574660066203	ניוטרוג'ינה קרם ידיי	ניוטרוג'ינה 75 מבושם	reject	loses the actual product type (hand cream), a critical identity loss
+3574660239829	נוטרוגינה קרם ידיים	נוטרגינה ס.נורבג	reject	loses actual product type (hand cream), brand misspelled, unclear replacement
+3574660322576	מגן תחתון קרפרי רגיל	תחתוניות	reject	massive info loss, ambiguous/conflicting category
+3574660333466	טמפונים או בה סופר	אובה פרוקומפורט	reject	conflicting product line claim (Super vs ProComfort)
+3574660415506	ליסטרין טוטאל קר 500	ליסטרין טוטאל קאר	reject	loses size (500ml)
+3574660530278	ליסטרין שטיפת פה קול מינט 95 מל	ליסטרין - מי פה קול מינט 95 מ"ל	reject	no genuine improvement, synonym/formatting swap only
+3574660587524	ג'ונסונס בייבי שמן ל	בייבי שמן לפני השינה	reject	loses a well-known, relevant brand name (Johnson's) despite completing the use-case
+3574661098937	ניוטרוג'ינה תחליב גו	נג-סנ-תחליב יבש	reject	cryptic/unclear abbreviated brand replacing a clear (if truncated) brand name
+3574661485218	או בה קו.נורמל 32 יח	אובה פרוקומפורט	reject	conflicting product line claim, loses count
+3574661487335	מגן תחתון קרפרי מקסי לונג ריחני 40 יח	מגן תחתון ארוך ריחני	reject	massive info loss (brand, size, count all dropped)
+3574661520469	שמפו לתינוק גונסון 500 מל	שמפו לתנוק ג'ונסון 500מל	reject	introduces a typo (לתנוק instead of לתינוק)
+3574661552583	קרפרי מגן תחתון לא מבושם 20 יחידות	קרפרי - מגן תחתון ללא בישום 20 יח'	reject	no genuine improvement, just a rephrased synonym
+3574661552804	קרפרי מגן תחתון אלוו	מגן תחתון אלוורה	reject	loses brand (Caprice) despite completing the ingredient name
+3574661624860	O.D	OB	accept	corrects an apparent typo/scan error ("O.D") to the actual brand name (OB)
+3574661624877	O.D	OB	accept	same correction of an apparent scan error
+3574661685144	OGX שמן ארגן מסכה לשיקום השיער 300 מל	אוגיאקס - מסכה לשיער שמן ארגן 300 מ"ל	reject	loses the "repair" (לשיקום) functional claim
+3574661823607	וניה תחבושות לאחר לי	תחבושות אחרי לידה	reject	loses brand name (Vania)
+3574669907675	ג'ונסון בייבי אל סב	אל סבון לתינוק	reject	loses brand (Johnson's)
+3574669907828	ג'ונסון בייבי שמפו	שמפו לתינוק	reject	loses brand (Johnson's)
+3574669907880	ג'ונסון בייבי שמפו	שמפו לתינוק	reject	loses brand (Johnson's)
+3574669909099	שמן לתינוק גונסונס ב	שמנן תינוקות	reject	loses brand (Johnson's), introduces odd wording
+3586080019615	יין דומיין פטיט קלוש	דומיין פמילי דניס אנ	reject	conflicting producer/vineyard name, capping-fallback low confidence
+3592860018822	איולי בורניבוס 220 ג	ממרח איולי ברניבוס	reject	loses weight (220g)
+3598915	פילה אמנון קפוא גדלים שונים (בלדי).	פילה אמנון קפוא גדלים שונים(בלדי ).	reject	purely cosmetic, no real improvement
+3600522251750	L'OREAL קרם עיניים רויטליפט לייזר 15 מ"ל	לוריאל - רויטליפט לייזר קרם עיניים 15 מ"ל	reject	no genuine informational improvement, just re-transliteration
+3600523652242	שמפו מטפח קולור פרוט	שמפו קולור פרוטקט	accept	completes the product line name (Color Protect) fully, loses only a generic marketing word
+3600524153830	לוריאל אלביב שמפו קו	שמפו מטהר אלביב	reject	loses parent brand (L'Oreal), unverified completion of the truncated word
+3600524163099	שמפו אלביב Dream lon	שמפו Dream Long משקם	reject	loses sub-brand name (Elvive)
+3600531652425	אסי הארד טו רזיסט יח	אססי - הארד טו רזיסט	accept	fixes brand spelling (Essie), drops only a meaningless trailing fragment
+3600531686277	ג'ל גבות סופר גלואו מייבלין	מייבלין - סופר לוק ג'ל גבות	reject	conflicting product line name (Super Glow vs Super Look)
+3600540308917	קולור נטורלס 6.34	גרנייה חום שוקולד	accept	adds brand (Garnier) and a descriptive color name instead of an opaque numeric shade code
+3600542050579	גרנייה מי פנים בוטניקל 200 מל	מי פנים ורדים	reject	massive info loss (brand, line, size all dropped), unverified ingredient claim
+3600542375801	גרנייה פיור אקטיב 3ב1 פחם	3 ב-1 פיור אקטיב פחם	reject	loses brand (Garnier)
+3600542456562	גרניה מים מיסלריים עם פחם 400 מל	גרנייה - מים מיסלרים פחם 400 מ"ל	accept	fixes the brand spelling (Garnier), no information loss
+3600542513241	גרניה סרום עם פחם + BHA + AHA + ניאצינא	גרנייה סקין אקטיב סרום לעור הפנים עם פחם	reject	loses specific active ingredients (BHA, AHA, Niacinamide)
+3600542541411	גרניה קרם סרום ויטמין C לילה 30 מל	גרנייה סרום ויטמין סי לילה	reject	loses product form (cream) and size (30ml)
+3600542572804	גרנייה קרם לחות פחם+ AHA + BHA	גרנייה פיור אקטיב קרם לחות פחם	reject	loses active ingredients (AHA, BHA)
+3600542619103	GARNIER פיור אקטיב מדבקות לפצעונים 22 יח'	גרנייה - פיור אקטיב מדבקות פצעונים 22 יח'	reject	no genuine improvement, just re-transliteration
+3600542658171	גרניה סרום עם חומצה סליצילית לתיקון מראה	גרנייה - פיור סרום חומצה סליצילית 30 מ"ל	accept	adds concrete size (30ml) and product line name, fixes brand spelling, loses only vague marketing language
+3605532973623	לנקום אבסולו BX קרם לילה 75 מל	ABSOLUE BX קרם לילה 75מל	reject	loses the parent brand name (Lancome)
+3608580109280	קונפיטורה תות שדה 37	בון מאמן 370 גרם תות	accept	completes brand (Bonne Maman) and weight (370g) fully from an otherwise generic+truncated name
+3608580147503	לימונדה אנדרוז 1.5	מיץ לימונדה 1.5ליטר	reject	loses brand (Andros), capping-fallback
+3608580147534	אנדרוז משקה בסגנון מ	מיץ מוחיטו טבעי 1.5ל	reject	loses brand (Andros), capping-fallback low confidence
+3608580147565	תפוזים אנדרוז 1.5 ל	מיץ תפוזים טבעי 1.5ל	reject	loses brand (Andros), capping-fallback low confidence
+3608580147596	תפוחים אנדרוז 1.5 ל	מיץ תפוחים טבעי 1.5ל	reject	loses brand (Andros), capping-fallback low confidence
+3608580162506	מעדן פרי סיינט אמור תות 275 גר	סיינט אמור 275 גרם תות	reject	loses product type (fruit dessert)
+3616303440008	אדידס דאודורנט ספריי	דאודורנט ספריי לגבר	reject	loses brand (Adidas)
+3616303441166	פיוזן ספריי גוף דינ	ספריי גוף לגבר	reject	loses brand (Fusion)
+3616303842161	אדידס דאודורנט ספריי	דאודורנט ספריי לגבר	reject	loses brand (Adidas)
+3616474434653	מארז 6 סוללות AAA אל	קרפור מארז סוללות AA	reject	loses count (6), battery type becomes ambiguous, capping-fallback
+3616474434691	מארז 6 סוללות AA אלק	קרפור מארז סוללות AA	reject	loses count and "Alkaline" completion, capping-fallback
+3616479277651	20 שקיות אשפה 30 ליט	קרפור אסנשיאל 20 שקי	reject	loses product-type completion and size, capping-fallback
+3616479277668	10 שקיות אשפה 50 ליט	קרפור אסנשיאל 10 שקי	reject	loses product-type completion and size, capping-fallback
+3616479277750	אקספורט 10 שקיות אשפ	קרפור אקספורט 10 שקי	reject	similarly truncated, capping-fallback, no clear gain
+3616479277767	אקספורט 8 שקיות אשפה	קרפור אקספורט 8 שקיו	reject	truncates an already-complete current name, capping-fallback
+3660989254121	וודקה 40% 700 מ"ל -	קרפור וודקה 40% 700	accept	retains the concentration and size figures, adds brand, loses only an inferable unit word
+3661163991580	אדידס דאו ספריי נשים קול אנד קר 150 מל	אדידס דאו ספריי A3 לאשה קול קר 6ב1 150	accept	adds model code (A3) and formula claim (6-in-1), keeps size number, no real info loss
+3662444005149	לחם מלא ללא קרום 400	לחם בלי קשה	reject	loses grain type (whole wheat) and weight, awkward wording
+3664346339964	ט'ריז כדור שוקול	טריס מנטה	reject	conflicting flavor claim (chocolate vs mint)
+3664346344890	ט'ריז כדור שוקולד חל	טריס שוקולד חלב	accept	completes the flavor descriptor (milk chocolate) that current cuts off
+3664346348706	כדור שוקולד חלב בטעם	שוקולד תפוז	accept	reveals the actual distinguishing flavor (orange) that current's truncation completely omits
+3664346348713	כדור שוקולד חלב בטעם	שוקולד תפוז	accept	reveals the actual distinguishing flavor (orange) that current's truncation completely omits
+3664944675778	קופלן 3 ב-1 סטריפים	קולפן 3 ב-1 סטריפים	reject	unverifiable spelling variant, no clear improvement
+3665468401515	פיניש טבליות למדיח אולטימייט פלוס ניחוח לימון 33 יחידות	קאפסולות למדיח אולטימט	reject	conflicting product form (tablets vs capsules), massive info loss
+3665468401560	פיניש טבליות למדיח אולטימייט פלוס 33 יחידות	תבליות פיניש	reject	massive info loss, spelling error introduced
+3701086305719	יין ואלס לה קוק מלבק	יין אדום לה קוק מלבק	reject	loses a brand/qualifier word (Valles), capping-fallback low confidence
+3701086306730	יין ואלס לה קוק שרדו	יין לה קוק לבן שרדונ	reject	loses a brand/qualifier word (Valles), capping-fallback low confidence
+3701086307300	יין שרדונה לבן יבש 7	יין לבן יבש שרדונה ל	reject	reordering only, no genuine improvement
+3701086307317	יין קברנה סוביניון א	יין קברנה סוביניון ל	reject	unclear/ambiguous truncated fragment change, no verified improvement
+3701086307584	יין שיראז אדום יבש 7	יין אדום יבש שיראז ל	reject	reordering only, no genuine improvement
+3701086309120	יין לבן שרדונה לנגדו	יין לבן יבש שרדונה 7	reject	loses the start of a region/estate name for a generic "dry" descriptor
+3701086309137	יין אדום שיראז 750 מ	יין אדום יבש שיראז 7	reject	more severely truncates the size figure, capping-fallback
+3701086309144	יין אדום קברנה סובינ	יין אדום יבש קברנה ס	reject	more severely truncates varietal completion, capping-fallback
+3701086309151	יין אדום מרלו 750 מל	יין אדום יבש מרלו 75	reject	truncates an already-complete size figure, capping-fallback
+3701086309489	יין אדום פינו נואר 7	יין אדום יבש פינו נו	reject	more severely truncated, capping-fallback
+3701086309496	יין רוזה גרנאש 750 מ	יין רוזה יבש גרנאש 7	reject	more severely truncated size, capping-fallback
+3701086309502	יין לבן סוביניון בלא	יין לבן יבש סוביניון	reject	loses varietal completion (Blanc), capping-fallback
+3701086309878	יין לבן גרוס מנסנג 7	יין לבן יבש גרוס מנס	reject	more severely truncates a distinctive varietal name, capping-fallback
+3701086314148	יין פינו נואר אדום י	יין פינו נואר לס פיא	accept	"Les Piares" is a specific, verifiable estate name (corroborated by the parallel barcode 3701086314155)
+3701086314155	יין מלבק אדום יבש 75	יין מלבק לס פיארס 75	accept	adds a specific estate/cuvée name (Les Piares), size figure retained
+373201	דג אמור שלם נקי	גידים חב"ד קפוא	reject	completely different/mismatched product identity
+3760001677072	שקית 3 בלונים אורז V	מארז בלוני פרוזן	accept	current is garbled/nonsensical (rice?), proposed gives a clear, plausible balloon theme
+37600207188	חמאת בוטנים סקיפי קל	חמאת בוטנים קלאסית	reject	loses brand (Skippy) despite completing the variant word
+3760027601280	יין לבן גוורץ טרמינר	יין לבן חצי יבש גוור	reject	truncates an already-complete varietal name, capping-fallback low confidence
+37600297943	מטבל סלסה חריף 439 ג	מטבל סלסה חריפה	reject	loses weight (439g) for a minor grammatical correction
+3760030144590	סורימי חצי ירח 350 ג	דליקטס כושר-סורמי יר	reject	loses weight, introduces a misspelling, capping-fallback
+3760040420394	יין שאטו פול מאס קלו	יין פול מאס קלו דה מ	accept	continues the specific cuvée name further than current, brand corroborated by brand field
+3760040421261	יין רוזה סירה פול מא	יין פול מאס רוזה סיר	accept	completes the brand name fully (Paul Mas), corroborated by brand field
+3760040422954	יין פול מאס רזרב מלב	יין אסטייט מאלבק פול	reject	conflicting product tier/line designation (Reserve vs Estate), capping-fallback
+3760040422961	יין פול מאס רזרב קרי	פול מאס קריניאן גפני	reject	loses the "Reserve" tier designation, capping-fallback
+3760049791457	מארז 8יח עוגות שוקול	מאפה לה בולנג'ר	reject	loses count and flavor for a generic category and a brand name
+3760049791532	קרואסונים לה בולנגר	קורסון בריוש	reject	drops brand, conflicting product variant claim, spelling issue
+3760049791549	לחמניות בריוש שוקוצי	ביריוש שוקולד	reject	loses product form (rolls) and flavor specificity, spelling issue
+3760049791556	חלת בריוש לה בולנגר	חלה בריוש	reject	loses brand (La Boulanger)
+3760049799200	לחמניות בריוש לה בול	קינוח בריוש	reject	conflicting product category (rolls vs dessert), loses brand
+3760049799316	לחם לה בולנגר ללא קר	לחם ללא קשה	reject	loses brand, awkward/incomplete grammatical phrasing
+3760098352265	יין סן מרטין רוזה 75	יין שאטו סנט מרטין ר	reject	loses the size figure (750ml), capping-fallback despite brand corroboration
+3760105300616	יין גוורצטרמינר טרימ	טרימבך יין	reject	loses the complete varietal name (Gewürztraminer) for a completed brand name
+3760125946719	רוזה אור פרובאנס 750	יין רוזה יבש	reject	massive info loss (region, cuvée name, size all dropped)
+3760234100804	יין שאטו דה לאסקארל	שאטו דה ל'אסקארל לה	reject	still incomplete/truncated, capping-fallback, no clear meaningful gain
+3760260450096	DARK MONTALE אדפ100 מל	MONTALE DARK אדפ100 מל	accept	reorders to put the actual brand name first, matching standard product naming convention, no info loss
+3760263790021	יין שבלי דומיין אלכס	שאבלי יין לבן	reject	loses specific producer name (Domaine Alexandre)
+3770000016598	יין שבילי מגנום כריס	שבלי כריסטוף מגנום	accept	fixes spelling and completes the brand name (Christophe) fully
+3770000016659	750 יין שרדונה כריסט	יין לבן יבש	reject	massive info loss (size, varietal, brand all dropped)
+3770000016840	750 יין שבלי כריסטוף	כריסטוף פטריס שבלי	reject	loses the size figure (750ml)
+3770000016864	750 יין שבלי פטיט כ	כריסטוף פטריס שבלי	reject	loses size and a potentially distinct appellation qualifier (Petit Chablis)
+3770012307042	יין לבן פטיט שאבלי 7	יין לבן יבש פטי שאבל	reject	no clear net gain, capping-fallback, minor spelling degradation
+3770012307059	יין לבן שאבלי 750 מל	יין לבן יבש שאבלי 75	reject	truncates an already-complete size figure, capping-fallback
+3770019952009	יין מאסיו בוטה בורדו	שאטו מאסיו סוביניון	reject	swaps region for varietal with no clear net gain, capping-fallback low confidence
+3800016701161	חצאי שזיף בסירופ 710	שזיפים בסירופ	reject	loses "halves" product-form distinction and weight
+3800016703042	מלפפון סבא בחומץ 580	מלפפונים בחומץ	reject	loses brand (Saba) and weight
+3800016703554	עגבניות סבא שרי 580	עגבניות שרי בחומץ	reject	loses brand (Saba) and weight
+3800020423462	קיט קט	kitkat	reject	no genuine improvement, arguably worse formatting
+3800020472569	קיט קט צ'אנקי קרמל	חטיף קיט קט	reject	loses specific variant (Chunky Caramel)
+3800023408800	בלה פיין צבע שיער בתוספת קרטין מס' 7.65	בלה פיין7.65	reject	massive info loss (hair color, keratin claim dropped)
+3800024310515	במבה לוטו	במבה בסט	reject	unverifiable variant name change, no clear improvement
+3800034959360	שלישית ריח דגל ישראל	מטהר אוויר לרכב בצור	reject	loses count and specific design theme, capping-fallback, truncated
+3800034960335	אריון הום פרפיום מפי	מפיץ ריח 150 מ"ל S	reject	loses brand and product line, cryptic addition, capping-fallback
+3800034968027	מפיץ ריח 150מל ונילה	אריון הום פרפיום מפי	reject	loses size and flavor, capping-fallback, truncated
+3800034986991	אריון בקבוק מקלות מפ	מפיץ ריח 50 מ"ל- מג	reject	loses brand and product-type detail (reed diffuser), capping-fallback
+3800034987189	אריון מפיץ ריח סני ה	מפיץ ריח 100 מ"ל ויק	reject	loses brand, conflicting flavor fragment, capping-fallback
+3800034987202	אריון מפיץ ריח קריסט	מפיץ ריח 100 מ"ל ויק	reject	loses brand, conflicting flavor claim, capping-fallback
+3800034987226	אריון מפיץ ריח בתלוו	מפיץ ריח 100 מ"ל ויק	reject	loses brand, duplicate/conflicting proposal text, capping-fallback
+3800090603191	ממחטות אף כיס	נייר לאף	reject	loses "pocket" size specificity, degrades to a vague generic term
+3800090603207	ממחטות אף	טישיו	reject	no clear improvement, loses the explicit "nasal" qualifier
+3800090603221	ממחטות	טישיו	reject	no genuine improvement
+3800093510137	טימס עוגת בריוש במיל	טימס בריוש בטעם וניל	reject	unverified flavor claim replacing confirmed "filled" format info
+3800103433586	בקבוק מים תריסר 500	מים 12*500 מ"ל	accept	conveys the same pack information in a clearer, more standard retail notation, no real content loss
+3800202330021	קוראסון 22 קראט תות	קרואסון במילוי תות	accept	fixes a likely spelling error and clarifies product format, dropped fragment is unclear/unverifiable itself
+3800500615011	פחמים ביו אורגני 2 ק	פחם	reject	massive info loss (organic claim, weight dropped)
+3800502028581	ארוחה טבעונית בטעם פירות יער 24גר חלבון	ארוחה בטעם פירות יער לשתייה טבעוני 500	reject	loses specific protein content (24g), a key nutritional fact for this product
+3838447000331	וילדה- 3 ספוגיות גלי	וילדה ספוגיות גליצי	reject	loses count (3 sponges), no clear net gain since ingredient name remains incomplete either way
+38527591145	דגני בוטנים קפטן קרא	קפטן בטנים קוואקר דג	accept	adds an accurate, verifiable parent brand (Quaker, the real maker of Cap'n Crunch)
+3890000781033	בלוגה 200 מל	בלוגה 0.2	reject	drops the explicit unit label, making the size figure ambiguous
+39000008907	אורטגו רוטב טאקו מיילד 226 גרם	אורטגה רוטב טאקו מיילד 226 גרם	accept	corrects the brand spelling (Ortega) with no information loss
+39000008914	אורטגו רוטב טאקו חריף 226 גרם	אורטגה רוטב טאקו חריף 226 גרם	accept	corrects the brand spelling (Ortega) with no information loss
+4000415065904	סאלוט שוקלד חלב אגוזים	שוקולד חלב אגוזים	reject	loses brand (Salute) despite fixing a spelling issue
+4000417013002	ריטר שוקולד לב	שוקולד לבן אגוזי לוז	reject	loses brand (Ritter), a well-known, relevant chocolate brand
+4000417025005	ריטר שוקולד חלב עם מ	שוקולד מריר ומרציפן	reject	conflicting chocolate type claim (milk vs dark), loses brand
+4000417026002	ריטר שוקולד חלב פרלי	שוקולד חלב קרם פרלין	reject	loses brand (Ritter)
+4000417101419	אמיצלי גלילי וופל ע	גלילי וופל קרם וניל	reject	loses brand (Amitzli)
+4000417294005	ריטר שוקולד חלב עם מ	שוקולד חלב וקרם קקאו	reject	loses brand (Ritter)
+4000417298003	שוקולד ריטר ספורט קוקוס 100 גרם	שוקולד חלב קוקוס	reject	loses brand (Ritter Sport) and weight, from an already-complete current name
+4000417626011	שוקולד ריטר ספורט מר	ריטר חלב מריר 70%	reject	contradictory chocolate type claim (milk and dark simultaneously), likely garbled
+4000522063718	פומבר אוריגנל חטיף ת	צאו פומבר טיבעי	reject	conflicting variant claim (Original vs Natural), spelling error, unclear addition
+4000539280726	לינדט אקסלנס שוקולד	שוקולד מריר מעולה	reject	loses brand (Lindt Excellence)
+4000539280740	לינדט אקסלנס 78% 100	שוקולד מריר מעולה	reject	massive info loss (brand, cocoa %, weight all dropped)
+4000576399405	פדים להסרת איפור רחבים	פדים רחבים להסרת איפור	reject	reordering only, no genuine improvement
+4001104567211	אשפתון שחור רחני 75/85 25 יחידות	שקיות זבל	reject	massive info loss (color, scent, size, count all dropped)
+4001499960178	נוזל ניקוי כללי אקול	פרוש נוזל לניקוי כלל	reject	unverified brand claim replacing an unclear fragment, capping-fallback low confidence
+4001499961540	נוזל ניקוי רב תכליתי	פרוש נוזל ניקוי רב ת	accept	adds a specific brand (Prosh) while preserving the "multi-purpose" descriptor almost entirely
+4001638580106	קרם לילה רימונים ושורש מאקה וולדה 30 מ"ל	וולדה קרם לילה רימונים ושורש מאקה למיצוק	reject	loses size (30ml) despite gaining a functional claim
+4001683011426	טמפונים או בה פרוקומ	אאובה	reject	massive info loss, garbled replacement
+4001683011525	או בה מיני פרו קומפורט 32 יח	או-בה פרו קומפורט מיני 32 יח	reject	reordering only, no genuine improvement
+4001686002087	האריבו סוכריות גומי	גומי ממתקים הריבו	reject	reordering/re-transliteration only, no genuine improvement
+4001686017555	האריבו סוכריות וולנט	הריבו	reject	massive info loss (category and variant name dropped)
+4001686020920	האריבו סוכריות גומי	חריבו נחש	reject	introduces a spelling error in the brand name despite adding shape specificity

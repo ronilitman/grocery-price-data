@@ -279697,6 +279697,624 @@
       "name": "פריט כללי סופר ספיר",
       "source": "chains-35318063298",
       "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "008421363650",
+      "name": "בובת טיי",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "008421364664",
+      "name": "בובת טיי",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "011543345145",
+      "name": "כבאית",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "015300200548",
+      "name": "מק אנד ציז",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "029424000854",
+      "name": "גלילי ופל",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "038000276453",
+      "name": "פרינגלס הוט דבש",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "042400236627",
+      "name": "מרשמלו מייטיס 320 גר",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "044600317151",
+      "name": "כלורקס לכלבים",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "070462006605",
+      "name": "סאוור פאץ",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "074570004003",
+      "name": "גלידה האגן דאז בטעם וניל",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "076406021901",
+      "name": "ג'ומקס אפרסק פחית",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "078000035483",
+      "name": "ד\"ר פפר זירו",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "1000001905167",
+      "name": "מלקחיים נירוסטה גדול",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "1000010621539",
+      "name": "נחשים וסולמות",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "1053003",
+      "name": "נסיכת הנילוס פרוס קפוא",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "1230000147576",
+      "name": "נאגטס ביונד מיט 200 גרם",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "16000122543",
+      "name": "דגניי בוקר קינמון",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "1724826154516",
+      "name": "יין סטון וואלי קברנה",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "18000703517",
+      "name": "תערובת לעוגת שיש",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "191187",
+      "name": "הרינג שלם מלוח",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "196633886255",
+      "name": "זיפלוק קירק לנד",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "196633886262",
+      "name": "זיפלוק קירק לנד",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "2018011151497",
+      "name": "לגו",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "20714004507",
+      "name": "שפתון מראה טבעי שחור דבש",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "2105749",
+      "name": "טחון בקר מחפוד 100% 1 ק\"ג",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "241541151",
+      "name": "קובנה אישית",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "2511243",
+      "name": "בולגרית פח/רשת שקיל 16%",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "2603740",
+      "name": "פילה סלמון קפוא צ'ילה",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "26635299541",
+      "name": "בלון מיניונים",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "26635301794",
+      "name": "בלון כלבים",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "26635371773",
+      "name": "בלון יום הולדת זהב",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "27000001127",
+      "name": "רוטב ברביקיו האנטס",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "27000001455",
+      "name": "רוטב ברביקיו האנטס",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3045140280803",
+      "name": "מילקה פצפוצי אורז",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3068320011707",
+      "name": "אויאן ליטר ששיה",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3068320105314",
+      "name": "ששיית אויאן 750",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3092718637927",
+      "name": "סירופ צרפת טסייר פטל",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3141360054405",
+      "name": "מפיץ ריח למדיח לימון",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3159560603279",
+      "name": "קאלווה מרלו יין אדום",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3159560603286",
+      "name": "קאלווה קברנה סוביניו",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3161911393210",
+      "name": "חמאת נורמנדי מלוחה",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3168930168133",
+      "name": "לייס ציפס טבעי 155 גר",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3168930174462",
+      "name": "ליפטון לימון",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3179732348913",
+      "name": "פרייה 1 ליטר פלסטיק",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3263286355906",
+      "name": "שאנה סובניון בלאן",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3335121614933",
+      "name": "חרדל דיז'ון גרגירים",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3356225",
+      "name": "סטייק מינוט נברסקה טרי במגש",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3356607",
+      "name": "צלי כתף בקר טרי במגש",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3356706",
+      "name": "פילה מדומה טרי במגש",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3356737",
+      "name": "סטייק דלמוניקו נברסקה טרי במגש",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3387390320244",
+      "name": "פיטנס פירות 375 גרם",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "33984031203",
+      "name": "סולגאר B-6 ללא שמרים 100",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "34000250103",
+      "name": "ריסז קרמל 39 גרם",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3405204",
+      "name": "ריסז פאסט ברייק 51 גרם",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3451492750190",
+      "name": "יין שאבלי כשר קווה",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3455720750457",
+      "name": "שמפניה בלאן דה נואר",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3458081003781",
+      "name": "יין לבן גרנאש דומיין",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3500610035111",
+      "name": "שאנה דלישס רוזה",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3500610044564",
+      "name": "יין דומיין דה לה באו",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3500610044588",
+      "name": "יין דומיין דה לה באו",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3500610054556",
+      "name": "יין דומיין דה לה באו",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3500610063190",
+      "name": "שאנה מרלו רוזה",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3500610112720",
+      "name": "קאלווה סאנסו רוזה 75",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3500610117992",
+      "name": "אנדיווידד פינו נואר",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3500610120114",
+      "name": "פלור דה פריירי",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3535923020004",
+      "name": "לואי זאדו פינו נואר",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3535927200006",
+      "name": "לואי ז'אדו אליגוטה ב",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3560070316991",
+      "name": "קרפור סופט מארז 15X9",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3560070800230",
+      "name": "קרפור שוקו קרלס 375",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3560070800322",
+      "name": "קרפור סנופלקס 375 גר",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3560070800353",
+      "name": "קרפור האני בולז 375",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3560070888115",
+      "name": "קרפור-חליטת טיליה 25",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3560071016074",
+      "name": "קרפור קורנפלקס 500 ג",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3560071086084",
+      "name": "קרפור פסטת ביצים 250",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3560071090821",
+      "name": "קרפור שוקו בולז 375",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3560071369057",
+      "name": "קרפור שבבי בצל 30 גר",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3560232569654",
+      "name": "צנצנת פטנט 2 ליטר זכ",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3574661624860",
+      "name": "OB",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3574661624877",
+      "name": "OB",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3600523652242",
+      "name": "שמפו קולור פרוטקט",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3600531652425",
+      "name": "אססי - הארד טו רזיסט",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3600540308917",
+      "name": "גרנייה חום שוקולד",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3600542456562",
+      "name": "גרנייה - מים מיסלרים פחם 400 מ\"ל",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3600542658171",
+      "name": "גרנייה - פיור סרום חומצה סליצילית 30 מ\"ל",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3608580109280",
+      "name": "בון מאמן 370 גרם תות",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3660989254121",
+      "name": "קרפור וודקה 40% 700",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3661163991580",
+      "name": "אדידס דאו ספריי A3 לאשה קול קר 6ב1 150",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3664346344890",
+      "name": "טריס שוקולד חלב",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3664346348706",
+      "name": "שוקולד תפוז",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3664346348713",
+      "name": "שוקולד תפוז",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3701086314148",
+      "name": "יין פינו נואר לס פיא",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3701086314155",
+      "name": "יין מלבק לס פיארס 75",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3760001677072",
+      "name": "מארז בלוני פרוזן",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3760040420394",
+      "name": "יין פול מאס קלו דה מ",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3760040421261",
+      "name": "יין פול מאס רוזה סיר",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3760260450096",
+      "name": "MONTALE DARK אדפ100 מל",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3770000016598",
+      "name": "שבלי כריסטוף מגנום",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3800103433586",
+      "name": "מים 12*500 מ\"ל",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "3800202330021",
+      "name": "קרואסון במילוי תות",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "38527591145",
+      "name": "קפטן בטנים קוואקר דג",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "39000008907",
+      "name": "אורטגה רוטב טאקו מיילד 226 גרם",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "39000008914",
+      "name": "אורטגה רוטב טאקו חריף 226 גרם",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
+    },
+    {
+      "barcode": "4001499961540",
+      "name": "פרוש נוזל ניקוי רב ת",
+      "source": "chains-35318063298-shorter",
+      "decided_at": "2026-09-18"
     }
   ]
 }

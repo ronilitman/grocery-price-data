@@ -23,3 +23,6 @@ logging.log
 # and too large (tens of MB) to keep in git history. review/README.md stays
 # tracked for provenance.
 review/*.tsv
+# ...except the shorter-names decisions log: a record of human judgement,
+# not regenerable output, so it is kept.
+!review/shorter_names_decisions.tsv
