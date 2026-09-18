@@ -134,10 +134,10 @@ def fixture_db(tmp_path):
     conn = sqlite3.connect(path)
     conn.executescript(merge_db.SCHEMA)
 
-    conn.execute("INSERT INTO chains VALUES ('RAMI_LEVY', 'Rami Levy')")
+    conn.execute("INSERT INTO chains VALUES ('RAMI_LEVY', 'Rami Levy', NULL)")
     conn.execute(
         "INSERT INTO stores VALUES ('RAMI_LEVY','10',NULL,'Rami Levy A',"
-        "'3000','St 1',100)")
+        "'3000',NULL,'St 1',100,NULL)")
 
     products = [
         (CHEESE_BARCODE, "גבינה צהובה גרם", "Acme", "1", 1.0, "unit", 0),

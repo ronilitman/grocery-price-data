@@ -60,16 +60,16 @@ def build_prices_db(path):
     conn = sqlite3.connect(path)
     conn.executescript(merge_db.SCHEMA)
 
-    conn.executemany("INSERT INTO chains VALUES (?,?)", [
-        ("RAMI_LEVY", "Rami Levy"),
-        ("SHUFERSAL", "Shufersal"),
+    conn.executemany("INSERT INTO chains VALUES (?,?,?)", [
+        ("RAMI_LEVY", "Rami Levy", None),
+        ("SHUFERSAL", "Shufersal", None),
     ])
     conn.executemany(
-        "INSERT INTO stores VALUES (?,?,?,?,?,?,?)",
+        "INSERT INTO stores VALUES (?,?,?,?,?,?,?,?,?)",
         [
-            ("RAMI_LEVY", "10", None, "Rami Levy A", "3000", "St 1", 100),
-            ("RAMI_LEVY", "20", None, "Rami Levy B", "3000", "St 2", 100),
-            ("SHUFERSAL", "1", None, "Shufersal A", "5000", "St 3", 100),
+            ("RAMI_LEVY", "10", None, "Rami Levy A", "3000", None, "St 1", 100, None),
+            ("RAMI_LEVY", "20", None, "Rami Levy B", "3000", None, "St 2", 100, None),
+            ("SHUFERSAL", "1", None, "Shufersal A", "5000", None, "St 3", 100, None),
         ],
     )
     conn.executemany(

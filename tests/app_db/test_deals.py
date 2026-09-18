@@ -51,11 +51,11 @@ def fixture_db(tmp_path):
     conn = sqlite3.connect(path)
     conn.executescript(merge_db.SCHEMA)
 
-    conn.executemany("INSERT INTO chains VALUES (?,?)", [
-        ("RAMI_LEVY", "Rami Levy"),
-        ("SHUFERSAL", "Shufersal"),
-        ("ZERO_STORES", "Zero Stores Chain"),
-        ("PARTIAL_STORES", "Partial Stores Chain"),
+    conn.executemany("INSERT INTO chains VALUES (?,?,?)", [
+        ("RAMI_LEVY", "Rami Levy", None),
+        ("SHUFERSAL", "Shufersal", None),
+        ("ZERO_STORES", "Zero Stores Chain", None),
+        ("PARTIAL_STORES", "Partial Stores Chain", None),
     ])
     # RAMI_LEVY: three branches, sorted "10" < "20" < "30" -> bits 0, 1, 2.
     # SHUFERSAL: one branch -> bit 0.
@@ -63,13 +63,13 @@ def fixture_db(tmp_path):
     # PARTIAL_STORES: `stores` only knows about "p1"; "p2" is promo-only
     # (like the 9-of-425 Shufersal gap and the קשת טעמים gap).
     conn.executemany(
-        "INSERT INTO stores VALUES (?,?,?,?,?,?,?)",
+        "INSERT INTO stores VALUES (?,?,?,?,?,?,?,?,?)",
         [
-            ("RAMI_LEVY", "10", None, "Rami Levy A", "3000", "St 1", 100),
-            ("RAMI_LEVY", "20", None, "Rami Levy B", "3000", "St 2", 100),
-            ("RAMI_LEVY", "30", None, "Rami Levy C", "3000", "St 3", 100),
-            ("SHUFERSAL", "1", None, "Shufersal Deal", "5000", "St 4", 100),
-            ("PARTIAL_STORES", "p1", None, "Partial A", "1000", "St 5", 100),
+            ("RAMI_LEVY", "10", None, "Rami Levy A", "3000", None, "St 1", 100, None),
+            ("RAMI_LEVY", "20", None, "Rami Levy B", "3000", None, "St 2", 100, None),
+            ("RAMI_LEVY", "30", None, "Rami Levy C", "3000", None, "St 3", 100, None),
+            ("SHUFERSAL", "1", None, "Shufersal Deal", "5000", None, "St 4", 100, None),
+            ("PARTIAL_STORES", "p1", None, "Partial A", "1000", None, "St 5", 100, None),
         ],
     )
     conn.executemany(

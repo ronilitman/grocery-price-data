@@ -43,10 +43,11 @@ PRODUCT_NAMES_JSON = os.path.join(ROOT, "data", "product_names.json")
 # replaced by store_bits + deals.branches (KAN-7) and the last becomes FTS5
 # (KAN-8) - copying them here would just be thrown away.
 SCHEMA = """
-CREATE TABLE chains(chain_id TEXT PRIMARY KEY, name TEXT);
+CREATE TABLE chains(chain_id TEXT PRIMARY KEY, name TEXT, chain_uid TEXT);
 CREATE TABLE stores(
     chain_id TEXT NOT NULL, store_id TEXT NOT NULL, subchain_id TEXT,
-    store_name TEXT, city TEXT, address TEXT, priced_items INTEGER DEFAULT 0,
+    store_name TEXT, city TEXT, city_name TEXT, address TEXT,
+    priced_items INTEGER DEFAULT 0, branch_uid TEXT,
     PRIMARY KEY (chain_id, store_id));
 CREATE TABLE products(
     barcode TEXT PRIMARY KEY, name TEXT, manufacturer TEXT, unit_qty TEXT,
@@ -188,13 +189,14 @@ INDEXES = [
 # instead of silently misaligning columns.
 COPY = [
     ("chains",
-     "INSERT INTO chains (chain_id, name) "
-     "SELECT chain_id, name FROM src.chains"),
+     "INSERT INTO chains (chain_id, name, chain_uid) "
+     "SELECT chain_id, name, chain_uid FROM src.chains"),
     ("stores",
      "INSERT INTO stores "
-     "(chain_id, store_id, subchain_id, store_name, city, address, priced_items) "
-     "SELECT chain_id, store_id, subchain_id, store_name, city, address, priced_items "
-     "FROM src.stores"),
+     "(chain_id, store_id, subchain_id, store_name, city, city_name, address, "
+     "priced_items, branch_uid) "
+     "SELECT chain_id, store_id, subchain_id, store_name, city, city_name, address, "
+     "priced_items, branch_uid FROM src.stores"),
     ("chain_prices",
      "INSERT INTO chain_prices (chain_id, barcode, price, store_count) "
      "SELECT chain_id, barcode, price, store_count FROM src.chain_prices"),

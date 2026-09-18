@@ -15,10 +15,11 @@ import sys
 from datetime import datetime, timezone
 
 SCHEMA = """
-CREATE TABLE chains(chain_id TEXT PRIMARY KEY, name TEXT);
+CREATE TABLE chains(chain_id TEXT PRIMARY KEY, name TEXT, chain_uid TEXT);
 CREATE TABLE stores(
     chain_id TEXT NOT NULL, store_id TEXT NOT NULL, subchain_id TEXT,
-    store_name TEXT, city TEXT, address TEXT, priced_items INTEGER DEFAULT 0,
+    store_name TEXT, city TEXT, city_name TEXT, address TEXT,
+    priced_items INTEGER DEFAULT 0, branch_uid TEXT,
     PRIMARY KEY (chain_id, store_id));
 CREATE TABLE products(
     barcode TEXT PRIMARY KEY, name TEXT, manufacturer TEXT, unit_qty TEXT,
@@ -77,14 +78,20 @@ INDEXES = [
 ]
 
 COPY = [
-    ("chains", "INSERT OR REPLACE INTO chains SELECT * FROM src.chains"),
-    # Named, not SELECT *: a chain database built before priced_items existed
-    # has one column fewer, and the positional form would silently skip the
-    # whole stores table for that chain - losing every branch it holds.
+    # Named, not SELECT *: a chain database built before chain_uid (KAN-34)
+    # existed has one column fewer, and the positional form would raise
+    # "N values for M columns" instead of just leaving the new one NULL.
+    ("chains", "INSERT OR REPLACE INTO chains (chain_id, name, chain_uid) "
+               "SELECT chain_id, name, {chain_uid} FROM src.chains"),
+    # Named, not SELECT *: a chain database built before priced_items, or
+    # before city_name/branch_uid (KAN-34), existed has fewer columns, and the
+    # positional form would silently skip the whole stores table for that
+    # chain - losing every branch it holds.
     ("stores", "INSERT OR REPLACE INTO stores "
-               "(chain_id, store_id, subchain_id, store_name, city, address, priced_items) "
-               "SELECT chain_id, store_id, subchain_id, store_name, city, address, "
-               "{priced} FROM src.stores"),
+               "(chain_id, store_id, subchain_id, store_name, city, city_name, "
+               "address, priced_items, branch_uid) "
+               "SELECT chain_id, store_id, subchain_id, store_name, city, "
+               "{city_name}, address, {priced}, {branch_uid} FROM src.stores"),
     ("products", "INSERT OR REPLACE INTO products SELECT * FROM src.products"),
     ("chain_prices", "INSERT OR REPLACE INTO chain_prices SELECT * FROM src.chain_prices"),
     ("price_exceptions", "INSERT OR REPLACE INTO price_exceptions SELECT * FROM src.price_exceptions"),
@@ -217,6 +224,12 @@ def main():
         # and "this branch published nothing" must not look the same downstream.
         src_columns = {row[1] for row in conn.execute("PRAGMA src.table_info(stores)")}
         priced = "priced_items" if "priced_items" in src_columns else "NULL"
+        # NULL, not a guessed id, when a backfilled chain database predates
+        # KAN-34's branch_uid/city_name columns.
+        city_name = "city_name" if "city_name" in src_columns else "NULL"
+        branch_uid = "branch_uid" if "branch_uid" in src_columns else "NULL"
+        chain_columns = {row[1] for row in conn.execute("PRAGMA src.table_info(chains)")}
+        chain_uid = "chain_uid" if "chain_uid" in chain_columns else "NULL"
         # 0, not NULL, when a backfilled chain database predates the column:
         # the flag is NOT NULL, and an offer nobody has classified has to read
         # as an ordinary discount. The cost is that a chain carried forward
@@ -229,8 +242,9 @@ def main():
             "SELECT COALESCE(MAX(offer_id), 0) FROM promo_offers").fetchone()[0]
         for table, statement in COPY:
             try:
-                conn.execute(statement.format(priced=priced, coupon=coupon,
-                                              offset=offset))
+                conn.execute(statement.format(
+                    priced=priced, city_name=city_name, branch_uid=branch_uid,
+                    chain_uid=chain_uid, coupon=coupon, offset=offset))
             except sqlite3.Error as err:
                 print(f"[merge] {os.path.basename(part)}:{table}: {err}", file=sys.stderr)
         conn.commit()

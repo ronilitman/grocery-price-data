@@ -17,7 +17,9 @@ which is ~50x smaller and answers the same questions exactly.
 """
 
 import argparse
+import json
 import os
+import re
 import sqlite3
 import sys
 from collections import defaultdict
@@ -27,6 +29,53 @@ import promos  # noqa: E402
 from csvutil import find_csvs, read_rows, pick, digits, to_float  # noqa: E402
 
 BATCH = 20000
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA_DIR = os.path.join(ROOT, "data")
+WHITESPACE = re.compile(r"\s+")
+# A raw STORE_FILE ``City`` that means "the chain sent nothing usable" - see
+# resolve_city_name(). Compared case-insensitively.
+_EMPTY_CITY = {"", "0", "unknown"}
+
+
+def _load_json_map(path, key):
+    if not os.path.exists(path):
+        return {}
+    with open(path, encoding="utf-8") as f:
+        return json.load(f).get(key, {})
+
+
+def load_chain_uids():
+    """Raw chain_id -> chain_uid, from data/chain_ids.json (KAN-34)."""
+    return _load_json_map(os.path.join(DATA_DIR, "chain_ids.json"), "ids")
+
+
+def load_branch_uids():
+    """Raw '<chain_id>|<store_id>' -> branch_uid, from data/branch_ids.json (KAN-34)."""
+    return _load_json_map(os.path.join(DATA_DIR, "branch_ids.json"), "ids")
+
+
+def load_city_codes():
+    """CBS locality code (str digits) -> Hebrew name, from data/city_codes.json (KAN-34)."""
+    return _load_json_map(os.path.join(DATA_DIR, "city_codes.json"), "codes")
+
+
+def resolve_city_name(raw_city, city_codes):
+    """Hebrew name for a raw STORE_FILE ``City`` value, or None.
+
+    Numeric -> look up the CBS code (data/city_codes.json). Already Hebrew ->
+    used as-is, whitespace-normalised. Empty, '0' or the literal 'unknown'
+    (City Market's placeholder for a branch it has no city for) -> None. A
+    numeric code with no entry in city_codes is also None - never a guessed
+    name, per KAN-34.
+    """
+    value = str(raw_city or "").strip()
+    if value.lower() in _EMPTY_CITY:
+        return None
+    if value.isdigit():
+        return city_codes.get(str(int(value)))
+    return WHITESPACE.sub(" ", value)
+
 
 # Chain ids whose store file never names them. Without this the fallback is the
 # scraper's enum name, and the app - which prints whatever it is given - shows
@@ -100,8 +149,11 @@ def split_id(chain_id, subchain_id):
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS chains(
-    chain_id TEXT PRIMARY KEY,
-    name     TEXT
+    chain_id  TEXT PRIMARY KEY,
+    name      TEXT,
+    -- KAN-34: our own id, from data/chain_ids.json. NULL when this chain_id
+    -- has never been through scripts/assign_ids.py - never guessed here.
+    chain_uid TEXT
 );
 CREATE TABLE IF NOT EXISTS stores(
     chain_id     TEXT NOT NULL,
@@ -109,6 +161,11 @@ CREATE TABLE IF NOT EXISTS stores(
     subchain_id  TEXT,
     store_name   TEXT,
     city         TEXT,
+    -- KAN-34: city resolved to a Hebrew name via data/city_codes.json when it
+    -- is a CBS locality code, used as-is (whitespace-normalised) when the
+    -- chain already sends a Hebrew name, and NULL when empty/0/unresolvable.
+    -- Never a guessed name.
+    city_name    TEXT,
     address      TEXT,
     -- How many distinct products this branch actually published a price for.
     -- Nothing downstream can work this out: a branch that charges the chain
@@ -116,6 +173,9 @@ CREATE TABLE IF NOT EXISTS stores(
     -- the exceptions table" and "published nothing at all" look identical
     -- once _raw is gone. Counted here while _raw still exists.
     priced_items INTEGER DEFAULT 0,
+    -- KAN-34: our own id, from data/branch_ids.json. NULL when this branch
+    -- has never been through scripts/assign_ids.py - never guessed here.
+    branch_uid   TEXT,
     PRIMARY KEY (chain_id, store_id)
 );
 CREATE TABLE IF NOT EXISTS products(
@@ -197,6 +257,10 @@ def connect(path):
 
 
 def load_stores(conn, outputs):
+    chain_uids = load_chain_uids()
+    branch_uids = load_branch_uids()
+    city_codes = load_city_codes()
+
     rows = []
     for path in find_csvs(outputs, "STORE_FILE"):
         for row in read_rows(path):
@@ -206,13 +270,17 @@ def load_stores(conn, outputs):
                 continue
             subchain_id = pick(row, "subchainid", "subchain_id")
             brand = split_id(chain_id, subchain_id)
+            norm_store_id = str(store_id).lstrip("0") or "0"
+            raw_city = pick(row, "city", "cityname")
             rows.append((
                 brand,
-                str(store_id).lstrip("0") or "0",
+                norm_store_id,
                 subchain_id,
                 pick(row, "storename", "store_name"),
-                pick(row, "city", "cityname"),
+                raw_city,
+                resolve_city_name(raw_city, city_codes),
                 pick(row, "address"),
+                branch_uids.get(f"{brand}|{norm_store_id}"),
             ))
             # A split chain is named for its brand, not for the company on the
             # file: every branch of it would otherwise read "נתיב החסד- סופר
@@ -221,11 +289,13 @@ def load_stores(conn, outputs):
             chain_name = (brands.get(str(subchain_id or "").strip().zfill(3))
                           or pick(row, "chainname", "chain_name"))
             if chain_name:
-                conn.execute("INSERT OR REPLACE INTO chains VALUES (?,?)", (brand, chain_name))
+                conn.execute(
+                    "INSERT OR REPLACE INTO chains VALUES (?,?,?)",
+                    (brand, chain_name, chain_uids.get(brand)))
     conn.executemany(
         "INSERT OR REPLACE INTO stores "
-        "(chain_id, store_id, subchain_id, store_name, city, address) "
-        "VALUES (?,?,?,?,?,?)", rows)
+        "(chain_id, store_id, subchain_id, store_name, city, city_name, address, branch_uid) "
+        "VALUES (?,?,?,?,?,?,?,?)", rows)
     return len(rows)
 
 
@@ -618,9 +688,10 @@ def main():
     offer_count, link_count = load_promos(conn, args.dumps, args.chain)
 
     # OR IGNORE: only chains the store file did not name reach this.
+    chain_uids = load_chain_uids()
     for chain_id in chain_ids:
-        conn.execute("INSERT OR IGNORE INTO chains VALUES (?,?)",
-                     (chain_id, DISPLAY_NAMES.get(chain_id, args.chain)))
+        conn.execute("INSERT OR IGNORE INTO chains VALUES (?,?,?)",
+                     (chain_id, DISPLAY_NAMES.get(chain_id, args.chain), chain_uids.get(chain_id)))
     conn.commit()
 
     # Last, so it sees the complete chain list.
