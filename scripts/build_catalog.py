@@ -19,6 +19,7 @@ import sys
 from collections import Counter, defaultdict
 
 import offers as offers_mod
+from build_app_db import PRODUCT_NAMES_JSON, load_product_names
 
 LEVELS = (3, 6, 8)      # split deeper only where a bucket is actually crowded
 MAX_ITEMS = 2000        # ~150 KB per shard
@@ -192,6 +193,43 @@ def write_promos(conn, out_dir, today):
     return len(shards), len(offers)
 
 
+def build_entries(conn, name_map=None):
+    """barcode -> {"n": name, "p": {...}, ...}, the shape write() and
+    write_names() both read the product name out of.
+
+    KAN-29: a human-decided name (data/product_names.json) wins over
+    whichever chain's file prices.db happened to keep, same as
+    build_app_db.copy_products applies it for app.db - this is the other
+    half of that fix, since the shards (not app.db) are what the app
+    actually reads by default. Falls back to today's name when the barcode
+    isn't in the table yet, so partial coverage never breaks a product that
+    hasn't been reviewed. Building the name map into entries here, before
+    either the barcode shards or the name-search index are written, is what
+    keeps both in sync with one lookup instead of two that could drift.
+    """
+    name_map = name_map or {}
+    entries = {}
+    # "w" marks a weighed product, whose price is per unit_qty (a kilo, almost
+    # always) rather than per item - a cart cannot sum those without asking the
+    # user for a weight - and "u" names that unit.
+    #
+    # Both are omitted when they say nothing. Only 12% of products are weighed,
+    # and with 109k entries a key that is always present is paid for 109k
+    # times. "u" rides along only on weighed entries for the same reason: on a
+    # packaged product unit_qty is a bare "gram" with the count in a column the
+    # shards do not carry, which costs ~9% of shard bytes to say nothing.
+    for barcode, name, unit_qty, is_weighted in conn.execute(
+            "SELECT barcode, name, unit_qty, is_weighted FROM products"):
+        entry = {"n": name_map.get(barcode, name), "p": {}}
+        if is_weighted:
+            entry["w"] = 1
+            unit = (unit_qty or "").strip()
+            if unit and unit != UNKNOWN_UNIT:
+                entry["u"] = unit
+        entries[barcode] = entry
+    return entries
+
+
 def _name_terms(name, filler):
     """The words worth indexing, folded to lower case and de-duplicated.
 
@@ -320,25 +358,8 @@ def main():
     os.makedirs(args.out_dir, exist_ok=True)
 
     conn = sqlite3.connect(f"file:{args.db}?mode=ro", uri=True)
-    entries = {}
-    # "w" marks a weighed product, whose price is per unit_qty (a kilo, almost
-    # always) rather than per item - a cart cannot sum those without asking the
-    # user for a weight - and "u" names that unit.
-    #
-    # Both are omitted when they say nothing. Only 12% of products are weighed,
-    # and with 109k entries a key that is always present is paid for 109k
-    # times. "u" rides along only on weighed entries for the same reason: on a
-    # packaged product unit_qty is a bare "gram" with the count in a column the
-    # shards do not carry, which costs ~9% of shard bytes to say nothing.
-    for barcode, name, unit_qty, is_weighted in conn.execute(
-            "SELECT barcode, name, unit_qty, is_weighted FROM products"):
-        entry = {"n": name, "p": {}}
-        if is_weighted:
-            entry["w"] = 1
-            unit = (unit_qty or "").strip()
-            if unit and unit != UNKNOWN_UNIT:
-                entry["u"] = unit
-        entries[barcode] = entry
+    name_map = load_product_names(PRODUCT_NAMES_JSON)
+    entries = build_entries(conn, name_map)
     # [price, how many branches sell at that baseline] - the count lets the
     # drill-down say "and 29 other branches" without naming stores we only
     # know by absence from price_exceptions.
