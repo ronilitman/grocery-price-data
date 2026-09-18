@@ -6,6 +6,7 @@ These tests build small chain databases of the real shape instead.
 """
 
 import csv
+import json
 import os
 import sqlite3
 import sys
@@ -118,16 +119,35 @@ def test_barcode_filter_only_reads_what_was_asked_for(chains):
 
 
 def test_already_decided_barcodes_are_skipped(chains, tmp_path):
-    names_tsv = tmp_path / "product_names.tsv"
-    names_tsv.write_text(
-        "# a comment line is skipped\n"
-        "111\tטחינה גולמית הר ברכה 500 גרם\tpricez\t2026-09-17\n",
+    names_json = tmp_path / "product_names.json"
+    names_json.write_text(
+        json.dumps({
+            "note": "test fixture",
+            "source_build": "0",
+            "products": [
+                {"barcode": "111", "name": "טחינה גולמית הר ברכה 500 גרם",
+                 "source": "pricez", "decided_at": "2026-09-17"},
+            ],
+        }, ensure_ascii=False),
         encoding="utf-8")
-    existing = propose_names.load_existing(str(names_tsv))
+    existing = propose_names.load_existing(str(names_json))
     assert existing == {"111"}
     found = propose_names.gather(chains)
     proposed = [row[0] for row in propose_names.propose(found, existing)]
     assert proposed == ["222"]
+
+
+def test_load_existing_missing_file_is_a_first_run(tmp_path):
+    missing = tmp_path / "does-not-exist.json"
+    assert propose_names.load_existing(str(missing)) == set()
+
+
+def test_load_existing_malformed_file_raises_loudly(tmp_path):
+    names_json = tmp_path / "product_names.json"
+    names_json.write_text(json.dumps(["not", "the", "right", "shape"]),
+                           encoding="utf-8")
+    with pytest.raises(ValueError):
+        propose_names.load_existing(str(names_json))
 
 
 def test_review_file_is_a_tsv_a_human_can_check(chains, tmp_path):

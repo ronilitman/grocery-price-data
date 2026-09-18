@@ -1,4 +1,4 @@
-"""Propose rows for data/product_names.tsv (KAN-29), for a human to review.
+"""Propose rows for data/product_names.json (KAN-29), for a human to review.
 
 Run ON DEMAND ONLY - never from the nightly pipeline - and it commits nothing.
 
@@ -43,6 +43,7 @@ import argparse
 import collections
 import csv
 import glob
+import json
 import os
 import sqlite3
 
@@ -160,35 +161,45 @@ def write_review(path, proposals):
 
 
 def load_existing(path):
-    names = set()
+    """The set of barcodes already decided, from data/product_names.json.
+
+    A missing file returns an empty set - correct for a first run, before
+    any name has ever been decided. A file that exists but is not the
+    expected JSON object with a ``products`` array is a malformed file and
+    raises, rather than silently returning an empty set and re-proposing
+    everything that was already decided.
+    """
     if not path or not os.path.exists(path):
-        return names
+        return set()
     with open(path, encoding="utf-8") as handle:
-        for line in handle:
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            names.add(line.split("\t")[0].strip())
-    return names
+        data = json.load(handle)
+    if not isinstance(data, dict) or not isinstance(data.get("products"), list):
+        raise ValueError(
+            f"{path}: expected a JSON object with a 'products' array")
+    return {
+        str(entry.get("barcode") or "").strip()
+        for entry in data["products"]
+        if isinstance(entry, dict) and str(entry.get("barcode") or "").strip()
+    }
 
 
 def main():
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     parser = argparse.ArgumentParser(
-        description="Propose data/product_names.tsv rows for review (KAN-29). "
-                    "Writes a review file; never commits.")
+        description="Propose data/product_names.json rows for review (KAN-29). "
+                    "Writes a review TSV; never commits.")
     parser.add_argument("--chain-dbs", required=True,
                         help="directory of per-chain databases (chain_dbs/)")
     parser.add_argument("--out", required=True, help="review TSV to write")
     parser.add_argument("--barcodes", nargs="*",
                         help="only these barcodes (default: every barcode)")
-    parser.add_argument("--names-tsv",
-                        default=os.path.join(root, "data", "product_names.tsv"),
-                        help="existing product_names.tsv, to skip decided rows")
+    parser.add_argument("--names-json",
+                        default=os.path.join(root, "data", "product_names.json"),
+                        help="existing product_names.json, to skip decided rows")
     args = parser.parse_args()
 
     found = gather(args.chain_dbs, args.barcodes)
-    existing = load_existing(args.names_tsv)
+    existing = load_existing(args.names_json)
     proposals = list(propose(found, existing))
     write_review(args.out, proposals)
 
