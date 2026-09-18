@@ -89,3 +89,125 @@ def test_the_committed_snapshot_loads_and_every_record_is_valid():
     assert len(stores) > 0
     for store_id, record in stores.items():
         _assert_valid_record(store_id, record)
+
+
+# --- harvest() resume and ban handling (KAN-34: survive a ban and resume) ---
+#
+# These mock probe() entirely - no network access - and use a tiny
+# two-pair (city, barcode) universe so each test only has to reason about a
+# couple of probes.
+
+LOCATIONS_2 = {"CityA": (34.0, 32.0), "CityB": (35.0, 31.0)}
+BARCODES_1 = {"item": "111"}
+
+
+def _noop_sleep(seconds):
+    pass
+
+
+def test_resume_skips_completed_pairs_and_keeps_collected_stores(tmp_path, monkeypatch):
+    state_path = str(tmp_path / "state.json")
+    harvest_store_snapshot.save_state(
+        {
+            "stores": {"s1": {"_id": "s1", "chainName": "OLD"}},
+            "done_pairs": [harvest_store_snapshot._pair_key("CityA", "item")],
+            "zero_streak": 0,
+            "log": [],
+        },
+        state_path,
+    )
+
+    calls = []
+
+    def fake_probe(barcode, lon, lat):
+        calls.append((barcode, lon, lat))
+        # CityA is already done; only CityB should ever be probed.
+        assert (lon, lat) == LOCATIONS_2["CityB"]
+        return [{"_id": "s2", "chainName": "NEW"}]
+
+    monkeypatch.setattr(harvest_store_snapshot, "probe", fake_probe)
+
+    stores, log, stopped_early, gave_up = harvest_store_snapshot.harvest(
+        barcodes=BARCODES_1, locations=LOCATIONS_2, patience=10,
+        delay=0, state_path=state_path, sleep_fn=_noop_sleep,
+    )
+
+    assert len(calls) == 1  # CityA's probe was skipped, not repeated
+    assert gave_up is False
+    assert set(stores) == {"s1", "s2"}  # old store kept, new one added
+
+    saved = harvest_store_snapshot.load_state(state_path)
+    assert set(saved["done_pairs"]) == {
+        harvest_store_snapshot._pair_key("CityA", "item"),
+        harvest_store_snapshot._pair_key("CityB", "item"),
+    }
+
+
+def test_connection_error_waits_and_resumes_instead_of_crashing(tmp_path, monkeypatch):
+    state_path = str(tmp_path / "state.json")
+    attempts = {"n": 0}
+    sleep_calls = []
+
+    def fake_probe(barcode, lon, lat):
+        attempts["n"] += 1
+        if attempts["n"] == 1:
+            raise ConnectionRefusedError("[Errno 61] Connection refused")
+        return [{"_id": "s1", "chainName": "X"}]
+
+    monkeypatch.setattr(harvest_store_snapshot, "probe", fake_probe)
+
+    stores, log, stopped_early, gave_up = harvest_store_snapshot.harvest(
+        barcodes={"item": "111"}, locations={"CityA": (34.0, 32.0)},
+        patience=10, delay=0, state_path=state_path,
+        sleep_fn=lambda s: sleep_calls.append(s), ban_wait=2700,
+    )
+
+    assert attempts["n"] == 2  # failed once, then the same pair was retried
+    assert sleep_calls[0] == 2700  # waited out the ban, no tight retry
+    assert gave_up is False
+    assert "s1" in stores
+    assert any(not e.get("ok", True) for e in log)  # the failure is in the log
+
+
+def test_gives_up_after_max_consecutive_ban_cycles_with_no_progress(tmp_path, monkeypatch):
+    state_path = str(tmp_path / "state.json")
+    sleep_calls = []
+
+    def always_banned(barcode, lon, lat):
+        raise TimeoutError("timed out")
+
+    monkeypatch.setattr(harvest_store_snapshot, "probe", always_banned)
+
+    stores, log, stopped_early, gave_up = harvest_store_snapshot.harvest(
+        barcodes={"item": "111"}, locations={"CityA": (34.0, 32.0)},
+        patience=10, delay=0, state_path=state_path,
+        sleep_fn=lambda s: sleep_calls.append(s), ban_wait=1, max_ban_cycles=3,
+    )
+
+    assert gave_up is True
+    # 3 bans, but no sleep before giving up on the last one - it stops there.
+    assert len(sleep_calls) == 3 - 1
+    assert stores == {}
+
+
+def test_state_is_saved_after_each_successful_probe_not_only_at_the_end(tmp_path, monkeypatch):
+    state_path = str(tmp_path / "state.json")
+    seen_on_disk_before_second_probe = {}
+
+    def fake_probe(barcode, lon, lat):
+        if (lon, lat) == LOCATIONS_2["CityB"]:
+            # By the time CityB is probed, CityA's probe must already be
+            # persisted to disk - not just held in memory.
+            on_disk = harvest_store_snapshot.load_state(state_path)
+            seen_on_disk_before_second_probe.update(on_disk["stores"])
+            return [{"_id": "s2", "chainName": "B"}]
+        return [{"_id": "s1", "chainName": "A"}]
+
+    monkeypatch.setattr(harvest_store_snapshot, "probe", fake_probe)
+
+    harvest_store_snapshot.harvest(
+        barcodes=BARCODES_1, locations=LOCATIONS_2, patience=10,
+        delay=0, state_path=state_path, sleep_fn=_noop_sleep,
+    )
+
+    assert "s1" in seen_on_disk_before_second_probe

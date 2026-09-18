@@ -25,6 +25,14 @@ raw response - see the module docstring in KAN-34's step-3 brief):
   * A barcode with nothing nearby is a clean empty `stores` list, not an
     error - only network/HTTP failures are treated as probe failures.
 
+The host rate-limits hard and bans by IP at the TCP level (connections
+refused on every port, ~0.1s, no HTTP reached at all - not a 429). Measured
+ban duration was ~40 minutes. So this script persists progress after every
+successful probe and, on a connection failure, sleeps out the ban and
+resumes rather than treating it as fatal. It is safe to kill at any point;
+re-running it picks up from outputs/cheapersal_harvest_state.json (not
+committed - see .gitignore) instead of starting over.
+
 Usage:
     python3 scripts/harvest_store_snapshot.py
     python3 scripts/harvest_store_snapshot.py --out data/cheapersal_stores.json --report review/cheapersal_harvest.md
@@ -70,8 +78,18 @@ LOCATIONS = {
     "Ashdod": (34.6446, 31.8044),
 }
 
-DELAY_SECONDS = 1.5
+DELAY_SECONDS = 60.0  # the host bans by IP after ~11 requests at 1.5s
+                       # spacing; 60s is a deliberately conservative default
 DEFAULT_PATIENCE = 6  # consecutive no-new-store probes before giving up
+
+BAN_WAIT_SECONDS = 45 * 60  # measured: a ban lifted within ~40 minutes; pad it
+MAX_BAN_CYCLES = 6  # give up if banned this many times in a row with no
+                     # successful probe in between
+
+# Resume state: the union of stores and which (city, barcode) probes have
+# already been tried, written after every successful probe. Not committed -
+# see .gitignore (outputs/).
+DEFAULT_STATE = os.path.join(ROOT, "outputs", "cheapersal_harvest_state.json")
 
 
 def probe(barcode, lon, lat, timeout=20):
@@ -88,7 +106,31 @@ def probe(barcode, lon, lat, timeout=20):
     return data.get("stores", []) or []
 
 
-def harvest(barcodes=None, locations=None, patience=DEFAULT_PATIENCE, delay=DELAY_SECONDS):
+def _pair_key(city, label):
+    return f"{city}\x1e{label}"
+
+
+def load_state(path):
+    """Read the resume state, or a fresh empty one if there is none yet."""
+    if not os.path.exists(path):
+        return {"stores": {}, "done_pairs": [], "zero_streak": 0, "log": []}
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def save_state(state, path):
+    """Write the resume state atomically (write to a temp file, then
+    rename), so a kill mid-write can't corrupt it."""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(state, f, ensure_ascii=False, indent=2, sort_keys=True)
+    os.replace(tmp, path)
+
+
+def harvest(barcodes=None, locations=None, patience=DEFAULT_PATIENCE, delay=DELAY_SECONDS,
+            state_path=DEFAULT_STATE, sleep_fn=time.sleep,
+            ban_wait=BAN_WAIT_SECONDS, max_ban_cycles=MAX_BAN_CYCLES):
     """Union stores by `_id` across every (city, barcode) probe.
 
     Fixed order: outer loop over cities, inner loop over barcodes, so each
@@ -96,52 +138,104 @@ def harvest(barcodes=None, locations=None, patience=DEFAULT_PATIENCE, delay=DELA
     early once `patience` consecutive probes add nothing new - continuing
     past a plateau is just hammering a third-party API for no reason.
 
-    Returns (stores_by_id, log, stopped_early). `log` is one dict per probe,
-    in order, with enough detail to build a coverage curve and a per-probe
-    report: city, barcode label, barcode, ok, returned, new, total_after,
-    and error (if any).
+    Resumable: progress (the stores collected so far, and which (city,
+    barcode) probes are already done) is loaded from `state_path` at the
+    start and saved back after every successful probe, so a kill and
+    restart loses nothing and doesn't re-spend probes already done.
+
+    A connection failure (refused / DNS / timeout - anything short of a
+    valid HTTP response) is treated as a ban: probing stops, the process
+    sleeps `ban_wait` seconds, then the same probe is retried. This is not
+    fatal - the sleep and retry happen inline. If `max_ban_cycles` bans in
+    a row pass with no successful probe in between, harvesting gives up so
+    it can't run forever.
+
+    Returns (stores_by_id, log, stopped_early, gave_up). `log` is one dict
+    per probe, in order, with enough detail to build a coverage curve and a
+    per-probe report: city, barcode label, barcode, ok, returned, new,
+    total_after, and error (if any).
     """
     barcodes = barcodes or BARCODES
     locations = locations or LOCATIONS
 
-    stores = {}
-    log = []
-    zero_streak = 0
+    state = load_state(state_path)
+    stores = state.get("stores", {})
+    done_pairs = set(state.get("done_pairs", []))
+    log = state.get("log", [])
+    zero_streak = state.get("zero_streak", 0)
+
+    pairs = [
+        (city, lon, lat, label, barcode)
+        for city, (lon, lat) in locations.items()
+        for label, barcode in barcodes.items()
+    ]
+
     stopped_early = False
+    gave_up = False
+    ban_cycles_no_progress = 0
+    progressed_since_last_ban = False
 
-    for city, (lon, lat) in locations.items():
-        if stopped_early:
-            break
-        for label, barcode in barcodes.items():
-            entry = {"city": city, "barcode_label": label, "barcode": barcode}
-            try:
-                result = probe(barcode, lon, lat)
-                new = 0
-                for s in result:
-                    sid = s.get("_id")
-                    if not sid:
-                        continue
-                    if sid not in stores:
-                        new += 1
-                    clean = dict(s)
-                    clean.pop("distance", None)
-                    stores[sid] = clean
-                entry.update(ok=True, returned=len(result), new=new)
-                zero_streak = 0 if new else zero_streak + 1
-            except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError) as e:
-                entry.update(ok=False, error=str(e), returned=0, new=0)
-                zero_streak += 1
+    i = 0
+    while i < len(pairs):
+        city, lon, lat, label, barcode = pairs[i]
+        key = _pair_key(city, label)
+        if key in done_pairs:
+            i += 1
+            continue
 
-            entry["total_after"] = len(stores)
+        entry = {"city": city, "barcode_label": label, "barcode": barcode}
+        try:
+            result = probe(barcode, lon, lat)
+        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError) as e:
+            entry.update(ok=False, error=str(e), returned=0, new=0, total_after=len(stores))
             log.append(entry)
-            print(f"{city:12s} {label:38s} +{entry['new']:<4d} total={len(stores)}")
+            print(f"{city:12s} {label:38s} connection failure ({e}) - treating as a ban")
 
-            if zero_streak >= patience:
-                stopped_early = True
+            if progressed_since_last_ban:
+                ban_cycles_no_progress = 0
+                progressed_since_last_ban = False
+            ban_cycles_no_progress += 1
+
+            if ban_cycles_no_progress >= max_ban_cycles:
+                gave_up = True
+                print(f"Gave up: {ban_cycles_no_progress} bans in a row with no "
+                      "successful probe in between.")
+                save_state({"stores": stores, "done_pairs": sorted(done_pairs),
+                            "zero_streak": zero_streak, "log": log}, state_path)
                 break
-            time.sleep(delay)
 
-    return stores, log, stopped_early
+            print(f"Waiting {ban_wait}s for the ban to lift...")
+            sleep_fn(ban_wait)
+            continue  # retry the same pair, don't advance i
+
+        new = 0
+        for s in result:
+            sid = s.get("_id")
+            if not sid:
+                continue
+            if sid not in stores:
+                new += 1
+            clean = dict(s)
+            clean.pop("distance", None)
+            stores[sid] = clean
+        entry.update(ok=True, returned=len(result), new=new, total_after=len(stores))
+        zero_streak = 0 if new else zero_streak + 1
+        progressed_since_last_ban = True
+
+        log.append(entry)
+        done_pairs.add(key)
+        print(f"{city:12s} {label:38s} +{entry['new']:<4d} total={len(stores)}")
+
+        save_state({"stores": stores, "done_pairs": sorted(done_pairs),
+                    "zero_streak": zero_streak, "log": log}, state_path)
+
+        i += 1
+        if zero_streak >= patience:
+            stopped_early = True
+            break
+        sleep_fn(delay)
+
+    return stores, log, stopped_early, gave_up
 
 
 def write_snapshot(stores, path=DEFAULT_OUT, barcodes=None, locations=None):
@@ -222,13 +316,19 @@ def main():
     parser.add_argument("--report", default=DEFAULT_REPORT)
     parser.add_argument("--patience", type=int, default=DEFAULT_PATIENCE)
     parser.add_argument("--delay", type=float, default=DELAY_SECONDS)
+    parser.add_argument("--state", default=DEFAULT_STATE,
+                         help="resume-state file (progress so far); not committed")
     args = parser.parse_args()
 
-    stores, log, stopped_early = harvest(patience=args.patience, delay=args.delay)
+    stores, log, stopped_early, gave_up = harvest(
+        patience=args.patience, delay=args.delay, state_path=args.state)
     write_snapshot(stores, path=args.out)
     write_report(stores, log, stopped_early, path=args.report)
     print(f"\n{len(stores)} unique stores written to {args.out}")
     print(f"Report written to {args.report}")
+    if gave_up:
+        print(f"\nGave up after {MAX_BAN_CYCLES} consecutive bans with no "
+              f"progress. Re-run the same command to resume from {args.state}.")
 
 
 if __name__ == "__main__":
