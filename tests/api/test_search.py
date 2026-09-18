@@ -34,6 +34,20 @@ COFFEE = "1000000000003"
 DEAL_PRODUCT = "3000000000001"
 PLAIN_PRODUCT = "3000000000002"
 
+# KAN-24 ranking fixtures - each scenario uses its own query word so the
+# scenarios can't bleed into each other's results. "Widely-stocked" chains
+# (CHAIN_C..CHAIN_F) exist only to give a product a chain count without a
+# real store per chain - build_store_bits (see its own docstring) doesn't
+# require one.
+A_EXACT = "9100000000001"    # "בננה" IS the query "בננה" - tier 0
+A_LONG = "9100000000002"     # contains "בננה" mid-name, 6 chains - tier 2
+B_LEAD = "9200000000001"     # STARTS WITH "תפוח" - tier 1
+B_MID = "9200000000002"      # "תפוח" mid-name, 6 chains - tier 2
+C_LOW = "9300000000001"      # STARTS WITH "גזר", 1 chain - tier 1
+C_HIGH = "9300000000002"     # STARTS WITH "גזר", 6 chains - tier 1
+D_SHORT = "9400000000001"    # "בצל" mid-name, short doc, 2 chains - tier 2
+D_LONG = "9400000000002"     # "בצל" mid-name, long doc, same 2 chains - tier 2
+
 BUILT_AT = "2026-09-13T02:00:00+00:00"
 
 
@@ -43,7 +57,14 @@ def _build_prices_db(path):
 
     conn.executemany(
         "INSERT INTO chains VALUES (?,?)",
-        [("RAMI_LEVY", "Rami Levy"), ("SHUFERSAL", "Shufersal")],
+        [
+            ("RAMI_LEVY", "Rami Levy"),
+            ("SHUFERSAL", "Shufersal"),
+            ("CHAIN_C", "Chain C"),
+            ("CHAIN_D", "Chain D"),
+            ("CHAIN_E", "Chain E"),
+            ("CHAIN_F", "Chain F"),
+        ],
     )
     conn.executemany(
         "INSERT INTO stores VALUES (?,?,?,?,?,?,?)",
@@ -57,6 +78,15 @@ def _build_prices_db(path):
             (COFFEE, "קפסולות קפה 15", "Acme", "1", 1.0, "unit", 0),
             (DEAL_PRODUCT, "מבצע שוקולד", "Acme", "100", 100.0, "g", 0),
             (PLAIN_PRODUCT, "שוקולד רגיל", "Acme", "100", 100.0, "g", 0),
+            (A_EXACT, "בננה", "Acme", "1", 1.0, "unit", 0),
+            (A_LONG, "עוגת בננה טרופית ומדהימה מאוד", "Acme", "1", 1.0, "unit", 0),
+            (B_LEAD, "תפוח עץ ירוק", "Acme", "1", 1.0, "unit", 0),
+            (B_MID, "מיץ תפוח טבעי מרוכז", "Acme", "1", 1.0, "unit", 0),
+            (C_LOW, "גזר טרי בשקית", "Acme", "1", 1.0, "unit", 0),
+            (C_HIGH, "גזר טרי בקילו ארוז", "Acme", "1", 1.0, "unit", 0),
+            (D_SHORT, "ירקות בצל", "Acme", "1", 1.0, "unit", 0),
+            (D_LONG, "ירקות בצל קלוי ומתובל בתערובת תבלינים מיוחדת",
+             "Acme", "1", 1.0, "unit", 0),
         ],
     )
     conn.executemany(
@@ -67,6 +97,19 @@ def _build_prices_db(path):
             ("RAMI_LEVY", COFFEE, 29.90, 5),
             ("RAMI_LEVY", DEAL_PRODUCT, 10.00, 5),
             ("RAMI_LEVY", PLAIN_PRODUCT, 8.00, 5),
+            ("RAMI_LEVY", A_EXACT, 5.00, 5),
+            *[(c, A_LONG, 20.00, 5) for c in
+              ("RAMI_LEVY", "SHUFERSAL", "CHAIN_C", "CHAIN_D", "CHAIN_E", "CHAIN_F")],
+            ("RAMI_LEVY", B_LEAD, 6.00, 5),
+            *[(c, B_MID, 15.00, 5) for c in
+              ("RAMI_LEVY", "SHUFERSAL", "CHAIN_C", "CHAIN_D", "CHAIN_E", "CHAIN_F")],
+            ("RAMI_LEVY", C_LOW, 4.00, 5),
+            *[(c, C_HIGH, 4.50, 5) for c in
+              ("RAMI_LEVY", "SHUFERSAL", "CHAIN_C", "CHAIN_D", "CHAIN_E", "CHAIN_F")],
+            ("RAMI_LEVY", D_SHORT, 3.00, 5),
+            ("SHUFERSAL", D_SHORT, 3.20, 5),
+            ("RAMI_LEVY", D_LONG, 8.00, 5),
+            ("SHUFERSAL", D_LONG, 8.20, 5),
         ],
     )
     conn.executemany(
@@ -165,6 +208,67 @@ def test_query_with_no_tokens_at_all_returns_empty(client):
     resp = client.get("/search", params={"q": "!!!"})
     assert resp.status_code == 200
     assert resp.json()["results"] == []
+
+
+def test_query_with_no_tokens_never_queries_fts(app_db):
+    """Same case as above, but proved at the ``run_search`` level: a query
+    that tokenises to nothing must return before the FTS candidate query
+    runs - not just happen to come back empty. (``built_at`` is still read -
+    that's every response's own metadata, not part of the search.)"""
+    import sqlite3
+
+    from api.search import run_search
+
+    real_conn = sqlite3.connect(app_db)
+
+    class _GuardedConnection:
+        def execute(self, sql, *args, **kwargs):
+            assert "fts" not in sql.lower(), f"run_search queried FTS: {sql!r}"
+            return real_conn.execute(sql, *args, **kwargs)
+
+    result = run_search(_GuardedConnection(), "!!!")
+    assert result["results"] == []
+
+
+def test_exact_name_match_outranks_longer_name_containing_the_query(client):
+    """KAN-24: tier 0 (the query IS the name) beats tier 2 (the query is
+    somewhere in a longer name) even though the longer name has far more
+    chains - this is the case the owner rejected a chains-only scheme over
+    (milk jam over drinking milk)."""
+    resp = client.get("/search", params={"q": "בננה"})
+    assert resp.status_code == 200
+    names = _names(resp.json())
+    assert names[0] == "בננה", names
+    assert "עוגת בננה טרופית ומדהימה מאוד" in names[1:]
+
+
+def test_leading_word_match_outranks_mid_name_match(client):
+    """KAN-24: tier 1 (the name STARTS with the query) beats tier 2 (the
+    query is mid-name), again despite the tier-2 product having more
+    chains."""
+    resp = client.get("/search", params={"q": "תפוח"})
+    assert resp.status_code == 200
+    names = _names(resp.json())
+    assert names.index("תפוח עץ ירוק") < names.index("מיץ תפוח טבעי מרוכז")
+
+
+def test_more_chains_wins_within_the_same_tier(client):
+    """KAN-24: within one tier, chains is the tie-break - ahead of bm25."""
+    resp = client.get("/search", params={"q": "גזר"})
+    assert resp.status_code == 200
+    names = _names(resp.json())
+    assert names.index("גזר טרי בקילו ארוז") < names.index("גזר טרי בשקית")
+
+
+def test_bm25_breaks_a_remaining_tie(client):
+    """KAN-24: same tier, same chain count - bm25 (shorter, more focused
+    document) still decides, exactly as it did before this change."""
+    resp = client.get("/search", params={"q": "בצל"})
+    assert resp.status_code == 200
+    names = _names(resp.json())
+    assert names.index("ירקות בצל") < names.index(
+        "ירקות בצל קלוי ומתובל בתערובת תבלינים מיוחדת"
+    )
 
 
 def test_deals_only_returns_only_products_with_a_real_discount(client):
