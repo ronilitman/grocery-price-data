@@ -97,11 +97,21 @@ def test_decided_name_is_what_gets_indexed_for_search(tmp_path):
 
 
 def test_real_decided_name_round_trips_byte_for_byte():
+    """The real table's name reaches the shard intact - whatever it says today.
+
+    Deliberately not asserted against a fixed string: a decided name is
+    re-decided when better evidence arrives (this barcode's was, once), and
+    pinning the literal here turns that improvement into a red build. What
+    must hold is that the shard carries the table's name byte for byte, and
+    that it is not the old truncated one.
+    """
     conn = _products_conn([(DECIDED_BARCODE, OLD_SHARD_NAME, "500", 0)])
     name_map = build_app_db.load_product_names(REAL_NAMES_JSON)
+    decided = name_map[DECIDED_BARCODE]
 
     entries = build_catalog.build_entries(conn, name_map)
     got = entries[DECIDED_BARCODE]["n"]
 
-    assert [ord(c) for c in got] == [ord(c) for c in DECIDED_NAME]
-    assert got.encode("utf-8") == DECIDED_NAME.encode("utf-8")
+    assert [ord(c) for c in got] == [ord(c) for c in decided]
+    assert got.encode("utf-8") == decided.encode("utf-8")
+    assert got != OLD_SHARD_NAME
