@@ -1,179 +1,180 @@
 """Propose rows for data/product_names.tsv (KAN-29), for a human to review.
 
-Run ON DEMAND ONLY - never from the nightly pipeline - and it commits
-nothing. For every barcode not already decided in data/product_names.tsv, it
-looks at every name a chain filed for that barcode in prices.db's
-chain_products table and writes one proposal, plus every candidate it saw
-and which chain gave it, to a review TSV. A human reads that file and copies
-the rows they accept into data/product_names.tsv by hand.
+Run ON DEMAND ONLY - never from the nightly pipeline - and it commits nothing.
 
-Candidate chains split two ways:
+Where the names come from
+-------------------------
+The per-chain databases the build produces (``chain_dbs/db-<CHAIN>/*.db``),
+one per chain, each with its own ``products(barcode, name, manufacturer)``.
+That is the only place every chain's own wording for a barcode survives.
 
-TRUSTED_CHAINS publish real, uncapped names. CAPPING_CHAINS are the eleven
-whose names never exceed 20 characters - a hard cap, not a coincidence of
-short products, confirmed by the per-chain max-length table in this
-change's commit message. A barcode's proposal is the most common name among
-whichever pool has any candidates for it - the trusted chains if any of them
-stock it, the capping chains only when nobody else does (a truncated name is
-still a hint, marked "capping-fallback" so a reviewer knows to weight it
-less, or check an outside source per KAN-29 part 3, before accepting it).
+It is NOT ``prices.db``'s ``chain_products``: that table is built by
+``scripts/merge_db.py`` with ``WHERE p.is_weighted = 1``, so it holds only
+weighed goods - loose produce and meat by the kilo. It covered 23,343 of
+243,428 barcodes (9.6%) on a September build and by construction contains no
+packaged product at all, which is most of the catalogue.
 
-Picking *between* disagreeing candidates - a manufacturer's own name over a
-supermarket's paraphrase, say - is deliberately left to the reviewer: this
-script only breaks ties by raw frequency, which is arithmetic, not
-judgement.
+Capping chains
+--------------
+Some chains truncate every name at 20 characters. That is derived here from
+the data rather than hard-coded: a chain whose longest name across its whole
+products table is exactly 20 is capping. Their names are still collected -
+for a barcode nobody else stocks, a truncated name beats nothing - but the
+proposal is marked ``capping-fallback`` so a reviewer knows to distrust it.
+
+The proposal
+------------
+The most common name among the chains that publish full names. A tie is
+broken by taking the longest of the tied names, on the grounds that it
+carries the most information, and marked ``tie-longest`` so the reviewer can
+see that frequency did not actually decide. Choosing *between* genuinely
+different names - a manufacturer's wording against a supermarket's paraphrase
+- is left to the reviewer, which is what the review file is for.
 
 Usage:
-    python3 scripts/propose_names.py --db prices.db --out names_review.tsv
+    python3 scripts/propose_names.py --chain-dbs chain_dbs --out review.tsv
+    python3 scripts/propose_names.py --chain-dbs chain_dbs --out review.tsv \
+        --barcodes 7290011723200 8714789733296
 """
+
+from __future__ import annotations
 
 import argparse
 import collections
 import csv
+import glob
 import os
-import pathlib
 import sqlite3
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-NAMES_TSV = os.path.join(ROOT, "data", "product_names.tsv")
-
-# chain_id -> a short label for the review file. Chain ids are the
-# barcode-shaped legal identifiers CLAUDE.md describes (see SUBCHAIN_SPLITS
-# for why Netiv Hesed's carries a "-006" suffix); they came from a build's
-# own `chains` table, except Super Sapir, which is absent from the
-# smoke-test build this module's CAPPING_CHAINS table was read off of and
-# was instead taken from the scraper library's own
-# SuperSapir(Bina, chain_id="7290058156016").
-TRUSTED_CHAINS = {
-    "7290027600007": "שופרסל",  # Shufersal
-    "7290875100001": "סופר ברקת",  # Bareket
-    "7290172900007": "סופר פארם",  # Super Pharm
-    "7290873255550": "טיב טעם",  # Tiv Taam
-    "7290700100008": "חצי חינם",  # Hazi Hinam
-    "7290696200003": "ויקטורי",  # Victory
-    "7290058159628": "מעיין 2000",  # Maayan 2000
-    "7290058134977": "שפע ברכת השם",  # Shefa Barkat
-    "7290058108879": "קינג סטור",  # King Store
-    "7290661400001": "מחסני השוק",  # Mahsani Ashuk
-    "7290058197699": "גוד פארם",  # Good Pharm
-    "7290058160839-006": "נתיב החסד",  # Netiv Hesed
-    "7290058148776": "שוק העיר",  # Shuk Ahir
-    "7290058156016": "סופר ספיר",  # Super Sapir
-    "7290455000004": "האחים כהן",  # Het Cohen
-    "5144744100002": "משנת יוסף",  # Meshmat Yosef
-    "7290058249350": "וולט",  # Wolt
-}
-
-# The eleven chains whose chain_products.name never exceeds 20 characters
-# (verified 2026-09-17 against a local build: every one of these had
-# max(len(name)) == 20 across its rows, where every other chain went well
-# past it - see the commit message for the full table). Ignored for
-# candidates unless a barcode has no TRUSTED_CHAINS candidate at all.
-CAPPING_CHAINS = {
-    "7290055700007",  # קרפור / Carrefour
-    "7290103152017",  # אושר עד / Osher Ad
-    "7290639000004",  # סטופמרקט / Stop Market
-    "7290876100000",  # פרש מרקט / Fresh Market
-    "7290785400000",  # קשת טעמים / Keshet Teamim
-    "7291059100008",  # פוליצר / Politzer
-    "7290058140886",  # רמי לוי שיווק השקמה / Rami Levy
-    "7290492000005",  # Dor Alon
-    "7290058177776",  # סופר יודה / Super Yuda
-    "7290526500006",  # Dabach
-    "7290644700005",  # YELLOW
-}
+CAP_LENGTH = 20
 
 
-def ro_uri(path):
-    return pathlib.Path(path).resolve().as_uri() + "?mode=ro"
-
-
-def load_existing_barcodes(tsv_path):
-    """Barcodes data/product_names.tsv already has a decided name for."""
-    barcodes = set()
-    if not os.path.exists(tsv_path):
-        return barcodes
-    with open(tsv_path, encoding="utf-8") as handle:
-        for line in handle:
-            line = line.rstrip("\n")
-            if not line or line.startswith("#"):
+def chain_dbs(root):
+    """Yield (chain_id, chain_label, db_path, capped) for every chain db."""
+    for path in sorted(glob.glob(os.path.join(root, "db-*", "*.db"))):
+        conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+        try:
+            row = conn.execute("SELECT chain_id, name FROM chains LIMIT 1").fetchone()
+            if row is None:
                 continue
-            barcode = line.split("\t", 1)[0].strip()
-            if barcode:
-                barcodes.add(barcode)
-    return barcodes
+            longest = conn.execute(
+                "SELECT MAX(LENGTH(name)) FROM products WHERE name <> ''"
+            ).fetchone()[0]
+        finally:
+            conn.close()
+        label = row[1] or os.path.basename(os.path.dirname(path))
+        yield row[0], label, path, longest == CAP_LENGTH
 
 
-def gather_candidates(conn):
-    """barcode -> [(chain_id, chain_label, name), ...], across every chain."""
-    chain_names = dict(conn.execute("SELECT chain_id, name FROM chains"))
-    by_barcode = collections.defaultdict(list)
-    cur = conn.execute(
-        "SELECT chain_id, barcode, name FROM chain_products "
-        "WHERE name IS NOT NULL AND TRIM(name) != ''"
-    )
-    for chain_id, barcode, name in cur:
-        label = TRUSTED_CHAINS.get(chain_id) or chain_names.get(chain_id, chain_id)
-        by_barcode[barcode].append((chain_id, label, name.strip()))
-    return by_barcode
+def gather(root, barcodes=None):
+    """barcode -> [(chain_label, name, manufacturer, capped)], across all chains."""
+    found = collections.defaultdict(list)
+    for _chain_id, label, path, capped in chain_dbs(root):
+        conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+        try:
+            if barcodes:
+                rows = []
+                # Chunked so a long favourites list can't blow SQLite's
+                # variable limit.
+                todo = list(barcodes)
+                for i in range(0, len(todo), 500):
+                    chunk = todo[i:i + 500]
+                    marks = ",".join("?" * len(chunk))
+                    rows += conn.execute(
+                        "SELECT barcode, name, manufacturer FROM products "
+                        f"WHERE name <> '' AND barcode IN ({marks})", chunk
+                    ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT barcode, name, manufacturer FROM products "
+                    "WHERE name <> ''"
+                ).fetchall()
+        finally:
+            conn.close()
+        for barcode, name, manufacturer in rows:
+            found[barcode].append((label, name, manufacturer or "", capped))
+    return found
 
 
-def propose(by_barcode, existing):
-    """Yield (barcode, proposed_name, source, candidates) for every barcode
-    not already in `existing`, where `candidates` is the full
-    (chain_id, chain_label, name) list `gather_candidates` saw for it.
-    """
-    for barcode in sorted(by_barcode):
+def propose_one(candidates):
+    """(proposed_name, source, brand) from one barcode's candidate list."""
+    full = [c for c in candidates if not c[3]]
+    pool, source = (full, "trusted") if full else (candidates, "capping-fallback")
+    counts = collections.Counter(name for _, name, _, _ in pool)
+    best = counts.most_common()
+    if len(best) > 1 and best[0][1] == best[1][1]:
+        tied = [name for name, n in best if n == best[0][1]]
+        name = max(tied, key=len)
+        source += "/tie-longest"
+    else:
+        name = best[0][0]
+    brands = collections.Counter(
+        m for _, _, m, _ in pool if m and m.strip())
+    brand = brands.most_common(1)[0][0] if brands else ""
+    return name, source, brand
+
+
+def propose(found, existing):
+    for barcode in sorted(found):
         if barcode in existing:
             continue
-        rows = by_barcode[barcode]
-        trusted = [row for row in rows if row[0] in TRUSTED_CHAINS]
-        if trusted:
-            pool, source = trusted, "trusted"
-        else:
-            pool, source = rows, "capping-fallback"
-        if not pool:
+        candidates = found[barcode]
+        if not candidates:
             continue
-        counts = collections.Counter(name for _, _, name in pool)
-        top_name, _ = counts.most_common(1)[0]
-        yield barcode, top_name, source, rows
+        name, source, brand = propose_one(candidates)
+        yield barcode, name, source, brand, candidates
 
 
 def write_review(path, proposals):
     with open(path, "w", encoding="utf-8", newline="") as handle:
         writer = csv.writer(handle, delimiter="\t", lineterminator="\n")
-        writer.writerow(["barcode", "proposed_name", "source", "candidates"])
-        for barcode, name, source, rows in proposals:
-            candidates = " | ".join(f"{label}: {cname}" for _, label, cname in rows)
-            writer.writerow([barcode, name, source, candidates])
+        writer.writerow(
+            ["barcode", "proposed_name", "source", "brand", "chains", "candidates"])
+        for barcode, name, source, brand, rows in proposals:
+            candidates = " | ".join(
+                f"{label}: {cname}" for label, cname, _, _ in rows)
+            writer.writerow([barcode, name, source, brand, len(rows), candidates])
+
+
+def load_existing(path):
+    names = set()
+    if not path or not os.path.exists(path):
+        return names
+    with open(path, encoding="utf-8") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            names.add(line.split("\t")[0].strip())
+    return names
 
 
 def main():
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     parser = argparse.ArgumentParser(
-        description="Propose data/product_names.tsv rows for a human to review "
-                    "(KAN-29). Writes a review file; never touches "
-                    "product_names.tsv and never commits.")
-    parser.add_argument("--db", required=True,
-                        help="prices.db (or app.db) to read chain_products from, read-only")
+        description="Propose data/product_names.tsv rows for review (KAN-29). "
+                    "Writes a review file; never commits.")
+    parser.add_argument("--chain-dbs", required=True,
+                        help="directory of per-chain databases (chain_dbs/)")
     parser.add_argument("--out", required=True, help="review TSV to write")
-    parser.add_argument("--names-tsv", default=NAMES_TSV,
-                        help="existing product_names.tsv, to skip barcodes already decided "
-                             "(default: the checked-in data/product_names.tsv)")
+    parser.add_argument("--barcodes", nargs="*",
+                        help="only these barcodes (default: every barcode)")
+    parser.add_argument("--names-tsv",
+                        default=os.path.join(root, "data", "product_names.tsv"),
+                        help="existing product_names.tsv, to skip decided rows")
     args = parser.parse_args()
 
-    existing = load_existing_barcodes(args.names_tsv)
-    conn = sqlite3.connect(ro_uri(args.db), uri=True)
-    by_barcode = gather_candidates(conn)
-    conn.close()
-
-    proposals = list(propose(by_barcode, existing))
+    found = gather(args.chain_dbs, args.barcodes)
+    existing = load_existing(args.names_tsv)
+    proposals = list(propose(found, existing))
     write_review(args.out, proposals)
 
-    trusted_n = sum(1 for _, _, source, _ in proposals if source == "trusted")
-    fallback_n = len(proposals) - trusted_n
-    print(f"[propose_names] {len(proposals)} proposals written to {args.out} "
-          f"({trusted_n} from trusted chains, {fallback_n} capping-fallback) - "
-          f"{len(existing)} barcodes already decided were skipped")
+    by_source = collections.Counter(p[2].split("/")[0] for p in proposals)
+    ties = sum(1 for p in proposals if "tie-longest" in p[2])
+    print(f"[propose_names] {len(proposals)} proposals -> {args.out} "
+          f"({by_source['trusted']} from full-name chains, "
+          f"{by_source['capping-fallback']} capping-fallback, "
+          f"{ties} decided by tie-break rather than frequency)")
 
 
 if __name__ == "__main__":

@@ -1,103 +1,130 @@
-"""scripts/propose_names.py (KAN-29 part 2): a trusted-chain candidate beats
-a capping-chain one, a barcode nobody trusted stocks falls back to the
-capping chains instead of being dropped, and a barcode already decided in
-product_names.tsv is skipped rather than proposed again.
+"""KAN-29: the proposer reads the per-chain databases, not chain_products.
+
+``prices.db``'s ``chain_products`` is weighed-goods only (``merge_db.py``
+filters on ``is_weighted = 1``), so every packaged product is missing from it.
+These tests build small chain databases of the real shape instead.
 """
 
+import csv
 import os
 import sqlite3
 import sys
 
-ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+import pytest
+
+sys.path.insert(
+    0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "scripts"))
 
 import propose_names  # noqa: E402
 
-TRUSTED_A = next(iter(propose_names.TRUSTED_CHAINS))
-TRUSTED_B = list(propose_names.TRUSTED_CHAINS)[1]
-CAPPING_A = next(iter(propose_names.CAPPING_CHAINS))
 
-
-def _conn(chain_products_rows, chains_rows=()):
-    conn = sqlite3.connect(":memory:")
+def make_chain(root, dirname, chain_id, label, products):
+    """products: [(barcode, name, manufacturer)] -> a db of the real shape."""
+    folder = os.path.join(root, f"db-{dirname}")
+    os.makedirs(folder, exist_ok=True)
+    path = os.path.join(folder, f"{dirname.lower()}.db")
+    conn = sqlite3.connect(path)
     conn.execute("CREATE TABLE chains(chain_id TEXT PRIMARY KEY, name TEXT)")
     conn.execute(
-        "CREATE TABLE chain_products(chain_id TEXT, barcode TEXT, name TEXT)"
-    )
-    conn.executemany("INSERT INTO chains VALUES (?,?)", chains_rows)
+        "CREATE TABLE products(barcode TEXT PRIMARY KEY, name TEXT, "
+        "manufacturer TEXT, unit_qty TEXT, quantity REAL, "
+        "unit_of_measure TEXT, is_weighted INTEGER)")
+    conn.execute("INSERT INTO chains VALUES (?,?)", (chain_id, label))
     conn.executemany(
-        "INSERT INTO chain_products (chain_id, barcode, name) VALUES (?,?,?)",
-        chain_products_rows,
-    )
+        "INSERT INTO products(barcode, name, manufacturer) VALUES (?,?,?)",
+        products)
     conn.commit()
-    return conn
+    conn.close()
+    return path
 
 
-def test_trusted_chain_candidate_beats_capping_chain():
-    conn = _conn([
-        (CAPPING_A, "1111111111111", "*מבצע* שם קטוע 20 תו"),
-        (TRUSTED_A, "1111111111111", "השם המלא והנכון"),
-    ])
-    by_barcode = propose_names.gather_candidates(conn)
+@pytest.fixture
+def chains(tmp_path):
+    root = str(tmp_path / "chain_dbs")
+    # Three chains publish full names and agree; one disagrees; one caps at
+    # exactly 20 characters, which is how a capping chain is detected.
+    make_chain(root, "SHUFERSAL", "7290027600007", "שופרסל",
+               [("111", "טחינה הר ברכה 500 גרם", "הר ברכה")])
+    make_chain(root, "BAREKET", "7290875100001", "סופר ברקת",
+               [("111", "טחינה הר ברכה 500 גרם", "")])
+    make_chain(root, "TIV_TAAM", "7290873255550", "טיב טעם",
+               [("111", "טחינה הר ברכה 100% שומשום טהור", "")])
+    make_chain(root, "RAMI_LEVY", "7290058140886", "רמי לוי",
+               [("111", "טחינה הר ברכה 500 גר", ""),
+                ("222", "מוצר שרק הרשת מוכרת", "")])
+    return root
 
-    [(barcode, name, source, rows)] = list(propose_names.propose(by_barcode, existing=set()))
 
-    assert barcode == "1111111111111"
-    assert name == "השם המלא והנכון"
+def test_capping_chain_is_derived_from_the_data(chains):
+    caps = {label: capped for _id, label, _p, capped in propose_names.chain_dbs(chains)}
+    # רמי לוי's longest name is exactly 20 characters, the others' are not.
+    assert caps["רמי לוי"] is True
+    assert caps["שופרסל"] is False
+    assert caps["טיב טעם"] is False
+
+
+def test_the_most_repeated_full_name_wins(chains):
+    found = propose_names.gather(chains)
+    name, source, _brand = propose_names.propose_one(found["111"])
+    assert name == "טחינה הר ברכה 500 גרם"
     assert source == "trusted"
-    assert len(rows) == 2  # every candidate is still reported, not just the winner
+    # The capped chain's truncated name is collected but does not win.
+    assert any(n == "טחינה הר ברכה 500 גר" for _l, n, _m, _c in found["111"])
 
 
-def test_capping_chain_is_a_fallback_when_no_trusted_chain_stocks_it():
-    conn = _conn([
-        (CAPPING_A, "2222222222222", "שם קטוע ל-20 תווים"),
-    ])
-    by_barcode = propose_names.gather_candidates(conn)
+def test_hebrew_survives_byte_for_byte(chains):
+    found = propose_names.gather(chains)
+    name, _source, _brand = propose_names.propose_one(found["111"])
+    # Verified by codepoint, never by eye.
+    assert list(name)[:5] == ["ט", "ח", "י", "נ", "ה"]
+    assert len(name) == 21
+    assert name.encode("utf-8").decode("utf-8") == name
 
-    [(barcode, name, source, rows)] = list(propose_names.propose(by_barcode, existing=set()))
 
-    assert name == "שם קטוע ל-20 תווים"
+def test_capping_fallback_when_only_a_capped_chain_stocks_it(chains):
+    found = propose_names.gather(chains)
+    name, source, _brand = propose_names.propose_one(found["222"])
+    assert name == "מוצר שרק הרשת מוכרת"
     assert source == "capping-fallback"
 
 
-def test_most_common_trusted_name_wins_a_tie():
-    conn = _conn([
-        (TRUSTED_A, "3333333333333", "שם א"),
-        (TRUSTED_B, "3333333333333", "שם ב"),
-        # a third trusted row agreeing with TRUSTED_A's name
-        (CAPPING_A, "3333333333333", "שם ב"),
-    ])
-    # Make the tie unambiguous: two *trusted* rows say "שם א".
-    conn.execute(
-        "INSERT INTO chain_products (chain_id, barcode, name) VALUES (?,?,?)",
-        (TRUSTED_B, "3333333333333", "שם א"),
-    )
-    by_barcode = propose_names.gather_candidates(conn)
-
-    [(_, name, source, _)] = list(propose_names.propose(by_barcode, existing=set()))
-
-    assert name == "שם א"
-    assert source == "trusted"
+def test_a_tie_takes_the_longest_and_says_so(chains):
+    candidates = [
+        ("שופרסל", "קצר", "", False),
+        ("טיב טעם", "שם ארוך יותר", "", False),
+    ]
+    name, source, _brand = propose_names.propose_one(candidates)
+    assert name == "שם ארוך יותר"
+    assert "tie-longest" in source
 
 
-def test_already_decided_barcode_is_skipped():
-    conn = _conn([
-        (TRUSTED_A, "4444444444444", "כבר הוחלט"),
-    ])
-    by_barcode = propose_names.gather_candidates(conn)
-
-    proposals = list(propose_names.propose(by_barcode, existing={"4444444444444"}))
-
-    assert proposals == []
+def test_barcode_filter_only_reads_what_was_asked_for(chains):
+    found = propose_names.gather(chains, barcodes=["222"])
+    assert set(found) == {"222"}
 
 
-def test_load_existing_barcodes_skips_comments_and_blank_lines(tmp_path):
-    tsv_path = tmp_path / "product_names.tsv"
-    tsv_path.write_text(
-        "# a header comment\n"
-        "\n"
-        "1111111111111\tName\tsource\t2026-09-17\n",
-        encoding="utf-8",
-    )
+def test_already_decided_barcodes_are_skipped(chains, tmp_path):
+    names_tsv = tmp_path / "product_names.tsv"
+    names_tsv.write_text(
+        "# a comment line is skipped\n"
+        "111\tטחינה גולמית הר ברכה 500 גרם\tpricez\t2026-09-17\n",
+        encoding="utf-8")
+    existing = propose_names.load_existing(str(names_tsv))
+    assert existing == {"111"}
+    found = propose_names.gather(chains)
+    proposed = [row[0] for row in propose_names.propose(found, existing)]
+    assert proposed == ["222"]
 
-    assert propose_names.load_existing_barcodes(str(tsv_path)) == {"1111111111111"}
+
+def test_review_file_is_a_tsv_a_human_can_check(chains, tmp_path):
+    found = propose_names.gather(chains)
+    out = tmp_path / "review.tsv"
+    propose_names.write_review(str(out), propose_names.propose(found, set()))
+    rows = list(csv.DictReader(out.open(encoding="utf-8"), delimiter="\t"))
+    row = next(r for r in rows if r["barcode"] == "111")
+    assert row["proposed_name"] == "טחינה הר ברכה 500 גרם"
+    assert row["chains"] == "4"
+    # Every candidate is shown with the chain that filed it, so the reviewer
+    # can disagree with the proposal.
+    assert "טיב טעם: טחינה הר ברכה 100% שומשום טהור" in row["candidates"]
+    assert "רמי לוי: טחינה הר ברכה 500 גר" in row["candidates"]
