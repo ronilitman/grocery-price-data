@@ -49,6 +49,28 @@ import sqlite3
 CAP_LENGTH = 20
 
 
+def normalize_name(name):
+    """Undo a retailer feed's own CSV-escaping artifact, not edit real text.
+
+    Some chains export their catalogue through something that CSV-quoted a
+    name and never got un-quoted again before it landed in the per-chain
+    db: the whole field wrapped in a pair of double quotes, with every
+    literal `"` inside doubled. That wrapping is stripped, and a doubled
+    ``""`` collapses to a single ``"`` - but a genuine gershayim (``מ"ל``,
+    ``ק"ג``, ``בד"צ``, ...), a lone `"` with real text on both sides and
+    never doubled, is left exactly as it is. This runs before any length
+    comparison or frequency count, so the corrupted, artificially-long
+    candidate can no longer out-vote or out-length a clean one for the same
+    product.
+    """
+    name = name.strip()
+    if len(name) >= 2 and name[0] == '"' and name[-1] == '"':
+        name = name[1:-1]
+    while '""' in name:
+        name = name.replace('""', '"')
+    return name.strip()
+
+
 def chain_dbs(root):
     """Yield (chain_id, chain_label, db_path, capped) for every chain db."""
     for path in sorted(glob.glob(os.path.join(root, "db-*", "*.db"))):
@@ -92,7 +114,8 @@ def gather(root, barcodes=None):
         finally:
             conn.close()
         for barcode, name, manufacturer in rows:
-            found[barcode].append((label, name, manufacturer or "", capped))
+            found[barcode].append(
+                (label, normalize_name(name), manufacturer or "", capped))
     return found
 
 

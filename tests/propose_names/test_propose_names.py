@@ -55,6 +55,20 @@ def chains(tmp_path):
     return root
 
 
+def test_normalize_name_undoes_csv_escaping_but_keeps_real_gershayim():
+    # A retailer feed that ran a name through CSV-quoting and never
+    # un-quoted it again wraps the whole field in a pair of double quotes
+    # and doubles every literal `"` inside - undo exactly that.
+    mangled = '"foo ""bar"""'
+    assert propose_names.normalize_name(mangled) == 'foo "bar"'
+
+    # A genuine gershayim - a lone `"` with real text on both sides, never
+    # doubled or field-wrapping - must survive untouched.
+    gershayim = 'טחינה 500 מ"ל'
+    got = propose_names.normalize_name(gershayim)
+    assert [ord(c) for c in got] == [ord(c) for c in gershayim]
+
+
 def test_capping_chain_is_derived_from_the_data(chains):
     caps = {label: capped for _id, label, _p, capped in propose_names.chain_dbs(chains)}
     # רמי לוי's longest name is exactly 20 characters, the others' are not.
