@@ -96,8 +96,9 @@ def test_the_committed_snapshot_loads_and_every_record_is_valid():
 # --- harvest() resume and ban handling (KAN-34: survive a ban and resume) ---
 #
 # These mock probe() entirely - no network access - and use a tiny
-# two-pair (city, barcode) universe so each test only has to reason about a
-# couple of probes.
+# two-location universe so each test only has to reason about a couple of
+# probes. One barcode is used throughout - see
+# test_one_probe_per_location_using_a_single_barcode for that dimension.
 
 LOCATIONS_2 = {"CityA": (34.0, 32.0), "CityB": (35.0, 31.0)}
 BARCODES_1 = {"item": "111"}
@@ -107,12 +108,36 @@ def _noop_sleep(seconds):
     pass
 
 
+def test_one_probe_per_location_using_a_single_barcode(tmp_path, monkeypatch):
+    """The barcode dimension was measured to be useless in production (see
+    the module docstring): probing costs must scale with locations only."""
+    state_path = str(tmp_path / "state.json")
+    locations = {"CityA": (34.0, 32.0), "CityB": (35.0, 31.0), "CityC": (34.5, 32.5)}
+    calls = []
+
+    def fake_probe(barcode, lon, lat):
+        calls.append((barcode, lon, lat))
+        return []
+
+    monkeypatch.setattr(harvest_store_snapshot, "probe", fake_probe)
+
+    harvest_store_snapshot.harvest(
+        barcodes=harvest_store_snapshot.BARCODES, locations=locations,
+        patience=10, delay=0, state_path=state_path, sleep_fn=_noop_sleep,
+    )
+
+    assert len(calls) == len(locations)  # one probe per location, not per (location, barcode)
+    barcodes_used = {c[0] for c in calls}
+    assert barcodes_used == set(harvest_store_snapshot.BARCODES.values())
+    assert len(harvest_store_snapshot.BARCODES) == 1  # the default is one barcode
+
+
 def test_resume_skips_completed_pairs_and_keeps_collected_stores(tmp_path, monkeypatch):
     state_path = str(tmp_path / "state.json")
     harvest_store_snapshot.save_state(
         {
             "stores": {"s1": {"_id": "s1", "chainName": "OLD"}},
-            "done_pairs": [harvest_store_snapshot._pair_key("CityA", "item")],
+            "done_pairs": [harvest_store_snapshot._pair_key("CityA")],
             "zero_streak": 0,
             "log": [],
         },
@@ -140,9 +165,52 @@ def test_resume_skips_completed_pairs_and_keeps_collected_stores(tmp_path, monke
 
     saved = harvest_store_snapshot.load_state(state_path)
     assert set(saved["done_pairs"]) == {
-        harvest_store_snapshot._pair_key("CityA", "item"),
-        harvest_store_snapshot._pair_key("CityB", "item"),
+        harvest_store_snapshot._pair_key("CityA"),
+        harvest_store_snapshot._pair_key("CityB"),
     }
+
+
+def test_resume_migrates_an_old_city_plus_barcode_state_file(tmp_path, monkeypatch):
+    """Before this change done_pairs was keyed "city\\x1ebarcode label"
+    (one entry per barcode tried at a city). Production's real state file
+    has exactly this shape for Tel Aviv: 5 barcode-labelled entries and 465
+    already-collected stores that must not be re-fetched or discarded."""
+    state_path = str(tmp_path / "state.json")
+    harvest_store_snapshot.save_state(
+        {
+            "stores": {f"s{i}": {"_id": f"s{i}", "chainName": "OLD"} for i in range(465)},
+            "done_pairs": [
+                "Tel Aviv\x1emilk (Tnuva 3% carton)",
+                "Tel Aviv\x1eBamba (Osem 80g)",
+                "Tel Aviv\x1ebread (Angel sliced, 750g)",
+                "Tel Aviv\x1eeggs (Tnuva L, 12ct)",
+                "Tel Aviv\x1ecleaning (Sano Spark dish soap, 1L)",
+            ],
+            "zero_streak": 4,
+            "log": [],
+        },
+        state_path,
+    )
+
+    calls = []
+
+    def fake_probe(barcode, lon, lat):
+        calls.append((lon, lat))
+        return [{"_id": "s_new", "chainName": "NEW"}]
+
+    monkeypatch.setattr(harvest_store_snapshot, "probe", fake_probe)
+
+    stores, log, stopped_early, gave_up = harvest_store_snapshot.harvest(
+        barcodes=BARCODES_1, locations={"Tel Aviv": (34.7818, 32.0853), "Haifa": (34.9896, 32.7940)},
+        patience=10, delay=0, state_path=state_path, sleep_fn=_noop_sleep,
+    )
+
+    assert calls == [(34.9896, 32.7940)]  # Tel Aviv skipped (migrated as done), only Haifa probed
+    assert len(stores) == 466  # the 465 old stores, kept, plus Haifa's new one
+    assert all(f"s{i}" in stores for i in range(465))
+
+    saved = harvest_store_snapshot.load_state(state_path)
+    assert set(saved["done_pairs"]) == {"Tel Aviv", "Haifa"}
 
 
 def test_connection_error_waits_and_resumes_instead_of_crashing(tmp_path, monkeypatch):
@@ -248,7 +316,7 @@ def test_404_advances_without_sleeping_or_retrying(tmp_path, monkeypatch):
     assert log[0]["new"] == 0
 
     saved = harvest_store_snapshot.load_state(state_path)
-    assert harvest_store_snapshot._pair_key("CityA", "item") in saved["done_pairs"]
+    assert harvest_store_snapshot._pair_key("CityA") in saved["done_pairs"]
 
 
 def test_429_sleeps_the_ban_wait_and_retries_the_same_pair(tmp_path, monkeypatch):
@@ -325,4 +393,4 @@ def test_other_4xx_is_recorded_and_skipped_without_retry_or_sleep(tmp_path, monk
     assert log[0]["ok"] is False
 
     saved = harvest_store_snapshot.load_state(state_path)
-    assert harvest_store_snapshot._pair_key("CityA", "item") in saved["done_pairs"]
+    assert harvest_store_snapshot._pair_key("CityA") in saved["done_pairs"]
