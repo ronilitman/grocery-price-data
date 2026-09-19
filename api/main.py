@@ -177,11 +177,13 @@ from api.search import router as search_router  # noqa: E402  (KAN-12)
 from api.products import router as products_router  # noqa: E402  (KAN-13)
 from api.deals import router as deals_router  # noqa: E402  (KAN-15)
 from api.categories import router as categories_router  # noqa: E402  (KAN-17)
+from api.stores import router as stores_router  # noqa: E402  (KAN-34)
 
 app.include_router(search_router)
 app.include_router(products_router)
 app.include_router(deals_router)
 app.include_router(categories_router)
+app.include_router(stores_router)
 
 
 @app.middleware("http")

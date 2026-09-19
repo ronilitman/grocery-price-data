@@ -67,8 +67,8 @@ def _build_prices_db(path):
         ],
     )
     conn.executemany(
-        "INSERT INTO stores VALUES (?,?,?,?,?,?,?,?,?)",
-        [("RAMI_LEVY", "10", None, "Rami Levy A", "3000", None, "St 1", 100, None)],
+        "INSERT INTO stores VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+        [("RAMI_LEVY", "10", None, "Rami Levy A", "3000", None, "St 1", 100, None, None, None, None)],
     )
     conn.executemany(
         "INSERT INTO products VALUES (?,?,?,?,?,?,?)",

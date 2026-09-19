@@ -20,6 +20,12 @@ CREATE TABLE stores(
     chain_id TEXT NOT NULL, store_id TEXT NOT NULL, subchain_id TEXT,
     store_name TEXT, city TEXT, city_name TEXT, address TEXT,
     priced_items INTEGER DEFAULT 0, branch_uid TEXT,
+    -- KAN-34: geocoded from the committed data/branch_locations.json at
+    -- build_chain_db time - never looked up here. NULL for a chain database
+    -- built before these columns existed, or for a branch never geocoded.
+    -- precision='city' means the point is the town centre, not the shop -
+    -- never use it for distance.
+    lat REAL, lon REAL, precision TEXT,
     PRIMARY KEY (chain_id, store_id));
 CREATE TABLE products(
     barcode TEXT PRIMARY KEY, name TEXT, manufacturer TEXT, unit_qty TEXT,
@@ -84,14 +90,16 @@ COPY = [
     ("chains", "INSERT OR REPLACE INTO chains (chain_id, name, chain_uid) "
                "SELECT chain_id, name, {chain_uid} FROM src.chains"),
     # Named, not SELECT *: a chain database built before priced_items, or
-    # before city_name/branch_uid (KAN-34), existed has fewer columns, and the
+    # before city_name/branch_uid (KAN-34), or before lat/lon/precision
+    # (KAN-34 proximity lookup), existed has fewer columns, and the
     # positional form would silently skip the whole stores table for that
     # chain - losing every branch it holds.
     ("stores", "INSERT OR REPLACE INTO stores "
                "(chain_id, store_id, subchain_id, store_name, city, city_name, "
-               "address, priced_items, branch_uid) "
+               "address, priced_items, branch_uid, lat, lon, precision) "
                "SELECT chain_id, store_id, subchain_id, store_name, city, "
-               "{city_name}, address, {priced}, {branch_uid} FROM src.stores"),
+               "{city_name}, address, {priced}, {branch_uid}, {lat}, {lon}, "
+               "{precision} FROM src.stores"),
     ("products", "INSERT OR REPLACE INTO products SELECT * FROM src.products"),
     ("chain_prices", "INSERT OR REPLACE INTO chain_prices SELECT * FROM src.chain_prices"),
     ("price_exceptions", "INSERT OR REPLACE INTO price_exceptions SELECT * FROM src.price_exceptions"),
@@ -228,6 +236,11 @@ def main():
         # KAN-34's branch_uid/city_name columns.
         city_name = "city_name" if "city_name" in src_columns else "NULL"
         branch_uid = "branch_uid" if "branch_uid" in src_columns else "NULL"
+        # NULL, not a guessed coordinate, when a backfilled chain database
+        # predates KAN-34's lat/lon/precision columns.
+        lat = "lat" if "lat" in src_columns else "NULL"
+        lon = "lon" if "lon" in src_columns else "NULL"
+        precision = "precision" if "precision" in src_columns else "NULL"
         chain_columns = {row[1] for row in conn.execute("PRAGMA src.table_info(chains)")}
         chain_uid = "chain_uid" if "chain_uid" in chain_columns else "NULL"
         # 0, not NULL, when a backfilled chain database predates the column:
@@ -244,6 +257,7 @@ def main():
             try:
                 conn.execute(statement.format(
                     priced=priced, city_name=city_name, branch_uid=branch_uid,
+                    lat=lat, lon=lon, precision=precision,
                     chain_uid=chain_uid, coupon=coupon, offset=offset))
             except sqlite3.Error as err:
                 print(f"[merge] {os.path.basename(part)}:{table}: {err}", file=sys.stderr)

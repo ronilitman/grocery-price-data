@@ -26,6 +26,7 @@ from collections import defaultdict
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import promos  # noqa: E402
+from branch_locations import load_branch_locations  # noqa: E402
 from csvutil import find_csvs, read_rows, pick, digits, to_float  # noqa: E402
 
 BATCH = 20000
@@ -176,6 +177,18 @@ CREATE TABLE IF NOT EXISTS stores(
     -- KAN-34: our own id, from data/branch_ids.json. NULL when this branch
     -- has never been through scripts/assign_ids.py - never guessed here.
     branch_uid   TEXT,
+    -- KAN-34: geocoded coordinate, joined in from the committed
+    -- data/branch_locations.json by branch_uid - exactly like branch_uid
+    -- itself. NULL for a branch never geocoded, or one assigned an id after
+    -- the last geocoding pass. The nightly build MUST NOT geocode: it only
+    -- reads this checked-in file. Geocoding is a paid Google API past the
+    -- free OSM Nominatim pass, run by hand (see scripts/geocode_*.py) - a
+    -- lookup added here would bill the owner's card ~2,300 times a night.
+    lat          REAL,
+    lon          REAL,
+    -- 'address' (safe for distance), 'city' (geocoder only placed the town -
+    -- never use for distance/proximity) or NULL (no coordinate at all).
+    precision    TEXT,
     PRIMARY KEY (chain_id, store_id)
 );
 CREATE TABLE IF NOT EXISTS products(
@@ -260,6 +273,11 @@ def load_stores(conn, outputs):
     chain_uids = load_chain_uids()
     branch_uids = load_branch_uids()
     city_codes = load_city_codes()
+    # KAN-34: read-only lookup of the committed data/branch_locations.json.
+    # No network call, no geocoding here - a branch this file doesn't cover
+    # (never geocoded, or assigned a branch_uid after the last geocoding
+    # pass) just gets NULL lat/lon/precision, same as any other missing key.
+    branch_locations = load_branch_locations()
 
     rows = []
     for path in find_csvs(outputs, "STORE_FILE"):
@@ -272,6 +290,8 @@ def load_stores(conn, outputs):
             brand = split_id(chain_id, subchain_id)
             norm_store_id = str(store_id).lstrip("0") or "0"
             raw_city = pick(row, "city", "cityname")
+            branch_uid = branch_uids.get(f"{brand}|{norm_store_id}")
+            location = branch_locations.get(branch_uid) or {}
             rows.append((
                 brand,
                 norm_store_id,
@@ -280,7 +300,10 @@ def load_stores(conn, outputs):
                 raw_city,
                 resolve_city_name(raw_city, city_codes),
                 pick(row, "address"),
-                branch_uids.get(f"{brand}|{norm_store_id}"),
+                branch_uid,
+                location.get("lat"),
+                location.get("lon"),
+                location.get("precision"),
             ))
             # A split chain is named for its brand, not for the company on the
             # file: every branch of it would otherwise read "נתיב החסד- סופר
@@ -294,8 +317,9 @@ def load_stores(conn, outputs):
                     (brand, chain_name, chain_uids.get(brand)))
     conn.executemany(
         "INSERT OR REPLACE INTO stores "
-        "(chain_id, store_id, subchain_id, store_name, city, city_name, address, branch_uid) "
-        "VALUES (?,?,?,?,?,?,?,?)", rows)
+        "(chain_id, store_id, subchain_id, store_name, city, city_name, address, "
+        "branch_uid, lat, lon, precision) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?)", rows)
     return len(rows)
 
 

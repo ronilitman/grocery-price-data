@@ -63,13 +63,13 @@ def fixture_db(tmp_path):
     # PARTIAL_STORES: `stores` only knows about "p1"; "p2" is promo-only
     # (like the 9-of-425 Shufersal gap and the קשת טעמים gap).
     conn.executemany(
-        "INSERT INTO stores VALUES (?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO stores VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
         [
-            ("RAMI_LEVY", "10", None, "Rami Levy A", "3000", None, "St 1", 100, None),
-            ("RAMI_LEVY", "20", None, "Rami Levy B", "3000", None, "St 2", 100, None),
-            ("RAMI_LEVY", "30", None, "Rami Levy C", "3000", None, "St 3", 100, None),
-            ("SHUFERSAL", "1", None, "Shufersal Deal", "5000", None, "St 4", 100, None),
-            ("PARTIAL_STORES", "p1", None, "Partial A", "1000", None, "St 5", 100, None),
+            ("RAMI_LEVY", "10", None, "Rami Levy A", "3000", None, "St 1", 100, None, None, None, None),
+            ("RAMI_LEVY", "20", None, "Rami Levy B", "3000", None, "St 2", 100, None, None, None, None),
+            ("RAMI_LEVY", "30", None, "Rami Levy C", "3000", None, "St 3", 100, None, None, None, None),
+            ("SHUFERSAL", "1", None, "Shufersal Deal", "5000", None, "St 4", 100, None, None, None, None),
+            ("PARTIAL_STORES", "p1", None, "Partial A", "1000", None, "St 5", 100, None, None, None, None),
         ],
     )
     conn.executemany(

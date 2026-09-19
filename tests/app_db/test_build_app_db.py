@@ -47,11 +47,11 @@ def fixture_db(tmp_path):
         ("SHUFERSAL", "Shufersal", None),
     ])
     conn.executemany(
-        "INSERT INTO stores VALUES (?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO stores VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
         [
-            ("RAMI_LEVY", "1", None, "Rami Levy Center", "3000", None, "Jaffa Rd", 500, None),
-            ("RAMI_LEVY", "2", None, "Rami Levy North", "5000", None, "Ibn Gvirol", 480, None),
-            ("SHUFERSAL", "1", None, "Shufersal Deal", "5000", None, "Dizengoff", 600, None),
+            ("RAMI_LEVY", "1", None, "Rami Levy Center", "3000", None, "Jaffa Rd", 500, None, None, None, None),
+            ("RAMI_LEVY", "2", None, "Rami Levy North", "5000", None, "Ibn Gvirol", 480, None, None, None, None),
+            ("SHUFERSAL", "1", None, "Shufersal Deal", "5000", None, "Dizengoff", 600, None, None, None, None),
         ],
     )
     conn.executemany(

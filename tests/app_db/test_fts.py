@@ -137,7 +137,7 @@ def fixture_db(tmp_path):
     conn.execute("INSERT INTO chains VALUES ('RAMI_LEVY', 'Rami Levy', NULL)")
     conn.execute(
         "INSERT INTO stores VALUES ('RAMI_LEVY','10',NULL,'Rami Levy A',"
-        "'3000',NULL,'St 1',100,NULL)")
+        "'3000',NULL,'St 1',100,NULL,NULL,NULL,NULL)")
 
     products = [
         (CHEESE_BARCODE, "גבינה צהובה גרם", "Acme", "1", 1.0, "unit", 0),
