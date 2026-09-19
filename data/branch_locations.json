@@ -1,9 +1,28 @@
 {
   "_meta": {
-    "date": "2026-09-19",
-    "description": "branch_uid -> {lat, lon, city, method}, geocoded from the branch's own Address/City (KAN-34). A branch that did not resolve - no address, or Nominatim found nothing - is null. Never a guess.",
-    "method": "nominatim",
-    "source": "OSM Nominatim (nominatim.openstreetmap.org/search)"
+    "description": "branch_uid -> {lat, lon, city, method} or null (unresolved, awaiting review - never a guess). method is one of: nominatim (branch's own address, first or cleanup pass - see first_pass/second_pass below), cheapersal (third-party exact-address fill, third_pass below). Precedence highest first: first-pass geocode, cleanup-pass geocode, cheapersal exact-address fill, otherwise null.",
+    "first_pass": {
+      "date": "2026-09-19",
+      "description": "KAN-34 first pass: every branch's own Address/City queried against OSM Nominatim."
+    },
+    "method": [
+      "nominatim",
+      "cheapersal"
+    ],
+    "second_pass": {
+      "date": "2026-09-19",
+      "description": "KAN-34 cleanup pass: cleaned address (and, for some, street+house-number only) re-queried for every branch the first pass left as no_result. See review/geocode_review.md for which rule recovered each.",
+      "recovered": 305
+    },
+    "source": "OSM Nominatim (nominatim.openstreetmap.org/search)",
+    "third_pass": {
+      "accepted": 114,
+      "ambiguous": 10,
+      "date": "2026-09-19",
+      "description": "KAN-34 cheapersal fill: exact-address match (after meaning-preserving normalisation only) against the third-party cheapersal store list, for branches still unresolved after both geocoding passes. Also carries the post-fill sanity check that nulls any geocode more than 20km from a known store in its own city, or outside Israel.",
+      "review_candidates": 38,
+      "sanity_nulled": 20
+    }
   },
   "locations": {
     "0005544e-d465-495c-82d3-a9029928fb95": {
@@ -12,18 +31,43 @@
       "lon": 35.3127375,
       "method": "nominatim"
     },
-    "0013b39e-8e71-413b-aaa3-67c66d0b1782": null,
-    "001c1aa7-05b6-46f3-8864-4e6e39fb1107": null,
+    "0013b39e-8e71-413b-aaa3-67c66d0b1782": {
+      "city": "מג'ד אל-כרום",
+      "lat": 32.918247,
+      "lon": 35.266429,
+      "method": "nominatim"
+    },
+    "001c1aa7-05b6-46f3-8864-4e6e39fb1107": {
+      "city": "דימונה",
+      "lat": 31.0794986,
+      "lon": 35.0311563,
+      "method": "nominatim"
+    },
     "0022f034-7d89-490f-892b-7987b6c4bade": {
       "city": "אשקלון",
       "lat": 31.6678617,
       "lon": 34.5693764,
       "method": "nominatim"
     },
-    "005792b3-bab4-4f0b-8348-8b8d439b484b": null,
+    "005792b3-bab4-4f0b-8348-8b8d439b484b": {
+      "city": "באר שבע",
+      "lat": 31.2338637,
+      "lon": 34.7950482,
+      "method": "nominatim"
+    },
     "006aaf23-7475-4c97-ac7e-cbd3c992ae8f": null,
-    "009da342-637c-48d7-a9da-ac384688884b": null,
-    "00a6eadd-7ba0-4bfc-a5ef-e0eaa4f4967f": null,
+    "009da342-637c-48d7-a9da-ac384688884b": {
+      "city": "ראש העין",
+      "lat": 32.0900051,
+      "lon": 34.9724468,
+      "method": "nominatim"
+    },
+    "00a6eadd-7ba0-4bfc-a5ef-e0eaa4f4967f": {
+      "city": "חדרה",
+      "lat": 32.4392277,
+      "lon": 34.9309842,
+      "method": "cheapersal"
+    },
     "00e9a40e-3600-4f82-86e5-b31de9299777": {
       "city": "נתיבות",
       "lat": 31.4201148,
@@ -36,8 +80,18 @@
       "lon": 34.7922514,
       "method": "nominatim"
     },
-    "013bf0ad-2278-46eb-9b61-639c23f258de": null,
-    "0149fee7-d4ef-4b06-81e3-037039d9e5ed": null,
+    "013bf0ad-2278-46eb-9b61-639c23f258de": {
+      "city": "אשדוד",
+      "lat": 31.800285,
+      "lon": 34.6415622,
+      "method": "cheapersal"
+    },
+    "0149fee7-d4ef-4b06-81e3-037039d9e5ed": {
+      "city": "פתח תקווה",
+      "lat": 32.0933199,
+      "lon": 34.8655119,
+      "method": "nominatim"
+    },
     "0152b2d7-72fa-47a9-b681-4bc23b10daab": null,
     "0165fa8a-fac1-4682-b8f5-fbaab500785b": {
       "city": "מגדל העמק",
@@ -70,7 +124,12 @@
       "lon": 34.8568244,
       "method": "nominatim"
     },
-    "02afd20b-b66c-4a57-ac4c-ccda5f21eb00": null,
+    "02afd20b-b66c-4a57-ac4c-ccda5f21eb00": {
+      "city": "נתניה",
+      "lat": 32.29564,
+      "lon": 34.845049,
+      "method": "cheapersal"
+    },
     "02ddfb06-0057-4928-b77e-ecb584c95bbd": null,
     "02ec9099-b984-453a-88db-bc04faf382b6": {
       "city": "רמת השרון",
@@ -85,7 +144,12 @@
       "lon": 34.5668737,
       "method": "nominatim"
     },
-    "0346649e-60dc-4eb5-95c0-7f7f82242569": null,
+    "0346649e-60dc-4eb5-95c0-7f7f82242569": {
+      "city": "תל שבע",
+      "lat": 31.2450731,
+      "lon": 34.8603822,
+      "method": "cheapersal"
+    },
     "034822fd-93b2-402d-84af-593b7484ffc2": null,
     "035757b0-7bfd-4c74-907c-5c80ab96d316": {
       "city": "רחובות",
@@ -129,7 +193,12 @@
       "lon": 34.781492,
       "method": "nominatim"
     },
-    "03ee0e89-d35a-45f6-ac2e-dff0f4a287e1": null,
+    "03ee0e89-d35a-45f6-ac2e-dff0f4a287e1": {
+      "city": "ירושלים",
+      "lat": 31.7620967,
+      "lon": 35.2177234,
+      "method": "nominatim"
+    },
     "042a5281-f26a-4fb6-add1-a752b4994cb2": {
       "city": "אשקלון",
       "lat": 31.6825986,
@@ -194,27 +263,62 @@
       "method": "nominatim"
     },
     "06b9ed4d-c42c-4163-9761-f0da0d4698f8": null,
-    "06cf7c87-af69-4dd3-91c9-7df6b3f210ad": null,
-    "06d200ca-5af4-463e-953c-87b5d4b66138": null,
+    "06cf7c87-af69-4dd3-91c9-7df6b3f210ad": {
+      "city": "ראשון לציון",
+      "lat": 31.9601011,
+      "lon": 34.8267233,
+      "method": "nominatim"
+    },
+    "06d200ca-5af4-463e-953c-87b5d4b66138": {
+      "city": "סביון",
+      "lat": 32.0333625,
+      "lon": 34.8659705,
+      "method": "cheapersal"
+    },
     "06dd1929-9a1d-4190-9afc-f9b62a418916": {
       "city": "בני ברק",
       "lat": 32.0973165,
       "lon": 34.8363689,
       "method": "nominatim"
     },
-    "06ec67a1-57ea-4c61-9838-1b9f3a714fea": null,
+    "06ec67a1-57ea-4c61-9838-1b9f3a714fea": {
+      "city": "כפר סבא",
+      "lat": 32.1755487,
+      "lon": 34.9071512,
+      "method": "nominatim"
+    },
     "06f9195f-2e4f-4ae7-81b0-4393bae3d26c": null,
-    "070bef53-5874-4805-9788-ca311e88a133": null,
-    "07196232-e6e8-4e00-a23d-2f56dde45d22": null,
+    "070bef53-5874-4805-9788-ca311e88a133": {
+      "city": "חיפה",
+      "lat": 32.8287419,
+      "lon": 35.0601773,
+      "method": "cheapersal"
+    },
+    "07196232-e6e8-4e00-a23d-2f56dde45d22": {
+      "city": "אשקלון",
+      "lat": 31.6332607,
+      "lon": 34.5449291,
+      "method": "nominatim"
+    },
     "071d80e5-43ed-4f22-91c7-d07f6bd2746c": null,
-    "071ec75e-90e8-4c62-bf80-af042170a3e6": null,
+    "071ec75e-90e8-4c62-bf80-af042170a3e6": {
+      "city": "ירושלים",
+      "lat": 31.7611961,
+      "lon": 35.1759262,
+      "method": "cheapersal"
+    },
     "071fc5c1-5989-4d7e-8058-58a30defc443": {
       "city": "כרמיאל",
       "lat": 32.9234948,
       "lon": 35.307517,
       "method": "nominatim"
     },
-    "074c6aeb-5044-4700-b0d8-f4eeeffcfe4e": null,
+    "074c6aeb-5044-4700-b0d8-f4eeeffcfe4e": {
+      "city": "רעננה",
+      "lat": 32.1944273,
+      "lon": 34.8503075,
+      "method": "nominatim"
+    },
     "07743cab-5919-4ffa-9140-e83e971d4f67": {
       "city": "רמלה",
       "lat": 31.9367603,
@@ -290,7 +394,12 @@
       "lon": 34.8110598,
       "method": "nominatim"
     },
-    "09149650-6fe3-4474-91f0-2ffa2dae6779": null,
+    "09149650-6fe3-4474-91f0-2ffa2dae6779": {
+      "city": "פתח תקווה",
+      "lat": 32.0996632,
+      "lon": 34.8764268,
+      "method": "nominatim"
+    },
     "096c9d0b-02d6-4cfb-8e51-7282bd8b4693": null,
     "0979e62d-67f6-463e-a47d-8fb3dadc96b9": null,
     "097e1cfd-eb75-4f9f-ac15-583385c99d74": null,
@@ -307,8 +416,18 @@
       "lon": 34.880364,
       "method": "nominatim"
     },
-    "09a50974-b84c-4773-a420-5f52ba7c19a9": null,
-    "09a5fa24-8c57-4bd6-a26b-2d11c692a322": null,
+    "09a50974-b84c-4773-a420-5f52ba7c19a9": {
+      "city": "פתח תקווה",
+      "lat": 32.1010413,
+      "lon": 34.8958073,
+      "method": "nominatim"
+    },
+    "09a5fa24-8c57-4bd6-a26b-2d11c692a322": {
+      "city": "עפולה",
+      "lat": 32.6175745,
+      "lon": 35.3045371,
+      "method": "nominatim"
+    },
     "09c72116-4f18-4e48-85e9-8ab7ac36f561": {
       "city": "ירושלים",
       "lat": 31.7876707,
@@ -328,7 +447,12 @@
       "lon": 34.8778129,
       "method": "nominatim"
     },
-    "0a49057f-dbea-4b17-ad12-32faa1d45f71": null,
+    "0a49057f-dbea-4b17-ad12-32faa1d45f71": {
+      "city": "חולון",
+      "lat": 32.0100348,
+      "lon": 34.8097092,
+      "method": "nominatim"
+    },
     "0a513503-22e4-496c-95c7-96680ec419c2": {
       "city": "גן שמואל",
       "lat": 32.451832,
@@ -381,7 +505,12 @@
       "lon": 35.0552386,
       "method": "nominatim"
     },
-    "0b76b983-daea-466c-93c3-36dffa3a31fd": null,
+    "0b76b983-daea-466c-93c3-36dffa3a31fd": {
+      "city": "חיפה",
+      "lat": 32.7795187,
+      "lon": 35.0033619,
+      "method": "nominatim"
+    },
     "0b9a1c3a-775d-4ae9-a45c-3cf7e17abcc1": null,
     "0bb50a27-80bc-4350-8cf0-6e2792bdb914": {
       "city": "נתניה",
@@ -414,10 +543,20 @@
       "lon": 34.7254916,
       "method": "nominatim"
     },
-    "0c02b1aa-57d3-4098-a783-04b75ec7f9b9": null,
+    "0c02b1aa-57d3-4098-a783-04b75ec7f9b9": {
+      "city": "תל אביב -יפו",
+      "lat": 32.0740078,
+      "lon": 34.7652105,
+      "method": "nominatim"
+    },
     "0c408818-f1e9-4d37-8bd6-fcdfe26bcca7": null,
     "0c419b6f-33ed-4181-a00f-76e6c3fc3691": null,
-    "0c424c8c-c9d5-4342-a5c0-0dc1d6e74b07": null,
+    "0c424c8c-c9d5-4342-a5c0-0dc1d6e74b07": {
+      "city": "ירכא",
+      "lat": 32.9524726,
+      "lon": 35.1785087,
+      "method": "cheapersal"
+    },
     "0c5e7a63-2b3c-4c69-83b6-d3d958a3cc8b": {
       "city": "חולון",
       "lat": 32.0106416,
@@ -458,7 +597,12 @@
       "method": "nominatim"
     },
     "0d7d646f-bcca-4eb4-969e-49572acd35c7": null,
-    "0d8c50ec-09da-470e-841b-cd1f228a4342": null,
+    "0d8c50ec-09da-470e-841b-cd1f228a4342": {
+      "city": "חיפה",
+      "lat": 32.8260792,
+      "lon": 34.9883197,
+      "method": "nominatim"
+    },
     "0da5bda3-3a68-4f61-a255-96743b507f52": {
       "city": "עין שמר",
       "lat": 32.4629224,
@@ -491,7 +635,12 @@
       "lon": 34.98896,
       "method": "nominatim"
     },
-    "0e28b518-3aa1-4a3b-90fe-4a965e853a54": null,
+    "0e28b518-3aa1-4a3b-90fe-4a965e853a54": {
+      "city": "חיפה",
+      "lat": 32.777252,
+      "lon": 35.0004127,
+      "method": "nominatim"
+    },
     "0e62d23f-cf34-4d2a-9363-dbb427911df0": {
       "city": null,
       "lat": 32.083738,
@@ -540,7 +689,12 @@
       "lon": 35.158214,
       "method": "nominatim"
     },
-    "0f8a058e-2a22-43c4-890f-de178c14cd80": null,
+    "0f8a058e-2a22-43c4-890f-de178c14cd80": {
+      "city": "פתח תקווה",
+      "lat": 32.1011984,
+      "lon": 34.882038,
+      "method": "nominatim"
+    },
     "0f9221c4-fc8f-4de9-b456-3f11775dab68": {
       "city": null,
       "lat": 32.1954715,
@@ -548,7 +702,12 @@
       "method": "nominatim"
     },
     "0faa94ce-abf3-46ea-822c-c8da4fa03565": null,
-    "0faba256-c2aa-49fb-aabd-4c69ebb56c9c": null,
+    "0faba256-c2aa-49fb-aabd-4c69ebb56c9c": {
+      "city": "נתניה",
+      "lat": 32.3120071,
+      "lon": 34.8670828,
+      "method": "nominatim"
+    },
     "101e8823-adc9-424c-9889-36cb521f992d": {
       "city": "בית שמש",
       "lat": 31.7480969,
@@ -573,15 +732,30 @@
       "lon": 34.7749,
       "method": "nominatim"
     },
-    "107f965c-14c3-4721-85c6-26e7f13b4222": null,
+    "107f965c-14c3-4721-85c6-26e7f13b4222": {
+      "city": "מבשרת ציון",
+      "lat": 31.8013753,
+      "lon": 35.1487119,
+      "method": "nominatim"
+    },
     "10a7e8b9-211f-4fc3-a76e-9607e1d695a9": {
       "city": "ראשון לציון",
       "lat": 31.9864647,
       "lon": 34.7729906,
       "method": "nominatim"
     },
-    "10ca92d3-6143-4434-8979-b7b4e6a1355f": null,
-    "10ce41b2-bd2d-463c-9586-1f52272c66c0": null,
+    "10ca92d3-6143-4434-8979-b7b4e6a1355f": {
+      "city": "ראשון לציון",
+      "lat": 31.9849186,
+      "lon": 34.7693761,
+      "method": "nominatim"
+    },
+    "10ce41b2-bd2d-463c-9586-1f52272c66c0": {
+      "city": "חיפה",
+      "lat": 32.7878671,
+      "lon": 35.0160355,
+      "method": "nominatim"
+    },
     "1144f9aa-d6d5-4a88-9517-3f2607eebd1c": null,
     "116bb8b8-bc6c-4382-83bc-87d155b220d0": null,
     "11a6445c-a09b-46ba-be8f-602246f2ab38": null,
@@ -604,7 +778,12 @@
       "lon": 35.0864259,
       "method": "nominatim"
     },
-    "122545a1-a4c8-452f-980a-b09416bbe21f": null,
+    "122545a1-a4c8-452f-980a-b09416bbe21f": {
+      "city": "אשדוד",
+      "lat": 31.7921959,
+      "lon": 34.6403876,
+      "method": "nominatim"
+    },
     "12402c98-4a3b-4645-858b-9f0877a76a23": null,
     "1269ccac-f525-4441-ab80-a1fe93b27f59": {
       "city": "פתח תקווה",
@@ -638,7 +817,12 @@
     },
     "12c53fe4-b2d8-4d92-9e80-b3970ef79ff7": null,
     "12c90092-fe79-45f5-b2dd-15e1396eb122": null,
-    "13236124-08e0-4623-8741-62b0529a73ad": null,
+    "13236124-08e0-4623-8741-62b0529a73ad": {
+      "city": "תל אביב -יפו",
+      "lat": 32.079353,
+      "lon": 34.781668,
+      "method": "nominatim"
+    },
     "132d3305-3761-42c3-b3a6-840616a81437": null,
     "1368c2a3-0f23-4a1f-b81d-2f64127b7521": {
       "city": "חיפה",
@@ -653,12 +837,7 @@
       "lon": 34.8835091,
       "method": "nominatim"
     },
-    "13933a89-69bc-42ce-a175-b0c8328e27b7": {
-      "city": "ירושלים",
-      "lat": 31.796102,
-      "lon": 34.638139,
-      "method": "nominatim"
-    },
+    "13933a89-69bc-42ce-a175-b0c8328e27b7": null,
     "13d16b75-9f03-469a-a4ed-f8399d545c37": {
       "city": "ירושלים",
       "lat": 31.7958206,
@@ -737,7 +916,12 @@
       "lon": 34.6668316,
       "method": "nominatim"
     },
-    "15d9b1ca-df7d-4860-a302-7962eafadc48": null,
+    "15d9b1ca-df7d-4860-a302-7962eafadc48": {
+      "city": "באר שבע",
+      "lat": 31.2135467,
+      "lon": 34.8144557,
+      "method": "nominatim"
+    },
     "15fc59e5-c5ac-4b9a-9789-7b7d085b6d51": {
       "city": "ירושלים",
       "lat": 31.7944654,
@@ -751,15 +935,20 @@
       "method": "nominatim"
     },
     "164629da-c625-4800-8182-134eef86350f": null,
-    "167233c9-a56d-4bfb-a84f-7057e17a5920": null,
-    "16f2f04c-0f7f-40ae-bc84-0f02d06deca1": {
-      "city": null,
-      "lat": 33.3501574,
-      "lon": 6.8560821,
+    "167233c9-a56d-4bfb-a84f-7057e17a5920": {
+      "city": "רמלה",
+      "lat": 31.9323098,
+      "lon": 34.8888389,
       "method": "nominatim"
     },
+    "16f2f04c-0f7f-40ae-bc84-0f02d06deca1": null,
     "16f9a97f-9817-45ec-9c5a-145c19e7037c": null,
-    "17211b88-8bc8-4533-b695-69f1da0b5a2a": null,
+    "17211b88-8bc8-4533-b695-69f1da0b5a2a": {
+      "city": "רעננה",
+      "lat": 32.1943864,
+      "lon": 34.8834707,
+      "method": "nominatim"
+    },
     "17567ad7-1102-4b66-be66-eff0cad9bafd": {
       "city": "אלעד",
       "lat": 32.0541528,
@@ -797,7 +986,12 @@
       "lon": 35.1901411,
       "method": "nominatim"
     },
-    "1832e1d2-12b8-4b11-8ed7-e53e4e98c3ec": null,
+    "1832e1d2-12b8-4b11-8ed7-e53e4e98c3ec": {
+      "city": "נתיבות",
+      "lat": 31.4173448,
+      "lon": 34.594293,
+      "method": "cheapersal"
+    },
     "183d3ea0-bcd9-4949-a60d-8c4f38462daa": null,
     "184149bf-6219-4825-af52-48a744d957db": {
       "city": "רעננה",
@@ -817,14 +1011,24 @@
       "lon": 35.5746807,
       "method": "nominatim"
     },
-    "187b466d-c857-43ea-991f-63b0eb6a10a1": null,
+    "187b466d-c857-43ea-991f-63b0eb6a10a1": {
+      "city": "קריית אתא",
+      "lat": 32.808657,
+      "lon": 35.075575,
+      "method": "cheapersal"
+    },
     "1887c997-03f3-41b2-82f4-fed18d81e356": {
       "city": "ראש העין",
       "lat": 32.0928376,
       "lon": 34.9661751,
       "method": "nominatim"
     },
-    "1895580c-64a9-4f02-a969-88e436148d8b": null,
+    "1895580c-64a9-4f02-a969-88e436148d8b": {
+      "city": "רמלה",
+      "lat": 31.8888698,
+      "lon": 34.8255839,
+      "method": "cheapersal"
+    },
     "189f823a-c814-4aba-b1c1-e9717ceab0df": {
       "city": null,
       "lat": 32.6922393,
@@ -837,15 +1041,30 @@
       "lon": 35.1485341,
       "method": "nominatim"
     },
-    "18bc26f6-20e7-4caf-a99f-fa6f86c550e3": null,
+    "18bc26f6-20e7-4caf-a99f-fa6f86c550e3": {
+      "city": "נצרת",
+      "lat": 32.6983525,
+      "lon": 35.301819,
+      "method": "cheapersal"
+    },
     "18e1407d-7d28-47d6-8dd5-dec4f0463786": {
       "city": "קריית גת",
       "lat": 31.6118542,
       "lon": 34.7703148,
       "method": "nominatim"
     },
-    "18ed2ebf-4c93-4b35-a8d5-8eba3b6b1bca": null,
-    "190de59e-0c35-4729-8a3c-2ee5f3b47024": null,
+    "18ed2ebf-4c93-4b35-a8d5-8eba3b6b1bca": {
+      "city": "אשדוד",
+      "lat": 31.8193266,
+      "lon": 34.6669145,
+      "method": "nominatim"
+    },
+    "190de59e-0c35-4729-8a3c-2ee5f3b47024": {
+      "city": null,
+      "lat": 32.4863405,
+      "lon": 34.9097726,
+      "method": "nominatim"
+    },
     "1929760e-80e1-4d38-b762-6490b67f510a": {
       "city": "מעלה אדומים",
       "lat": 31.7705586,
@@ -859,12 +1078,27 @@
       "method": "nominatim"
     },
     "1958f306-9d7e-4555-8508-3b76d9eb4a4a": null,
-    "1973f794-8244-4e03-b66d-46095d081da8": null,
-    "19a6ab84-1071-4c2b-b12e-5d892bec6446": null,
+    "1973f794-8244-4e03-b66d-46095d081da8": {
+      "city": "יבנה",
+      "lat": 31.8737692,
+      "lon": 34.7339291,
+      "method": "cheapersal"
+    },
+    "19a6ab84-1071-4c2b-b12e-5d892bec6446": {
+      "city": "עמיעד",
+      "lat": 32.9302101,
+      "lon": 35.5421142,
+      "method": "cheapersal"
+    },
     "19a793c4-4401-4c5b-bed2-7120d6fdb7ff": null,
     "19a93aec-77f3-4b56-805e-b5e18eac4c0c": null,
     "19abd5a4-bdd6-44dc-8bb8-5962526eb2e1": null,
-    "19bf8f9f-aa0c-41b9-b270-eb302ef90bdd": null,
+    "19bf8f9f-aa0c-41b9-b270-eb302ef90bdd": {
+      "city": "בית יצחק-שער חפר",
+      "lat": 32.3480874,
+      "lon": 34.8775301,
+      "method": "nominatim"
+    },
     "19ed074d-bec8-4a60-a069-aa30d8bd0a06": {
       "city": null,
       "lat": 32.4284627,
@@ -943,7 +1177,12 @@
     },
     "1bcc4ef2-8ef6-491e-afac-b408e78579c6": null,
     "1bdd5da1-0804-48a8-b97b-c5be9655f287": null,
-    "1bdefd39-a9e9-43d0-971d-982b8201c06b": null,
+    "1bdefd39-a9e9-43d0-971d-982b8201c06b": {
+      "city": "פרדס חנה-כרכור",
+      "lat": 32.4657009,
+      "lon": 34.9885215,
+      "method": "nominatim"
+    },
     "1be5a826-e926-475d-8fc0-83ebb6be7a24": {
       "city": "נס ציונה",
       "lat": 31.9305855,
@@ -975,7 +1214,12 @@
       "lon": 34.9059981,
       "method": "nominatim"
     },
-    "1deecaaf-fdf6-4c01-9974-319b355916fc": null,
+    "1deecaaf-fdf6-4c01-9974-319b355916fc": {
+      "city": "כפר סבא",
+      "lat": 32.1898308,
+      "lon": 34.8974796,
+      "method": "nominatim"
+    },
     "1e254324-bf35-4962-8143-064745c9ac32": {
       "city": "רמת גן",
       "lat": 32.0751741,
@@ -1005,9 +1249,19 @@
     },
     "1f6d2ae8-9803-40d7-bf1f-e3d94c658ddc": null,
     "1f7c1076-02a5-4142-b0d4-8c747485ce68": null,
-    "1fada4eb-56d0-4994-b243-35f7525ca7f0": null,
+    "1fada4eb-56d0-4994-b243-35f7525ca7f0": {
+      "city": "באר שבע",
+      "lat": 31.2688434,
+      "lon": 34.8107375,
+      "method": "cheapersal"
+    },
     "1fc3015f-7d09-4e92-b502-2ce834539c5d": null,
-    "1fcc0ff7-351e-4520-82c5-4384bc176e2a": null,
+    "1fcc0ff7-351e-4520-82c5-4384bc176e2a": {
+      "city": "אשקלון",
+      "lat": 31.6619129,
+      "lon": 34.5945205,
+      "method": "cheapersal"
+    },
     "20049a49-b38b-4d60-8278-9ec1a4797a51": null,
     "20416375-eb23-4b06-999d-4ffc803bc39f": {
       "city": null,
@@ -1015,9 +1269,24 @@
       "lon": 34.7732347,
       "method": "nominatim"
     },
-    "2063b3d9-adf3-4790-9f5c-14ce93ca7aba": null,
-    "206f259d-39fa-48f2-a486-2f0b6707de21": null,
-    "207b7075-4bbf-440e-96bb-b978945daa00": null,
+    "2063b3d9-adf3-4790-9f5c-14ce93ca7aba": {
+      "city": "ירושלים",
+      "lat": 31.7528678,
+      "lon": 35.2126013,
+      "method": "nominatim"
+    },
+    "206f259d-39fa-48f2-a486-2f0b6707de21": {
+      "city": "ראש העין",
+      "lat": 32.0974375,
+      "lon": 34.9429604,
+      "method": "nominatim"
+    },
+    "207b7075-4bbf-440e-96bb-b978945daa00": {
+      "city": "ירושלים",
+      "lat": 31.7322561,
+      "lon": 35.1866475,
+      "method": "nominatim"
+    },
     "20adad48-bdf2-433b-8de1-9246f4e84367": {
       "city": "ירכא",
       "lat": 32.949509,
@@ -1031,10 +1300,30 @@
       "method": "nominatim"
     },
     "214a1706-b031-4d6a-8ffb-fb292059f472": null,
-    "214d710f-6630-481a-8c03-1c0c139a89c2": null,
-    "216787b7-512e-474c-b25a-6fc2a8888672": null,
-    "219ed900-38a4-4024-9f82-24f20079ea67": null,
-    "21d920e0-06ad-4871-8b38-fd35b34763f5": null,
+    "214d710f-6630-481a-8c03-1c0c139a89c2": {
+      "city": "ערד",
+      "lat": 31.261801,
+      "lon": 35.2115652,
+      "method": "nominatim"
+    },
+    "216787b7-512e-474c-b25a-6fc2a8888672": {
+      "city": "חיפה",
+      "lat": 32.8125893,
+      "lon": 34.9627496,
+      "method": "nominatim"
+    },
+    "219ed900-38a4-4024-9f82-24f20079ea67": {
+      "city": "כפר סבא",
+      "lat": 32.1710877,
+      "lon": 34.9272511,
+      "method": "nominatim"
+    },
+    "21d920e0-06ad-4871-8b38-fd35b34763f5": {
+      "city": "לכיש",
+      "lat": 31.560907,
+      "lon": 34.84409,
+      "method": "cheapersal"
+    },
     "21ee1a4b-9d76-4607-b4ba-56a89d3fda0b": {
       "city": "רחובות",
       "lat": 31.9102907,
@@ -1054,16 +1343,36 @@
       "lon": 35.0923495,
       "method": "nominatim"
     },
-    "2239e378-0b7e-4e44-a2e8-e5d491c3b88d": null,
+    "2239e378-0b7e-4e44-a2e8-e5d491c3b88d": {
+      "city": "חדרה",
+      "lat": 32.4341044,
+      "lon": 34.9155541,
+      "method": "nominatim"
+    },
     "22448f6a-a3ff-4d75-84e5-1976f8de42f2": {
       "city": "אופקים",
       "lat": 31.3003445,
       "lon": 34.6191725,
       "method": "nominatim"
     },
-    "22520328-3e0f-4868-8292-ba6a3fea20e4": null,
-    "2254a4c5-5797-47b2-ad52-68719d61eba4": null,
-    "22841b76-fbdb-416c-bb2c-1fa5ae45e21f": null,
+    "22520328-3e0f-4868-8292-ba6a3fea20e4": {
+      "city": "עכו",
+      "lat": 32.938006,
+      "lon": 35.0783029,
+      "method": "cheapersal"
+    },
+    "2254a4c5-5797-47b2-ad52-68719d61eba4": {
+      "city": "יקנעם עילית",
+      "lat": 32.6402146,
+      "lon": 35.0872742,
+      "method": "nominatim"
+    },
+    "22841b76-fbdb-416c-bb2c-1fa5ae45e21f": {
+      "city": "פרדס חנה-כרכור",
+      "lat": 32.4895294,
+      "lon": 34.9734479,
+      "method": "nominatim"
+    },
     "229fa445-f2f7-4488-9e9a-a142a003e71e": {
       "city": "ירושלים",
       "lat": 31.7924086,
@@ -1095,8 +1404,18 @@
       "method": "nominatim"
     },
     "22cfcb8a-5685-4939-958e-2be186d06e4c": null,
-    "22eea926-99c4-4538-a5ed-47179fdbd4c5": null,
-    "230b661d-e122-41af-a560-e57286046ff0": null,
+    "22eea926-99c4-4538-a5ed-47179fdbd4c5": {
+      "city": "אלונים",
+      "lat": 32.8151721,
+      "lon": 35.1382397,
+      "method": "nominatim"
+    },
+    "230b661d-e122-41af-a560-e57286046ff0": {
+      "city": "נצרת",
+      "lat": 32.7213967,
+      "lon": 35.2922587,
+      "method": "nominatim"
+    },
     "232003bd-8331-4d49-8783-d44aee13b1f3": {
       "city": "כפר סבא",
       "lat": 32.174372,
@@ -1115,7 +1434,12 @@
       "lon": 35.1029383,
       "method": "nominatim"
     },
-    "239778a8-9a6a-45cc-93b4-f81c0dc04a3d": null,
+    "239778a8-9a6a-45cc-93b4-f81c0dc04a3d": {
+      "city": "חדרה",
+      "lat": 32.4399137,
+      "lon": 34.8863236,
+      "method": "nominatim"
+    },
     "23c84f71-53eb-4713-83ef-dce9e8abfe6d": {
       "city": "ירושלים",
       "lat": 31.8090034,
@@ -1133,7 +1457,12 @@
       "method": "nominatim"
     },
     "24467c76-5375-454d-907f-7d1d9b7f465c": null,
-    "245e659c-d1ee-4582-960e-b07252db9ee9": null,
+    "245e659c-d1ee-4582-960e-b07252db9ee9": {
+      "city": "חדרה",
+      "lat": 32.4322069,
+      "lon": 34.9281808,
+      "method": "cheapersal"
+    },
     "2471c0c9-7b7f-45c2-a440-f728b97b3c7e": null,
     "2490d4f4-cb06-4494-8ea8-bdcf796c43e2": null,
     "24b69226-29a7-48d1-a45c-16b2c1da5e20": null,
@@ -1169,7 +1498,12 @@
       "lon": 34.7991803,
       "method": "nominatim"
     },
-    "260f50f7-84e7-4cf4-a266-3df4d6aac154": null,
+    "260f50f7-84e7-4cf4-a266-3df4d6aac154": {
+      "city": "אור יהודה",
+      "lat": 32.025423,
+      "lon": 34.8580901,
+      "method": "nominatim"
+    },
     "26258433-8d50-4ea9-89c6-e4929074e520": null,
     "263a3f58-afe0-4ec5-80ec-0e70317f65d5": {
       "city": "ירושלים",
@@ -1196,7 +1530,12 @@
       "lon": 34.770485,
       "method": "nominatim"
     },
-    "26b8d31c-6a07-4638-b083-42103b53ce5f": null,
+    "26b8d31c-6a07-4638-b083-42103b53ce5f": {
+      "city": "קריית טבעון",
+      "lat": 32.7305045,
+      "lon": 35.1437946,
+      "method": "nominatim"
+    },
     "26bee360-edb9-4375-a459-5b55e0e99ccb": {
       "city": "כפר סבא",
       "lat": 32.1924423,
@@ -1222,7 +1561,12 @@
       "method": "nominatim"
     },
     "27e4ef12-1764-46a0-ab12-18cbf02c5f7d": null,
-    "27ee00fc-85ef-48a1-9a97-c38ff999729f": null,
+    "27ee00fc-85ef-48a1-9a97-c38ff999729f": {
+      "city": "אשדוד",
+      "lat": 31.7887638,
+      "lon": 34.6417725,
+      "method": "cheapersal"
+    },
     "28090124-3a8a-4149-a29d-d516aa75cd5e": {
       "city": "תל אביב -יפו",
       "lat": 32.072607,
@@ -1277,7 +1621,12 @@
       "lon": 34.774683,
       "method": "nominatim"
     },
-    "28db288f-9f16-473d-a072-944916aad1cd": null,
+    "28db288f-9f16-473d-a072-944916aad1cd": {
+      "city": "ירושלים",
+      "lat": 31.7841324,
+      "lon": 35.2004342,
+      "method": "nominatim"
+    },
     "28ec615c-d2f9-4d1c-87b6-414405669347": {
       "city": "תל אביב - יפו",
       "lat": 32.1147382,
@@ -1293,9 +1642,19 @@
       "lon": 34.9870233,
       "method": "nominatim"
     },
-    "29204a82-19bb-4697-986e-6eb0cf23fa38": null,
+    "29204a82-19bb-4697-986e-6eb0cf23fa38": {
+      "city": "ראשון לציון",
+      "lat": 31.9736992,
+      "lon": 34.8108225,
+      "method": "cheapersal"
+    },
     "292e4b8a-362b-4179-a434-b6d034e97045": null,
-    "29465997-81d4-4dab-8e2b-cbcbc122c93e": null,
+    "29465997-81d4-4dab-8e2b-cbcbc122c93e": {
+      "city": "רעננה",
+      "lat": 32.1976441,
+      "lon": 34.8762633,
+      "method": "nominatim"
+    },
     "2960f656-270d-4448-aa54-ce4f8207cc02": {
       "city": "רמת גן",
       "lat": 32.0899296,
@@ -1327,7 +1686,12 @@
       "lon": 34.795863,
       "method": "nominatim"
     },
-    "2a692517-efc1-4ed7-ae46-1121c0dff53b": null,
+    "2a692517-efc1-4ed7-ae46-1121c0dff53b": {
+      "city": "מעוז חיים",
+      "lat": 32.4920397,
+      "lon": 35.5517924,
+      "method": "cheapersal"
+    },
     "2a7b9fc6-6b67-4b00-8f2b-6e11b1885d37": {
       "city": "קריית אתא",
       "lat": 32.8105986,
@@ -1394,17 +1758,42 @@
       "lon": 34.8769183,
       "method": "nominatim"
     },
-    "2c3c18b5-cc7e-48a3-bdca-cbac1c0b6c7c": null,
-    "2c604dd5-d0da-4bd6-b8ae-8a4aa8a90a23": null,
-    "2c6ddc4d-8677-439f-aa81-97f306967b74": null,
+    "2c3c18b5-cc7e-48a3-bdca-cbac1c0b6c7c": {
+      "city": "הוד השרון",
+      "lat": 32.1271327,
+      "lon": 34.8654201,
+      "method": "nominatim"
+    },
+    "2c604dd5-d0da-4bd6-b8ae-8a4aa8a90a23": {
+      "city": "יהוד-מונוסון",
+      "lat": 32.0314851,
+      "lon": 34.8763188,
+      "method": "cheapersal"
+    },
+    "2c6ddc4d-8677-439f-aa81-97f306967b74": {
+      "city": "נען",
+      "lat": 31.9512433,
+      "lon": 34.9315856,
+      "method": "cheapersal"
+    },
     "2c75ee72-1496-4df2-bdfb-7ca383221351": {
       "city": "אשדוד",
       "lat": 31.8028317,
       "lon": 34.6590095,
       "method": "nominatim"
     },
-    "2c7be808-27df-4b11-a6cd-ddabfc952a05": null,
-    "2ca464ed-d534-48b7-bf24-46b4eb2ad5c2": null,
+    "2c7be808-27df-4b11-a6cd-ddabfc952a05": {
+      "city": "עכו",
+      "lat": 32.9243917,
+      "lon": 35.0816493,
+      "method": "nominatim"
+    },
+    "2ca464ed-d534-48b7-bf24-46b4eb2ad5c2": {
+      "city": "משמר השרון",
+      "lat": 32.356305,
+      "lon": 34.904256,
+      "method": "cheapersal"
+    },
     "2cafc224-aa1a-4824-a732-629ef32ec69e": {
       "city": "תל אביב -יפו",
       "lat": 32.0644734,
@@ -1453,22 +1842,42 @@
       "lon": 34.7749068,
       "method": "nominatim"
     },
-    "2d9a635e-e60c-4d4f-8417-def4f34b3519": null,
+    "2d9a635e-e60c-4d4f-8417-def4f34b3519": {
+      "city": "ירושלים",
+      "lat": 31.7553583,
+      "lon": 35.2242119,
+      "method": "cheapersal"
+    },
     "2dace300-a017-4742-8241-b0a554c8f60f": null,
     "2dc75a9d-6a2c-4ecf-b6c4-e24b58573e8d": null,
     "2dde7a79-6b5d-4d9b-923b-d41adea24b14": null,
     "2ddf313e-4c5a-413d-b30d-9f3c0f108a28": null,
     "2de05176-3716-4d10-bd73-a52c1c0b7429": null,
     "2de55c6f-6f5d-4281-ac55-6eee07aa3498": null,
-    "2e09e61c-7966-4832-8f56-cf6e3e1b4072": null,
-    "2e10d8cb-f23f-4bb0-835d-b303368694c1": null,
+    "2e09e61c-7966-4832-8f56-cf6e3e1b4072": {
+      "city": "חיפה",
+      "lat": 32.8204746,
+      "lon": 34.9593184,
+      "method": "cheapersal"
+    },
+    "2e10d8cb-f23f-4bb0-835d-b303368694c1": {
+      "city": "בית דגן",
+      "lat": 32.0074452,
+      "lon": 34.8360456,
+      "method": "nominatim"
+    },
     "2e15518a-f40a-423a-88da-0c24caa2c5ce": {
       "city": "ירושלים",
       "lat": 31.7598943,
       "lon": 35.1792507,
       "method": "nominatim"
     },
-    "2e193841-957d-4c60-9d5f-d26a4473d148": null,
+    "2e193841-957d-4c60-9d5f-d26a4473d148": {
+      "city": "בית שמש",
+      "lat": 31.7577529,
+      "lon": 34.9894177,
+      "method": "cheapersal"
+    },
     "2e1955d6-1935-40c4-9e93-43915a64dcbd": null,
     "2e60c5b8-1ef9-42ae-8082-0a7b909d86e8": null,
     "2e8910c7-86d1-4daf-a495-912c91f39a17": {
@@ -1532,7 +1941,12 @@
       "lon": 35.0111201,
       "method": "nominatim"
     },
-    "2fa74a0c-6177-4e48-87e4-b7170bd79701": null,
+    "2fa74a0c-6177-4e48-87e4-b7170bd79701": {
+      "city": "כפר כנא",
+      "lat": 32.7409651,
+      "lon": 35.3346617,
+      "method": "cheapersal"
+    },
     "2fbbd367-d206-4311-9bf4-700b05b143c8": {
       "city": "בני ברק",
       "lat": 32.085511,
@@ -1558,7 +1972,12 @@
       "lon": 35.4979312,
       "method": "nominatim"
     },
-    "306f6bbf-b89c-49e6-b302-9e9f5e811524": null,
+    "306f6bbf-b89c-49e6-b302-9e9f5e811524": {
+      "city": "תל אביב -יפו",
+      "lat": 32.085148,
+      "lon": 34.772693,
+      "method": "nominatim"
+    },
     "30712310-02dc-4b12-b9d1-62d16a5ba766": null,
     "3073bbe1-fffb-40ad-aab3-6b59cf85b9e3": {
       "city": "בני דרור",
@@ -1576,8 +1995,18 @@
     "30cf847c-e6e9-4430-8165-861b576a76c2": null,
     "30d19b87-2724-46a1-9dff-f50806b35b40": null,
     "30f219bc-0e03-43ed-88df-d0fef6ca3d95": null,
-    "31377651-7c81-4dfd-bf7d-40ceb45138be": null,
-    "314bc111-6251-4d4c-9498-d90f1c88e9c0": null,
+    "31377651-7c81-4dfd-bf7d-40ceb45138be": {
+      "city": "תל אביב -יפו",
+      "lat": 32.0693438,
+      "lon": 34.7825047,
+      "method": "nominatim"
+    },
+    "314bc111-6251-4d4c-9498-d90f1c88e9c0": {
+      "city": "נהרייה",
+      "lat": 33.0083216,
+      "lon": 35.093146,
+      "method": "nominatim"
+    },
     "3159ea0b-0f6e-4a2d-a245-525b25082cba": {
       "city": "תל אביב -יפו",
       "lat": 32.064792,
@@ -1585,7 +2014,12 @@
       "method": "nominatim"
     },
     "315ad703-fbee-4737-a5b6-92d7b8e359ba": null,
-    "3161f64b-80d9-4bf4-a182-2bf4244ed97f": null,
+    "3161f64b-80d9-4bf4-a182-2bf4244ed97f": {
+      "city": "אור עקיבא",
+      "lat": 32.5163172,
+      "lon": 34.9223618,
+      "method": "nominatim"
+    },
     "3175bb03-bef7-40aa-803a-b9018410403d": {
       "city": "ראשון לציון",
       "lat": 31.9792925,
@@ -1612,14 +2046,24 @@
       "method": "nominatim"
     },
     "31fc46b6-64d3-459f-84e4-c1d8cf83f75d": null,
-    "32000a70-8ac7-4536-a8ab-4a738f7289f3": null,
+    "32000a70-8ac7-4536-a8ab-4a738f7289f3": {
+      "city": "פתח תקווה",
+      "lat": 32.1971789,
+      "lon": 34.9564133,
+      "method": "nominatim"
+    },
     "3207be53-552c-4f45-8874-75d54d0acf52": {
       "city": null,
       "lat": 32.0762314,
       "lon": 34.9109449,
       "method": "nominatim"
     },
-    "321d66aa-1d65-4a2e-941e-35f02d930f79": null,
+    "321d66aa-1d65-4a2e-941e-35f02d930f79": {
+      "city": "ירושלים",
+      "lat": 31.749158,
+      "lon": 35.213494,
+      "method": "cheapersal"
+    },
     "32231d5d-6ee7-4aaa-b09e-438462391f61": {
       "city": "בני ברק",
       "lat": 32.0884991,
@@ -1644,26 +2088,31 @@
       "lon": 34.770823,
       "method": "nominatim"
     },
-    "32c7dda3-0f00-4043-8a8b-441a69b2fb1d": {
-      "city": "באר שבע",
-      "lat": 29.5490841,
-      "lon": 34.9522594,
-      "method": "nominatim"
-    },
+    "32c7dda3-0f00-4043-8a8b-441a69b2fb1d": null,
     "32e39992-57b8-4af7-863b-5ce4febd07ea": {
       "city": "אשקלון",
       "lat": 31.646519,
       "lon": 34.5960329,
       "method": "nominatim"
     },
-    "3304a8c9-874b-4f8a-8a26-50d31aad59d8": null,
+    "3304a8c9-874b-4f8a-8a26-50d31aad59d8": {
+      "city": "נהורה",
+      "lat": 31.621321,
+      "lon": 34.704496,
+      "method": "cheapersal"
+    },
     "3348d8df-fe0f-4667-8d2a-1cf1ed8c396f": {
       "city": "באר שבע",
       "lat": 31.2548042,
       "lon": 34.7736793,
       "method": "nominatim"
     },
-    "335e0cb5-7a9a-4ca9-a2e4-7bd6ea529f95": null,
+    "335e0cb5-7a9a-4ca9-a2e4-7bd6ea529f95": {
+      "city": "קדימה-צורן",
+      "lat": 32.28344,
+      "lon": 34.8967936,
+      "method": "nominatim"
+    },
     "3368aa83-d5a3-44b0-9b27-858c755ea107": {
       "city": "בית שמש",
       "lat": 31.70162,
@@ -1691,10 +2140,25 @@
       "lon": 34.8612783,
       "method": "nominatim"
     },
-    "34653ca0-16f6-44b0-a58f-e785253ced11": null,
+    "34653ca0-16f6-44b0-a58f-e785253ced11": {
+      "city": "ירושלים",
+      "lat": 31.76680619999999,
+      "lon": 35.2094344,
+      "method": "cheapersal"
+    },
     "348671ac-c4a2-4583-85a6-705f0b8e4d5d": null,
-    "34c272ee-b2ad-4a5b-ba73-4fbb906441af": null,
-    "34c9a68c-8c46-480c-a62c-0c9219d66c7b": null,
+    "34c272ee-b2ad-4a5b-ba73-4fbb906441af": {
+      "city": "ראשון לציון",
+      "lat": 31.96328269999999,
+      "lon": 34.7787975,
+      "method": "cheapersal"
+    },
+    "34c9a68c-8c46-480c-a62c-0c9219d66c7b": {
+      "city": "באר שבע",
+      "lat": 31.2466122,
+      "lon": 34.7830494,
+      "method": "nominatim"
+    },
     "34dc3a97-45d9-4690-9800-a604f35ba597": {
       "city": "בת ים",
       "lat": 32.011116,
@@ -1702,8 +2166,18 @@
       "method": "nominatim"
     },
     "34dfa91b-9d7e-4371-af6f-12988d02a7cd": null,
-    "3501f491-9357-4b8e-b6f3-efe4a9d37e0e": null,
-    "35400cc2-31ae-40a7-9c5c-91adcedf04bc": null,
+    "3501f491-9357-4b8e-b6f3-efe4a9d37e0e": {
+      "city": "גבעתיים",
+      "lat": 32.0673942,
+      "lon": 34.8030249,
+      "method": "cheapersal"
+    },
+    "35400cc2-31ae-40a7-9c5c-91adcedf04bc": {
+      "city": "שפרעם",
+      "lat": 32.80576500000001,
+      "lon": 35.169971,
+      "method": "cheapersal"
+    },
     "35439cbd-77c1-4b8a-b393-fb1ba7576925": {
       "city": "אופקים",
       "lat": 31.2965903,
@@ -1728,12 +2202,7 @@
       "lon": 35.570342,
       "method": "nominatim"
     },
-    "35e46a12-4ce9-4d07-b408-1e8e3d27636e": {
-      "city": "קרני שומרון",
-      "lat": 32.1753695,
-      "lon": 35.0960737,
-      "method": "nominatim"
-    },
+    "35e46a12-4ce9-4d07-b408-1e8e3d27636e": null,
     "35f5102a-fefa-4fd4-b8b6-9c7c06f1aea3": {
       "city": "אשדוד",
       "lat": 31.8089549,
@@ -1778,9 +2247,19 @@
       "method": "nominatim"
     },
     "3680a197-b7cc-44c0-af15-0614ae5894a8": null,
-    "36c7ddee-bb2e-4f05-96b2-21932b4f1a0c": null,
+    "36c7ddee-bb2e-4f05-96b2-21932b4f1a0c": {
+      "city": null,
+      "lat": 32.799658,
+      "lon": 35.170314,
+      "method": "nominatim"
+    },
     "36e47523-70ab-4353-8281-b0fbc2d44185": null,
-    "3722ecf9-e7f3-4f1c-be6b-d00dd25be676": null,
+    "3722ecf9-e7f3-4f1c-be6b-d00dd25be676": {
+      "city": "קריית טבעון",
+      "lat": 32.7206063,
+      "lon": 35.1294262,
+      "method": "nominatim"
+    },
     "373c6c95-a788-49a9-8221-cf3d2ab6e0b3": {
       "city": "פתח תקווה",
       "lat": 32.0920234,
@@ -1793,7 +2272,12 @@
       "lon": 34.7441408,
       "method": "nominatim"
     },
-    "3754b68f-fa0f-4e90-b93f-1db9808fd688": null,
+    "3754b68f-fa0f-4e90-b93f-1db9808fd688": {
+      "city": "אופקים",
+      "lat": 31.3144764,
+      "lon": 34.6277119,
+      "method": "nominatim"
+    },
     "376fb3b6-8ad5-4b83-b014-85a6ac888b07": {
       "city": "באר שבע",
       "lat": 31.2507953,
@@ -1812,15 +2296,30 @@
       "lon": 34.799934,
       "method": "nominatim"
     },
-    "37b3f633-b616-4c25-bcd1-d8a5db3a924e": null,
+    "37b3f633-b616-4c25-bcd1-d8a5db3a924e": {
+      "city": "קרית מוצקין",
+      "lat": 32.8587156,
+      "lon": 35.0923495,
+      "method": "nominatim"
+    },
     "37d79850-cc50-40a8-b291-19bb90ea1a58": {
       "city": "ירושלים",
       "lat": 31.790586,
       "lon": 35.1751346,
       "method": "nominatim"
     },
-    "37ffe063-cb9d-41a9-94c1-3ec45c6391db": null,
-    "380b6bf7-1c44-4809-a3f0-63cf3687716c": null,
+    "37ffe063-cb9d-41a9-94c1-3ec45c6391db": {
+      "city": "קריית אתא",
+      "lat": 32.8065575,
+      "lon": 35.0775125,
+      "method": "nominatim"
+    },
+    "380b6bf7-1c44-4809-a3f0-63cf3687716c": {
+      "city": "תל אביב -יפו",
+      "lat": 32.0869192,
+      "lon": 34.7749068,
+      "method": "nominatim"
+    },
     "38183f3f-733d-449d-a613-2c1222a8f914": null,
     "381af25f-f6d1-4c54-95fa-db9ea35d68bf": {
       "city": "הוד השרון",
@@ -1846,7 +2345,12 @@
       "lon": 34.9956951,
       "method": "nominatim"
     },
-    "38e1fc20-e5d6-4896-bc1e-ce94d1d7ac7e": null,
+    "38e1fc20-e5d6-4896-bc1e-ce94d1d7ac7e": {
+      "city": "ירושלים",
+      "lat": 31.7898928,
+      "lon": 35.194777,
+      "method": "nominatim"
+    },
     "38e8f3c6-3e2d-45b1-910c-3724b35c27c2": null,
     "390d3b78-e592-4103-bbbb-2793c1d274f6": {
       "city": "תל אביב -יפו",
@@ -1854,7 +2358,12 @@
       "lon": 34.770624,
       "method": "nominatim"
     },
-    "394d563f-3527-47a5-917c-6f0684fc267f": null,
+    "394d563f-3527-47a5-917c-6f0684fc267f": {
+      "city": "חיפה",
+      "lat": 32.8317087,
+      "lon": 34.9846012,
+      "method": "nominatim"
+    },
     "3956e025-c4c1-406d-9a7c-962045662552": {
       "city": "ירושלים",
       "lat": 31.7844086,
@@ -1874,14 +2383,24 @@
       "lon": 34.9401053,
       "method": "nominatim"
     },
-    "39fbfd14-9198-444d-a8c4-34a3099fddd1": null,
+    "39fbfd14-9198-444d-a8c4-34a3099fddd1": {
+      "city": "תל אביב -יפו",
+      "lat": 32.126896,
+      "lon": 34.829937,
+      "method": "nominatim"
+    },
     "3a3a3057-d16a-491e-b076-af3f4b5ffb8e": {
       "city": null,
       "lat": 31.8952532,
       "lon": 34.8105616,
       "method": "nominatim"
     },
-    "3a591d51-05b0-4b46-ad14-8f6945c3742a": null,
+    "3a591d51-05b0-4b46-ad14-8f6945c3742a": {
+      "city": "מזכרת בתיה",
+      "lat": 31.8499195,
+      "lon": 34.8448771,
+      "method": "nominatim"
+    },
     "3a5d1c9a-4938-4930-8951-dca8c2a0b6b4": null,
     "3a6f58bf-0c0f-438e-8175-9256f96469c1": {
       "city": "באר שבע",
@@ -1908,7 +2427,12 @@
       "lon": 34.7096914,
       "method": "nominatim"
     },
-    "3ad33939-106e-4780-9183-e5d2a483094f": null,
+    "3ad33939-106e-4780-9183-e5d2a483094f": {
+      "city": "יזרעאל",
+      "lat": 32.562029,
+      "lon": 35.2989244,
+      "method": "cheapersal"
+    },
     "3ad5b35d-4206-4595-82e5-5f17a0150fa4": null,
     "3af994bd-d04e-4fca-8719-b524aff66d63": {
       "city": "תל אביב -יפו",
@@ -1916,7 +2440,12 @@
       "lon": 34.774114,
       "method": "nominatim"
     },
-    "3b00611d-6023-459d-a5fe-7e1489dd40aa": null,
+    "3b00611d-6023-459d-a5fe-7e1489dd40aa": {
+      "city": "כפר מנדא",
+      "lat": 32.810675,
+      "lon": 35.251766,
+      "method": "nominatim"
+    },
     "3b048bce-ba96-4f27-af14-89a965edd7fb": {
       "city": "פתח תקווה",
       "lat": 32.1011984,
@@ -1924,15 +2453,30 @@
       "method": "nominatim"
     },
     "3b22043c-f201-4406-878f-6042defd57a5": null,
-    "3b7e268e-aba4-4628-91ef-b4948f0bf01e": null,
+    "3b7e268e-aba4-4628-91ef-b4948f0bf01e": {
+      "city": "פתח תקווה",
+      "lat": 32.0939501,
+      "lon": 34.8897946,
+      "method": "nominatim"
+    },
     "3b9342d1-b837-4d61-87e4-21d16e77abe5": {
       "city": "גבעתיים",
       "lat": 32.0607462,
       "lon": 34.8148946,
       "method": "nominatim"
     },
-    "3b9f4b92-c3a2-4a1c-9f0a-f46796cfaeab": null,
-    "3bb14f75-5af0-4464-92c7-b0c8245b71ed": null,
+    "3b9f4b92-c3a2-4a1c-9f0a-f46796cfaeab": {
+      "city": "נצרת",
+      "lat": 32.68837,
+      "lon": 35.292889,
+      "method": "cheapersal"
+    },
+    "3bb14f75-5af0-4464-92c7-b0c8245b71ed": {
+      "city": "ירושלים",
+      "lat": 31.7876103,
+      "lon": 35.1895217,
+      "method": "nominatim"
+    },
     "3bbfe239-e3d4-49b7-b580-915559b68686": null,
     "3bccd8b6-116b-4683-b254-9079169069e4": {
       "city": "ירושלים",
@@ -1997,12 +2541,7 @@
     "3dba1679-51fa-495a-b12d-050017d26f17": null,
     "3dc07024-54ed-4f3c-9eba-eb75d030fd37": null,
     "3ded1e6c-4513-420b-8282-08ccd6bec066": null,
-    "3e0b7044-ac30-4c56-ba85-1f9ce914d35d": {
-      "city": null,
-      "lat": 30.6298118,
-      "lon": 19.9167899,
-      "method": "nominatim"
-    },
+    "3e0b7044-ac30-4c56-ba85-1f9ce914d35d": null,
     "3e3a61d4-5521-470a-8e1c-aed04dadc8d9": {
       "city": "עפולה",
       "lat": 32.6099256,
@@ -2027,14 +2566,24 @@
       "lon": 34.7779437,
       "method": "nominatim"
     },
-    "3e74aa8e-154b-4189-bfaa-38efcdd34a0f": null,
+    "3e74aa8e-154b-4189-bfaa-38efcdd34a0f": {
+      "city": "נתיבות",
+      "lat": 31.4126037,
+      "lon": 34.5716748,
+      "method": "nominatim"
+    },
     "3e89e46c-9e3c-40ce-a047-ec73bdd7cfa6": {
       "city": "פתח תקווה",
       "lat": 32.0756012,
       "lon": 34.8456471,
       "method": "nominatim"
     },
-    "3e8f13f8-ef2e-46bf-a432-431cf79623fd": null,
+    "3e8f13f8-ef2e-46bf-a432-431cf79623fd": {
+      "city": "ירושלים",
+      "lat": 31.8205824,
+      "lon": 35.2257294,
+      "method": "nominatim"
+    },
     "3eb04e1b-23ff-4817-972f-f1a957409859": {
       "city": "ירושלים",
       "lat": 31.7771111,
@@ -2053,15 +2602,30 @@
       "lon": 34.8349438,
       "method": "nominatim"
     },
-    "3ef2470c-b7b0-4471-890f-7353dba0ce21": null,
+    "3ef2470c-b7b0-4471-890f-7353dba0ce21": {
+      "city": "באר טוביה",
+      "lat": 31.7281337,
+      "lon": 34.7548334,
+      "method": "nominatim"
+    },
     "3f0b2cda-24fb-474c-8fe7-cd409916c413": {
       "city": "חריש",
       "lat": 32.4712783,
       "lon": 35.0391977,
       "method": "nominatim"
     },
-    "3f4761a5-9134-4195-9ad7-999f63dec233": null,
-    "3f4f3def-bf2f-418d-a112-8b34836ee0d6": null,
+    "3f4761a5-9134-4195-9ad7-999f63dec233": {
+      "city": "הוד השרון",
+      "lat": 32.1643583,
+      "lon": 34.9006582,
+      "method": "nominatim"
+    },
+    "3f4f3def-bf2f-418d-a112-8b34836ee0d6": {
+      "city": "יבנה",
+      "lat": 31.8925606,
+      "lon": 34.789112,
+      "method": "cheapersal"
+    },
     "3f95dcdc-bc93-4d7e-a5c6-825f5cc6c8d6": {
       "city": "גן יבנה",
       "lat": 31.7756613,
@@ -2075,13 +2639,13 @@
       "lon": 34.7683035,
       "method": "nominatim"
     },
-    "400bd537-affb-4c2b-91af-7f009caab42b": {
-      "city": "חיפה",
-      "lat": 32.5765562,
-      "lon": 34.9461475,
+    "400bd537-affb-4c2b-91af-7f009caab42b": null,
+    "40478908-f6e2-4177-ba70-514328215512": {
+      "city": "תל מונד",
+      "lat": 32.2594055,
+      "lon": 34.9218669,
       "method": "nominatim"
     },
-    "40478908-f6e2-4177-ba70-514328215512": null,
     "407b1f2d-82cd-4f7f-9310-c62ac19b03df": {
       "city": "ירושלים",
       "lat": 31.8006534,
@@ -2104,16 +2668,31 @@
       "lon": 35.1143681,
       "method": "nominatim"
     },
-    "40d6e53a-4d65-49cd-8fb9-6b043a40bbe3": null,
+    "40d6e53a-4d65-49cd-8fb9-6b043a40bbe3": {
+      "city": "ביתר עילית",
+      "lat": 31.7048976,
+      "lon": 35.1166928,
+      "method": "nominatim"
+    },
     "4122c872-8f97-4b37-9504-925d184990d5": null,
-    "4127516d-9c9f-4c29-9946-6b671391d8f6": null,
+    "4127516d-9c9f-4c29-9946-6b671391d8f6": {
+      "city": "קריית מוצקין",
+      "lat": 32.8255383,
+      "lon": 35.0762036,
+      "method": "nominatim"
+    },
     "416b2883-3e8b-47d3-81ad-98c2c5078e0d": {
       "city": "באר שבע",
       "lat": 31.2341257,
       "lon": 34.7996068,
       "method": "nominatim"
     },
-    "41722394-217f-46de-bc1b-493a96159930": null,
+    "41722394-217f-46de-bc1b-493a96159930": {
+      "city": "טירת כרמל",
+      "lat": 32.762127,
+      "lon": 34.97298,
+      "method": "cheapersal"
+    },
     "41747ad1-e26c-4ea1-90c8-6ec0c9948f3a": null,
     "41ad74af-9b19-406c-bdcb-8c7be715cb6e": {
       "city": "אילת",
@@ -2136,8 +2715,18 @@
       "method": "nominatim"
     },
     "42111d6e-6ef0-4533-8b52-c00cf32a27db": null,
-    "4218c703-e6ec-4410-ab50-0219ee236009": null,
-    "421bb655-10a7-41b5-99b5-2816ceac4f8c": null,
+    "4218c703-e6ec-4410-ab50-0219ee236009": {
+      "city": "רחובות",
+      "lat": 31.9101641,
+      "lon": 34.8051903,
+      "method": "nominatim"
+    },
+    "421bb655-10a7-41b5-99b5-2816ceac4f8c": {
+      "city": "תל אביב -יפו",
+      "lat": 32.0688716,
+      "lon": 34.7939972,
+      "method": "nominatim"
+    },
     "422436b1-1454-4295-8243-f30c4eb5708e": {
       "city": "ירושלים",
       "lat": 31.8161433,
@@ -2170,12 +2759,7 @@
     },
     "42bbbbfe-8c05-44d0-b08f-d66c3dfe5ad3": null,
     "42cab454-48ad-4120-95e0-9a3bbbd88426": null,
-    "42f07c1d-e29d-4cc2-9e23-6e451e86f7c5": {
-      "city": "חיפה",
-      "lat": 32.5163975,
-      "lon": 35.006113,
-      "method": "nominatim"
-    },
+    "42f07c1d-e29d-4cc2-9e23-6e451e86f7c5": null,
     "43178f0f-7e96-4d57-996f-c4d483be5e36": null,
     "43751507-43f3-4e50-909e-60ccc2e0a5e2": {
       "city": "ערד",
@@ -2185,7 +2769,12 @@
     },
     "438caeee-bd00-4304-921f-d9371e876f0c": null,
     "43936d56-be0c-4103-aa7f-a5b62b6ed2ef": null,
-    "43a8e231-447c-4817-a244-7b3f7dfb6be4": null,
+    "43a8e231-447c-4817-a244-7b3f7dfb6be4": {
+      "city": "שפיים",
+      "lat": 32.2211148,
+      "lon": 34.828814,
+      "method": "cheapersal"
+    },
     "43d2d5e3-fedb-4188-934b-b2a13721d61d": {
       "city": "זכרון יעקב",
       "lat": 32.5663014,
@@ -2194,7 +2783,12 @@
     },
     "43f9eced-e0cb-48ae-bf08-744308391edb": null,
     "441f27a0-95e8-41c9-8a27-78e905a67578": null,
-    "4445841d-030e-4a51-8b88-4bb354eeb3bf": null,
+    "4445841d-030e-4a51-8b88-4bb354eeb3bf": {
+      "city": "נוף הגליל",
+      "lat": 32.7009975,
+      "lon": 35.3193788,
+      "method": "nominatim"
+    },
     "4459847e-895b-4822-97da-b8d4e603f675": {
       "city": null,
       "lat": 32.070079,
@@ -2208,17 +2802,32 @@
       "method": "nominatim"
     },
     "44bf5988-623e-49d5-8b9b-f72b67b435db": null,
-    "44d9a0b3-ffcd-4843-93f4-a40e379d2849": null,
+    "44d9a0b3-ffcd-4843-93f4-a40e379d2849": {
+      "city": "טירת כרמל",
+      "lat": 32.7660821,
+      "lon": 34.9641217,
+      "method": "cheapersal"
+    },
     "44fc5b5e-533a-42b6-bed1-cbb3ee8bc96f": {
       "city": "נתניה",
       "lat": 32.3273592,
       "lon": 34.8605967,
       "method": "nominatim"
     },
-    "45028ece-fbdc-41a2-a575-9eed54fc1b17": null,
+    "45028ece-fbdc-41a2-a575-9eed54fc1b17": {
+      "city": "תל אביב -יפו",
+      "lat": 32.076978,
+      "lon": 34.771767,
+      "method": "nominatim"
+    },
     "4510a0d9-059a-48ec-921d-ca4ad0d4ef82": null,
     "45238d80-06c8-4c4d-97f9-1fde80379b41": null,
-    "452d09ab-9da1-4e90-aa13-adeb1eaa804a": null,
+    "452d09ab-9da1-4e90-aa13-adeb1eaa804a": {
+      "city": "אור יהודה",
+      "lat": 32.0220597,
+      "lon": 34.8609353,
+      "method": "nominatim"
+    },
     "4530942f-4f79-43a5-9474-fb61954706e0": {
       "city": "רמת גן",
       "lat": 32.0808251,
@@ -2240,7 +2849,12 @@
       "method": "nominatim"
     },
     "45b5e4ba-9e9f-40d3-9843-05a58cdff639": null,
-    "45c8fa58-9a26-40ef-8d63-dc831f31b745": null,
+    "45c8fa58-9a26-40ef-8d63-dc831f31b745": {
+      "city": "ראשון לציון",
+      "lat": 31.9662131,
+      "lon": 34.8021185,
+      "method": "nominatim"
+    },
     "45f7126e-c147-4f1a-839d-80e213afee2b": {
       "city": null,
       "lat": 32.1636359,
@@ -2314,9 +2928,19 @@
       "lon": 34.8623488,
       "method": "nominatim"
     },
-    "478cdb29-9072-4f19-b047-d290dd36574a": null,
+    "478cdb29-9072-4f19-b047-d290dd36574a": {
+      "city": "בנימינה-גבעת עדה",
+      "lat": 32.5047077,
+      "lon": 34.9297556,
+      "method": "nominatim"
+    },
     "47b5eec2-7287-4911-9e34-b9184aae199d": null,
-    "47ccf1a1-3208-4f59-9406-32be14d01973": null,
+    "47ccf1a1-3208-4f59-9406-32be14d01973": {
+      "city": "באר יעקב",
+      "lat": 31.940459,
+      "lon": 34.8346871,
+      "method": "nominatim"
+    },
     "4886871a-b798-41f3-9ad5-2f979e914b92": {
       "city": "ירושלים",
       "lat": 31.7507631,
@@ -2335,7 +2959,12 @@
       "lon": 34.7763339,
       "method": "nominatim"
     },
-    "48bdb1c2-7dd8-4bf1-b39d-1701af937392": null,
+    "48bdb1c2-7dd8-4bf1-b39d-1701af937392": {
+      "city": "מעלה אדומים",
+      "lat": 31.7793354,
+      "lon": 35.312331,
+      "method": "nominatim"
+    },
     "490f468f-b0f8-4ab2-b778-b2dbfab9894c": {
       "city": "חיפה",
       "lat": 32.8058125,
@@ -2369,7 +2998,12 @@
       "lon": 34.5808442,
       "method": "nominatim"
     },
-    "4a2f29e6-f05f-4967-a3ad-092a832c5814": null,
+    "4a2f29e6-f05f-4967-a3ad-092a832c5814": {
+      "city": null,
+      "lat": 32.0737802,
+      "lon": 34.8110204,
+      "method": "nominatim"
+    },
     "4a39bc96-ce7d-4209-86a2-53516c717f22": {
       "city": "פתח תקווה",
       "lat": 32.0926837,
@@ -2389,15 +3023,15 @@
       "lon": 34.9172181,
       "method": "nominatim"
     },
-    "4aa3bc9c-2b69-4bb2-bead-382fa8610b2d": null,
+    "4aa3bc9c-2b69-4bb2-bead-382fa8610b2d": {
+      "city": "שפרעם",
+      "lat": 32.80576500000001,
+      "lon": 35.169971,
+      "method": "cheapersal"
+    },
     "4ab1ab80-3e63-47a6-8cdb-d6ff83c63cbd": null,
     "4ad944af-11f7-47ae-9306-cd77a0767c20": null,
-    "4b0244e4-974f-470e-aae8-9bd91251ee97": {
-      "city": "חיפה",
-      "lat": 32.4711997,
-      "lon": 34.9729696,
-      "method": "nominatim"
-    },
+    "4b0244e4-974f-470e-aae8-9bd91251ee97": null,
     "4b0c4657-c06f-4535-8f3f-d29e7168e5f5": {
       "city": "נתניה",
       "lat": 32.2771609,
@@ -2443,13 +3077,13 @@
       "lon": 34.8597732,
       "method": "nominatim"
     },
-    "4c4437c9-2c33-4a0f-a8a4-ecc3b59ff3d9": {
-      "city": "חיפה",
-      "lat": 32.5813044,
-      "lon": 34.950365,
+    "4c4437c9-2c33-4a0f-a8a4-ecc3b59ff3d9": null,
+    "4c7e0d7b-90d2-4a97-a58e-87e89aacba6f": {
+      "city": "נתניה",
+      "lat": 32.3363604,
+      "lon": 34.8521684,
       "method": "nominatim"
     },
-    "4c7e0d7b-90d2-4a97-a58e-87e89aacba6f": null,
     "4ce0da51-8283-4d67-8079-56815d5f6d9b": null,
     "4ce34895-e815-423f-a8ee-c5bba0eb6367": {
       "city": "גבעתיים",
@@ -2476,14 +3110,24 @@
       "lon": 34.5623177,
       "method": "nominatim"
     },
-    "4d107826-28c5-4328-a521-66fdf6baa562": null,
+    "4d107826-28c5-4328-a521-66fdf6baa562": {
+      "city": "רהט",
+      "lat": 31.392406,
+      "lon": 34.775895,
+      "method": "nominatim"
+    },
     "4d283c71-94c4-409f-8cee-498724183ba6": {
       "city": "בני ברק",
       "lat": 32.0965606,
       "lon": 34.8406985,
       "method": "nominatim"
     },
-    "4d480075-c9b3-46a5-8ad5-53c9aae68028": null,
+    "4d480075-c9b3-46a5-8ad5-53c9aae68028": {
+      "city": "טמרה",
+      "lat": 32.848568,
+      "lon": 35.165998,
+      "method": "nominatim"
+    },
     "4d4dc331-d8ea-4b44-938e-f460ba038742": {
       "city": "עפולה",
       "lat": 32.6001672,
@@ -2512,23 +3156,43 @@
       "method": "nominatim"
     },
     "4def4425-da92-4f28-b90d-71eacd006dce": null,
-    "4df8e193-2135-41eb-acaa-886805a27ab7": null,
+    "4df8e193-2135-41eb-acaa-886805a27ab7": {
+      "city": "גדרה",
+      "lat": 31.8047828,
+      "lon": 34.7803388,
+      "method": "nominatim"
+    },
     "4e3fda3d-e2d7-4f16-83da-6b1289ed60af": {
       "city": "צור הדסה",
       "lat": 31.7158891,
       "lon": 35.0998818,
       "method": "nominatim"
     },
-    "4e427792-1282-426b-85ef-155375456165": null,
+    "4e427792-1282-426b-85ef-155375456165": {
+      "city": "עפולה",
+      "lat": 32.6051201,
+      "lon": 35.2927401,
+      "method": "nominatim"
+    },
     "4e6f71f6-a5b3-4ae1-a4a9-16c7949e5283": {
       "city": null,
       "lat": 32.063481,
       "lon": 34.770027,
       "method": "nominatim"
     },
-    "4eb8cdfa-4626-46e0-acf3-6307f617f583": null,
+    "4eb8cdfa-4626-46e0-acf3-6307f617f583": {
+      "city": "העוגן",
+      "lat": 32.360437,
+      "lon": 34.923338,
+      "method": "cheapersal"
+    },
     "4f0711cc-5fb9-4635-88ca-729aba32b681": null,
-    "4f4036e3-a132-4088-ab61-4c767d933f4e": null,
+    "4f4036e3-a132-4088-ab61-4c767d933f4e": {
+      "city": "מצפה רמון",
+      "lat": 30.6268459,
+      "lon": 34.8064385,
+      "method": "cheapersal"
+    },
     "4f874efd-1610-4f5b-a294-c65e8c3f9824": null,
     "4fba396b-4db4-4801-9aa0-3963b5c17647": {
       "city": "עפולה",
@@ -2537,9 +3201,19 @@
       "method": "nominatim"
     },
     "4fcf6314-5859-4c9d-9291-cb0273d9e943": null,
-    "4fd14269-3c9a-44e7-b490-9517cf917f57": null,
+    "4fd14269-3c9a-44e7-b490-9517cf917f57": {
+      "city": "מודיעין-מכבים-רעות",
+      "lat": 31.8892665,
+      "lon": 34.96044,
+      "method": "nominatim"
+    },
     "4fd58aea-62f0-44b2-b9e5-836227f98e06": null,
-    "4fe6951e-b542-42e7-bc61-452d6dabbbe0": null,
+    "4fe6951e-b542-42e7-bc61-452d6dabbbe0": {
+      "city": "אשדוד",
+      "lat": 31.8193513,
+      "lon": 34.6678928,
+      "method": "nominatim"
+    },
     "4ff6ccff-c56b-46f3-bfd6-08cf2723126b": null,
     "500b0db3-ed88-44b0-ad65-a812ffada9f3": {
       "city": "ראשון לציון",
@@ -2581,7 +3255,12 @@
       "lon": 34.7736931,
       "method": "nominatim"
     },
-    "514f19ee-9507-4ab2-9c59-9249bea47a28": null,
+    "514f19ee-9507-4ab2-9c59-9249bea47a28": {
+      "city": "קריית שמונה",
+      "lat": 33.201775,
+      "lon": 35.5694074,
+      "method": "nominatim"
+    },
     "517a8679-45c2-4c88-b764-5163001cfeb2": {
       "city": "רמת גן",
       "lat": 32.0857123,
@@ -2595,7 +3274,12 @@
       "method": "nominatim"
     },
     "519c2037-8d7a-41a0-acba-48db8a459456": null,
-    "51a037db-9ef7-4154-8de1-737f062d44d0": null,
+    "51a037db-9ef7-4154-8de1-737f062d44d0": {
+      "city": "באר שבע",
+      "lat": 31.2288211,
+      "lon": 34.8223661,
+      "method": "nominatim"
+    },
     "51a797fb-155f-4d8b-afe1-40dc77029468": {
       "city": null,
       "lat": 32.0561673,
@@ -2608,7 +3292,12 @@
       "lon": 34.7822126,
       "method": "nominatim"
     },
-    "51ba20e4-d6b3-471c-8be5-09fb0f922bd8": null,
+    "51ba20e4-d6b3-471c-8be5-09fb0f922bd8": {
+      "city": "יקנעם עילית",
+      "lat": 32.6612507,
+      "lon": 35.1057418,
+      "method": "nominatim"
+    },
     "51d8bc75-fa08-4370-9d68-24ce39667dea": {
       "city": "עפולה עילית",
       "lat": 32.6302557,
@@ -2690,7 +3379,12 @@
       "lon": 34.8376932,
       "method": "nominatim"
     },
-    "54c0ef63-0fde-4b21-b555-0f8362d71c73": null,
+    "54c0ef63-0fde-4b21-b555-0f8362d71c73": {
+      "city": "גני תקווה",
+      "lat": 32.0646404,
+      "lon": 34.875473,
+      "method": "cheapersal"
+    },
     "5525eaa9-2009-48d3-85a4-fdcfbcfbc4c6": {
       "city": "תל אביב -יפו",
       "lat": 32.067078,
@@ -2698,7 +3392,12 @@
       "method": "nominatim"
     },
     "552c12bc-3f6d-47f2-aea6-c805915c11bb": null,
-    "55717246-5bf7-4489-8731-cebc38a58e34": null,
+    "55717246-5bf7-4489-8731-cebc38a58e34": {
+      "city": "מודיעין-מכבים-רעות",
+      "lat": 31.8878993,
+      "lon": 34.9619728,
+      "method": "nominatim"
+    },
     "559bde01-55a6-4c00-810c-1095f7194bef": null,
     "559f9bf8-8457-4a4c-8cbd-c9f9165d83c3": {
       "city": null,
@@ -2744,7 +3443,12 @@
       "lon": 34.742136,
       "method": "nominatim"
     },
-    "57260dfe-4d4b-40c0-9d46-a98c9a3940e6": null,
+    "57260dfe-4d4b-40c0-9d46-a98c9a3940e6": {
+      "city": "רמלה",
+      "lat": 31.9306548,
+      "lon": 34.8697383,
+      "method": "nominatim"
+    },
     "573dee38-8a76-4234-83a0-5b8a016b0a9b": null,
     "57a28061-18e2-4216-91a9-2a275adf94f9": {
       "city": "ירושלים",
@@ -2764,7 +3468,12 @@
       "lon": 34.8754142,
       "method": "nominatim"
     },
-    "57e50cff-c78b-419c-b893-c162d7a3ad8b": null,
+    "57e50cff-c78b-419c-b893-c162d7a3ad8b": {
+      "city": "ירושלים",
+      "lat": 31.7705543,
+      "lon": 35.2006608,
+      "method": "nominatim"
+    },
     "57f5faf4-5b11-49bc-be5b-96548d4ded96": null,
     "57fd22d9-9f95-4987-a19c-336e4d254c9e": null,
     "580c3977-6236-41f8-b756-e57070b649de": {
@@ -2794,8 +3503,18 @@
     },
     "589702d5-7de9-48da-8ac8-11f59afc3f6a": null,
     "58b304b8-e336-41f2-b7d9-8af1be18516b": null,
-    "58b41621-0a50-4ada-b3af-35aa67f449ae": null,
-    "58b7fb72-ac22-4a0f-bb5f-cb58bab44226": null,
+    "58b41621-0a50-4ada-b3af-35aa67f449ae": {
+      "city": "מעלות-תרשיחא",
+      "lat": 33.0191612,
+      "lon": 35.2829704,
+      "method": "cheapersal"
+    },
+    "58b7fb72-ac22-4a0f-bb5f-cb58bab44226": {
+      "city": "תל אביב -יפו",
+      "lat": 32.077696,
+      "lon": 34.773589,
+      "method": "nominatim"
+    },
     "58bdef2e-cb23-4415-a73b-9d91dabb417c": null,
     "58d43643-a772-49f0-a3d9-42b875e7240c": {
       "city": "תל אביב -יפו",
@@ -2815,7 +3534,12 @@
       "lon": 34.8651359,
       "method": "nominatim"
     },
-    "591089ec-c40a-40d2-b6cf-50822566d0d3": null,
+    "591089ec-c40a-40d2-b6cf-50822566d0d3": {
+      "city": "קדימה-צורן",
+      "lat": 32.2760564,
+      "lon": 34.9177826,
+      "method": "nominatim"
+    },
     "5946f8e6-480b-4c03-8747-dbd21a6e1c63": null,
     "595b2488-fd05-4669-a7d9-129e5acefecb": null,
     "59954b30-149b-4d91-8b9d-edbd2c6eb5b0": {
@@ -2831,8 +3555,18 @@
       "lon": 34.8883536,
       "method": "nominatim"
     },
-    "59cc5d26-bdab-4b8e-9dab-b77108a14e0b": null,
-    "59d6be47-7212-4208-9115-486887c1142e": null,
+    "59cc5d26-bdab-4b8e-9dab-b77108a14e0b": {
+      "city": "נצרת",
+      "lat": 32.6943677,
+      "lon": 35.2986765,
+      "method": "nominatim"
+    },
+    "59d6be47-7212-4208-9115-486887c1142e": {
+      "city": "יפיע",
+      "lat": 32.6878988,
+      "lon": 35.2800318,
+      "method": "nominatim"
+    },
     "5a08cd83-4cd7-4896-8034-fb54318b7f98": null,
     "5a17bf4a-f070-4071-a9bf-fb3198b26a3d": null,
     "5a6c5f27-1bec-4422-902d-bf563fefca9d": {
@@ -2841,7 +3575,12 @@
       "lon": 34.8062219,
       "method": "nominatim"
     },
-    "5a7e36a3-268e-4ff0-abc7-b33c9bb41915": null,
+    "5a7e36a3-268e-4ff0-abc7-b33c9bb41915": {
+      "city": "אור יהודה",
+      "lat": 32.0343627,
+      "lon": 34.8491282,
+      "method": "nominatim"
+    },
     "5aa00a07-0c98-4199-bd5b-553f18cbac54": {
       "city": "תל-אביב",
       "lat": 32.0646198,
@@ -2849,7 +3588,12 @@
       "method": "nominatim"
     },
     "5ab2230d-178e-447f-86e0-90702cdcc9b0": null,
-    "5abbe4cf-342f-4cd4-bb69-0e35ede3fd9a": null,
+    "5abbe4cf-342f-4cd4-bb69-0e35ede3fd9a": {
+      "city": "בית שמש",
+      "lat": 31.7559743,
+      "lon": 34.9841054,
+      "method": "nominatim"
+    },
     "5abee744-e6ea-4d7a-aa40-f4d0cdf575a2": null,
     "5ac8512e-12f9-4b7b-ab10-1c7efa526f19": null,
     "5aeb41bf-e730-4b33-a126-b93c6ffb36af": null,
@@ -2884,7 +3628,12 @@
       "lon": 34.7654758,
       "method": "nominatim"
     },
-    "5bbb0cff-e879-4685-a1be-7f0fc62dc691": null,
+    "5bbb0cff-e879-4685-a1be-7f0fc62dc691": {
+      "city": "קריית אתא",
+      "lat": 32.805125,
+      "lon": 35.1018069,
+      "method": "cheapersal"
+    },
     "5bbb4d35-27a2-4502-99a6-59c003e35170": {
       "city": "חיפה",
       "lat": 32.813039,
@@ -2947,8 +3696,18 @@
       "lon": 34.8543583,
       "method": "nominatim"
     },
-    "5eacfa30-2a33-4051-bcf5-c58701ef442c": null,
-    "5edd1266-bfe5-44f1-bae8-3077096f9ff6": null,
+    "5eacfa30-2a33-4051-bcf5-c58701ef442c": {
+      "city": "חולון",
+      "lat": 32.0221408,
+      "lon": 34.7767108,
+      "method": "nominatim"
+    },
+    "5edd1266-bfe5-44f1-bae8-3077096f9ff6": {
+      "city": "אשדוד",
+      "lat": 31.7784634,
+      "lon": 34.6345879,
+      "method": "nominatim"
+    },
     "5efd4bd9-0aa7-437f-a8f3-40b964f2e7ad": null,
     "5eff73c5-49f4-496f-82eb-46e68b816080": null,
     "5f245c5d-c62f-4c6f-8f3e-0c60633b925f": {
@@ -2982,13 +3741,13 @@
       "lon": 34.9071512,
       "method": "nominatim"
     },
-    "5fc68023-a626-469b-84d1-e05f3899965a": {
-      "city": "באר שבע",
-      "lat": 31.4242578,
-      "lon": 34.568817,
+    "5fc68023-a626-469b-84d1-e05f3899965a": null,
+    "5fda2035-3a75-4f66-b9d8-ad97bf2c4737": {
+      "city": null,
+      "lat": 31.6703852,
+      "lon": 35.163384,
       "method": "nominatim"
     },
-    "5fda2035-3a75-4f66-b9d8-ad97bf2c4737": null,
     "5ff6a667-6600-4c60-ad2a-8925e351f6d2": {
       "city": "בת ים",
       "lat": 32.0280071,
@@ -2996,7 +3755,12 @@
       "method": "nominatim"
     },
     "600e2d20-28d0-4bd4-b7d1-0e24b0ab3bd3": null,
-    "6029b439-d5f9-42ca-aea8-41ce1e4ddafe": null,
+    "6029b439-d5f9-42ca-aea8-41ce1e4ddafe": {
+      "city": "פוריידיס",
+      "lat": 32.5911312,
+      "lon": 34.9462148,
+      "method": "nominatim"
+    },
     "60379f61-9c5f-4cfa-907b-30a589d23c7a": null,
     "6042c9ac-f55d-4436-901d-8e42fc0b5c27": null,
     "60664645-c263-469a-a72b-fe9cdb4e0861": null,
@@ -3007,9 +3771,24 @@
       "method": "nominatim"
     },
     "6094c6dd-e684-4db0-9e5a-3759b6240f84": null,
-    "6097c71f-9b6e-4996-a858-ff585da97215": null,
-    "609bb9b2-591d-4598-9c36-1234ecdf8df9": null,
-    "60b07383-b39a-403a-bd38-9840fb8b3b79": null,
+    "6097c71f-9b6e-4996-a858-ff585da97215": {
+      "city": "פתח תקווה",
+      "lat": 32.1000191,
+      "lon": 34.8900673,
+      "method": "nominatim"
+    },
+    "609bb9b2-591d-4598-9c36-1234ecdf8df9": {
+      "city": "ירושלים",
+      "lat": 31.7676936,
+      "lon": 35.2018632,
+      "method": "nominatim"
+    },
+    "60b07383-b39a-403a-bd38-9840fb8b3b79": {
+      "city": "רמת השרון",
+      "lat": 32.1464078,
+      "lon": 34.8041896,
+      "method": "cheapersal"
+    },
     "60e6b532-44a0-4bef-a098-69b3e1e86fa2": null,
     "60ec4c18-99f6-4c49-8049-1ced999cbbf1": null,
     "60fe3432-ef95-4f35-a119-b80ade9be64a": {
@@ -3024,8 +3803,18 @@
       "lon": 34.8391311,
       "method": "nominatim"
     },
-    "611e2f64-54c5-43d7-a120-b7df7a247834": null,
-    "61222ada-fc8f-4b2d-b7e4-1311ef942436": null,
+    "611e2f64-54c5-43d7-a120-b7df7a247834": {
+      "city": "קריית ביאליק",
+      "lat": 32.8518926,
+      "lon": 35.1048514,
+      "method": "nominatim"
+    },
+    "61222ada-fc8f-4b2d-b7e4-1311ef942436": {
+      "city": "רחובות",
+      "lat": 31.8903567,
+      "lon": 34.7869985,
+      "method": "nominatim"
+    },
     "6133b2c6-3bbd-4bf9-8ed3-c802c37f27d2": null,
     "6151dd7f-efe0-4e10-94ea-29bdca44d6a7": {
       "city": "פתח תקווה",
@@ -3039,7 +3828,12 @@
       "lon": 35.2174954,
       "method": "nominatim"
     },
-    "6190e686-325a-4710-b5ee-c2ef2f00279f": null,
+    "6190e686-325a-4710-b5ee-c2ef2f00279f": {
+      "city": "אבן יהודה",
+      "lat": 32.269954,
+      "lon": 34.8811361,
+      "method": "nominatim"
+    },
     "619d570e-609d-49d3-a4af-b13f8de04b1d": null,
     "619ec448-9244-4514-9f50-38f18ce6ab5b": {
       "city": "תל אביב -יפו",
@@ -3090,7 +3884,12 @@
       "lon": 35.1641671,
       "method": "nominatim"
     },
-    "62705fb4-4016-4286-a1d6-0d33b7684fbd": null,
+    "62705fb4-4016-4286-a1d6-0d33b7684fbd": {
+      "city": "תל אביב -יפו",
+      "lat": 32.0888285,
+      "lon": 34.7972928,
+      "method": "nominatim"
+    },
     "628547f3-0773-469d-9bc7-97185db7364a": null,
     "6288b451-c831-4ec3-ae58-74880c0cf0e3": null,
     "6292af18-b5a2-42f0-a5b5-b4721604546f": null,
@@ -3146,7 +3945,12 @@
       "method": "nominatim"
     },
     "63f5373d-8127-4b8b-b24e-7c76c3dc673e": null,
-    "64194e01-725e-4e7f-98e3-7bcc4c323b85": null,
+    "64194e01-725e-4e7f-98e3-7bcc4c323b85": {
+      "city": "רמלה",
+      "lat": 31.9235,
+      "lon": 34.8625693,
+      "method": "nominatim"
+    },
     "6433bcfa-f4f7-474d-a6d3-635f6419945b": {
       "city": null,
       "lat": 31.8709674,
@@ -3201,19 +4005,19 @@
       "method": "nominatim"
     },
     "65c002d0-5b08-4f10-8ec1-6d2ca6ec88d3": null,
-    "65e12cd5-bda1-4110-87e9-57bba85e5b90": {
-      "city": "באר שבע",
-      "lat": 30.9924471,
-      "lon": 34.9354612,
-      "method": "nominatim"
-    },
+    "65e12cd5-bda1-4110-87e9-57bba85e5b90": null,
     "65f1de37-a335-4adc-9db9-a0455cf73900": {
       "city": "בני ברק",
       "lat": 32.0788369,
       "lon": 34.8361417,
       "method": "nominatim"
     },
-    "6635f7c9-5138-4748-8871-ec3258d28a0d": null,
+    "6635f7c9-5138-4748-8871-ec3258d28a0d": {
+      "city": "תל אביב -יפו",
+      "lat": 32.09105,
+      "lon": 34.782419,
+      "method": "nominatim"
+    },
     "66500914-cacb-4f29-9c73-579ff25eba1b": null,
     "6666b4c5-4581-48dd-917c-75804ee76dd1": null,
     "6686b271-4891-4d62-8d80-9cce3f3aa17a": {
@@ -3260,7 +4064,12 @@
       "lon": 35.0836005,
       "method": "nominatim"
     },
-    "67c199ba-67b1-4d35-a3d4-1dd9aa91b570": null,
+    "67c199ba-67b1-4d35-a3d4-1dd9aa91b570": {
+      "city": "תל אביב - יפו",
+      "lat": 32.0720511,
+      "lon": 34.7704078,
+      "method": "nominatim"
+    },
     "67eb2242-c3c5-4d0b-a3f4-517b235a77a1": {
       "city": "באר שבע",
       "lat": 31.2579975,
@@ -3302,7 +4111,12 @@
       "lon": 34.771723,
       "method": "nominatim"
     },
-    "692b1ce7-0914-4e4d-b20e-d88cfb8c1024": null,
+    "692b1ce7-0914-4e4d-b20e-d88cfb8c1024": {
+      "city": "באר שבע",
+      "lat": 31.242422,
+      "lon": 34.7783616,
+      "method": "nominatim"
+    },
     "6944ff20-e8dc-43f1-b9f4-e6ba198b16a2": {
       "city": "רמת גן",
       "lat": 32.0791717,
@@ -3351,7 +4165,12 @@
       "lon": 34.7494648,
       "method": "nominatim"
     },
-    "69e2b662-f460-4a32-bb75-bf8484c3ed38": null,
+    "69e2b662-f460-4a32-bb75-bf8484c3ed38": {
+      "city": "אור יהודה",
+      "lat": 32.0223493,
+      "lon": 34.8584122,
+      "method": "cheapersal"
+    },
     "69fb4604-c943-49f8-851c-a951cd61ec9e": {
       "city": "ירושלים",
       "lat": 31.7877109,
@@ -3370,7 +4189,12 @@
       "lon": 34.841428,
       "method": "nominatim"
     },
-    "6a4a690e-b343-4288-a81a-a61574135c2b": null,
+    "6a4a690e-b343-4288-a81a-a61574135c2b": {
+      "city": "ראשון לציון",
+      "lat": 31.9757267,
+      "lon": 34.7856281,
+      "method": "nominatim"
+    },
     "6a4f7550-237d-408b-9abf-9ede5ed859c5": {
       "city": "רמת גן",
       "lat": 32.0694893,
@@ -3429,7 +4253,12 @@
       "lon": 34.7415948,
       "method": "nominatim"
     },
-    "6c0c9df0-46b7-4df5-8248-8a7c90523b43": null,
+    "6c0c9df0-46b7-4df5-8248-8a7c90523b43": {
+      "city": "חדרה",
+      "lat": 32.4390189,
+      "lon": 34.8928138,
+      "method": "nominatim"
+    },
     "6c4256fe-11ba-4e3b-9aec-ac325a6f250f": {
       "city": "אשקלון",
       "lat": 31.5280824,
@@ -3449,7 +4278,12 @@
       "lon": 34.8398648,
       "method": "nominatim"
     },
-    "6cdf9d5b-2637-4c04-9107-f7a8c8773126": null,
+    "6cdf9d5b-2637-4c04-9107-f7a8c8773126": {
+      "city": "רמת גן",
+      "lat": 32.0841772,
+      "lon": 34.8191292,
+      "method": "nominatim"
+    },
     "6cfb0a1d-b2f7-4285-9d8d-4fb4f338a3fb": {
       "city": "גבעתיים",
       "lat": 32.0607462,
@@ -3469,7 +4303,12 @@
       "lon": 35.238501,
       "method": "nominatim"
     },
-    "6d7bebfb-652e-44c9-800b-c4bba1c3a880": null,
+    "6d7bebfb-652e-44c9-800b-c4bba1c3a880": {
+      "city": "ירושלים",
+      "lat": 31.756478,
+      "lon": 35.1660279,
+      "method": "cheapersal"
+    },
     "6db0fee3-d674-4b3f-8085-9dcb232b0c9e": {
       "city": "ירושלים",
       "lat": 31.8077442,
@@ -3495,7 +4334,12 @@
       "method": "nominatim"
     },
     "6df77c11-d2c1-4a4d-b286-05545db34e39": null,
-    "6e26bc95-6fe0-4bb4-993f-7d5cc4f46d4b": null,
+    "6e26bc95-6fe0-4bb4-993f-7d5cc4f46d4b": {
+      "city": "אילת",
+      "lat": 29.5681332,
+      "lon": 34.9583704,
+      "method": "nominatim"
+    },
     "6e2788c5-9420-4462-bced-9c39f890039f": null,
     "6e2d8e72-8ca9-4609-9c54-525cd8a2452d": {
       "city": null,
@@ -3503,7 +4347,12 @@
       "lon": 34.861935,
       "method": "nominatim"
     },
-    "6e4d6960-6220-4975-8e3a-db70c75e95be": null,
+    "6e4d6960-6220-4975-8e3a-db70c75e95be": {
+      "city": "אילת",
+      "lat": 29.5588679,
+      "lon": 34.9495848,
+      "method": "cheapersal"
+    },
     "6e59453f-2822-4f64-a101-a088d137b4a7": null,
     "6e69565d-e8db-4abd-8929-d8c7199b7274": {
       "city": "רמלה",
@@ -3539,7 +4388,12 @@
       "method": "nominatim"
     },
     "6f250d09-a5bb-49ee-bbaf-5094236fa3b2": null,
-    "6f35c19e-9722-49e1-b19f-d0e73f2e42c2": null,
+    "6f35c19e-9722-49e1-b19f-d0e73f2e42c2": {
+      "city": "תל אביב -יפו",
+      "lat": 32.064319,
+      "lon": 34.761964,
+      "method": "nominatim"
+    },
     "6f4ac017-173d-49b0-9e56-b2d9c7f1c3b9": {
       "city": "באקה אל-גרביה",
       "lat": 32.4138702,
@@ -3610,7 +4464,12 @@
       "method": "nominatim"
     },
     "703f542b-60fd-468a-b8e5-5f19fa16ef0a": null,
-    "704e9beb-4357-4473-a243-9a99d2714be0": null,
+    "704e9beb-4357-4473-a243-9a99d2714be0": {
+      "city": "ירושלים",
+      "lat": 31.749537,
+      "lon": 35.2132718,
+      "method": "nominatim"
+    },
     "7057fced-f389-4c24-8a7f-998c43a1da63": {
       "city": null,
       "lat": 31.9666881,
@@ -3645,7 +4504,12 @@
       "method": "nominatim"
     },
     "7148b9f3-2907-4028-8785-13bbb0071b29": null,
-    "71565c2a-aea5-48a0-8a78-99b2fcad116f": null,
+    "71565c2a-aea5-48a0-8a78-99b2fcad116f": {
+      "city": "באר שבע",
+      "lat": 31.2233792,
+      "lon": 34.8226163,
+      "method": "nominatim"
+    },
     "71773f75-6789-4922-98b4-957c36db54cc": {
       "city": "רחובות",
       "lat": 31.8948255,
@@ -3665,7 +4529,12 @@
       "lon": 35.3375891,
       "method": "nominatim"
     },
-    "71beb939-fbda-472b-a2d4-40c3114f6012": null,
+    "71beb939-fbda-472b-a2d4-40c3114f6012": {
+      "city": "כפר יונה",
+      "lat": 32.3237918,
+      "lon": 34.9371871,
+      "method": "nominatim"
+    },
     "71cc5a74-2429-46cb-a6ba-d23dc4ffbc8f": null,
     "7204589b-26db-400d-b17b-58c11b839bb8": {
       "city": null,
@@ -3715,7 +4584,12 @@
     },
     "73cf9637-42b0-4bcc-bc62-b0c13475a4c0": null,
     "74177917-b407-4c17-aed9-e412f190412f": null,
-    "7427192a-541c-4627-9c06-482702ddc235": null,
+    "7427192a-541c-4627-9c06-482702ddc235": {
+      "city": "חיפה",
+      "lat": 32.8074143,
+      "lon": 35.0547469,
+      "method": "nominatim"
+    },
     "745333c2-82c7-4e74-b990-649edf43f98e": {
       "city": "בת ים",
       "lat": 32.012373,
@@ -3728,11 +4602,21 @@
       "lon": 35.2150863,
       "method": "nominatim"
     },
-    "748e13f6-27ca-4b78-84d7-437005ced561": null,
+    "748e13f6-27ca-4b78-84d7-437005ced561": {
+      "city": "אור עקיבא",
+      "lat": 32.5116824,
+      "lon": 34.9193735,
+      "method": "nominatim"
+    },
     "74c8a774-b207-40ed-aeab-6b74e19b89c8": null,
     "74f0cc81-4966-4040-8d8e-48a5d73a1cdd": null,
     "74f4b44f-9acd-42ed-82e6-88a867275e4e": null,
-    "74f6fe84-dde4-4a86-b8e3-dc695129b8ad": null,
+    "74f6fe84-dde4-4a86-b8e3-dc695129b8ad": {
+      "city": "חולון",
+      "lat": 32.0231891,
+      "lon": 34.7964574,
+      "method": "nominatim"
+    },
     "75083787-881b-444d-87dd-a4712f39664a": {
       "city": "פתח תקווה",
       "lat": 32.079588,
@@ -3752,7 +4636,12 @@
       "lon": 34.7893331,
       "method": "nominatim"
     },
-    "75592b72-0695-495f-902f-a8ac75442aa5": null,
+    "75592b72-0695-495f-902f-a8ac75442aa5": {
+      "city": null,
+      "lat": 32.1626983,
+      "lon": 34.8079241,
+      "method": "nominatim"
+    },
     "755b3824-26ab-45fc-bca0-b110c355aed2": null,
     "758c401e-7425-4334-8684-b010f6f39aff": {
       "city": "תל אביב -יפו",
@@ -3766,8 +4655,18 @@
       "lon": 35.2079043,
       "method": "nominatim"
     },
-    "759f17ea-d3cb-4e6f-b13e-53e40929a29f": null,
-    "75c53cd9-e27b-4d0a-be38-99a2d86c9497": null,
+    "759f17ea-d3cb-4e6f-b13e-53e40929a29f": {
+      "city": "עין ורד",
+      "lat": 32.2603524,
+      "lon": 34.928516,
+      "method": "cheapersal"
+    },
+    "75c53cd9-e27b-4d0a-be38-99a2d86c9497": {
+      "city": "כפר הנשיא",
+      "lat": 32.97466,
+      "lon": 35.602308,
+      "method": "cheapersal"
+    },
     "75d01364-68bd-4409-a255-00f3fd6a2d00": {
       "city": "כרמיאל",
       "lat": 32.9077781,
@@ -3826,7 +4725,12 @@
       "lon": 34.772733,
       "method": "nominatim"
     },
-    "77927969-594e-4b09-9c50-36df7a5847dc": null,
+    "77927969-594e-4b09-9c50-36df7a5847dc": {
+      "city": "ישרש",
+      "lat": 31.9151737,
+      "lon": 34.8520217,
+      "method": "cheapersal"
+    },
     "77bae54d-173c-441a-a660-f179ed74e603": {
       "city": null,
       "lat": 31.9548349,
@@ -3852,7 +4756,12 @@
       "lon": 34.789484,
       "method": "nominatim"
     },
-    "78689a67-9ef0-4803-aeb2-2170b36554dd": null,
+    "78689a67-9ef0-4803-aeb2-2170b36554dd": {
+      "city": "קרית מלאכי",
+      "lat": 31.7932857,
+      "lon": 34.6399485,
+      "method": "cheapersal"
+    },
     "78733668-74e6-4f79-8df7-0a0201d5c47d": {
       "city": "באר שבע",
       "lat": 31.2590082,
@@ -3860,10 +4769,20 @@
       "method": "nominatim"
     },
     "78739581-f285-452c-a04c-7bdae8a572b1": null,
-    "788879cc-f68b-4ff4-a6ae-544dbd096d9a": null,
+    "788879cc-f68b-4ff4-a6ae-544dbd096d9a": {
+      "city": "מעלות-תרשיחא",
+      "lat": 33.0198627,
+      "lon": 35.2832617,
+      "method": "nominatim"
+    },
     "78929f23-d5ff-461e-b4c7-1a3879d8c10a": null,
     "78a77b05-9d6b-4822-95c5-3487ba359d13": null,
-    "78c263ff-04d6-4dd8-9bf8-ee48f9acbbcd": null,
+    "78c263ff-04d6-4dd8-9bf8-ee48f9acbbcd": {
+      "city": "באר שבע",
+      "lat": 31.2244175,
+      "lon": 34.8014475,
+      "method": "cheapersal"
+    },
     "78cdcb17-1691-4d39-9620-89e967e35372": {
       "city": "אשדוד",
       "lat": 31.7784053,
@@ -3901,9 +4820,19 @@
       "lon": 34.9737562,
       "method": "nominatim"
     },
-    "79afeefa-45a1-43f2-b964-1a18efb262da": null,
+    "79afeefa-45a1-43f2-b964-1a18efb262da": {
+      "city": "רמת גן",
+      "lat": 32.0857615,
+      "lon": 34.8114903,
+      "method": "nominatim"
+    },
     "79d25db0-161d-45c9-a04a-07dde2c28be2": null,
-    "79d70f2e-39e1-4666-8241-f968452166a9": null,
+    "79d70f2e-39e1-4666-8241-f968452166a9": {
+      "city": "אור עקיבא",
+      "lat": 32.5026537,
+      "lon": 34.9220495,
+      "method": "nominatim"
+    },
     "79ee8a8e-5dc0-4279-904d-d8c32cbe43f1": {
       "city": "ראשון לציון",
       "lat": 31.9757267,
@@ -3924,7 +4853,12 @@
     },
     "7a38c5b7-1317-488f-8fc3-e4620129d0bc": null,
     "7a5b4450-c5f6-4d57-a778-96490d2bb57d": null,
-    "7a6e2109-8cf6-4f54-9134-396c08768df4": null,
+    "7a6e2109-8cf6-4f54-9134-396c08768df4": {
+      "city": "חריש",
+      "lat": 32.4618459,
+      "lon": 35.0453516,
+      "method": "nominatim"
+    },
     "7a991bdd-6704-4146-bbab-9eb9ae35b3d2": null,
     "7ae1b5f4-6736-42d7-a2bc-0e311e470965": {
       "city": "הוד השרון",
@@ -3932,7 +4866,12 @@
       "lon": 34.8749144,
       "method": "nominatim"
     },
-    "7b2a03de-132c-41cc-9044-790cbf12d951": null,
+    "7b2a03de-132c-41cc-9044-790cbf12d951": {
+      "city": "פתח תקווה",
+      "lat": 32.0900899,
+      "lon": 34.8792221,
+      "method": "nominatim"
+    },
     "7b581e10-454b-4a70-ac49-cb8ff5c5b6ec": null,
     "7b7d57cd-0278-43f2-9b11-eb288d16ee70": {
       "city": "אילת",
@@ -3966,7 +4905,12 @@
       "lon": 34.7783511,
       "method": "nominatim"
     },
-    "7c02f5b4-4a2e-4b08-aac1-779dae7e422b": null,
+    "7c02f5b4-4a2e-4b08-aac1-779dae7e422b": {
+      "city": "בני ברק",
+      "lat": 32.106981,
+      "lon": 34.8491417,
+      "method": "nominatim"
+    },
     "7c172015-f36f-47f5-b47f-cc2ff870017b": null,
     "7c554c5e-237a-4b94-8994-43adff8f9e77": {
       "city": "בית שמש",
@@ -3982,7 +4926,12 @@
     },
     "7c66becb-289e-4325-9735-57d2477c438b": null,
     "7cbb2343-d5e8-44c1-9bca-7e3e7df317b6": null,
-    "7cbc1869-d758-4c7e-a379-fa4d3a5f340c": null,
+    "7cbc1869-d758-4c7e-a379-fa4d3a5f340c": {
+      "city": "פתח תקווה",
+      "lat": 32.0865539,
+      "lon": 34.8633587,
+      "method": "nominatim"
+    },
     "7d07fc25-2a3b-4081-8fc3-2bc77b476361": {
       "city": "רמלה",
       "lat": 31.9159454,
@@ -3991,7 +4940,12 @@
     },
     "7d1109aa-9c53-40e7-b37a-ba1045789f93": null,
     "7d5fdd1f-9ea7-47b4-aecf-0a14d69ae7ca": null,
-    "7d84545d-904e-4c26-9411-efef0707e454": null,
+    "7d84545d-904e-4c26-9411-efef0707e454": {
+      "city": "ראשון לציון",
+      "lat": 31.9596501,
+      "lon": 34.8308841,
+      "method": "nominatim"
+    },
     "7d92d9fd-9216-4889-8504-003324203fa2": {
       "city": "אשקלון",
       "lat": 31.6510334,
@@ -4007,10 +4961,20 @@
       "lon": 35.1837322,
       "method": "nominatim"
     },
-    "7e345b0c-e460-41d2-b5d7-3a7879c4ac46": null,
+    "7e345b0c-e460-41d2-b5d7-3a7879c4ac46": {
+      "city": "תל אביב -יפו",
+      "lat": 32.0739275,
+      "lon": 34.7982192,
+      "method": "nominatim"
+    },
     "7e5a78bf-e190-4685-a73b-8bccf6717eda": null,
     "7e959693-1c60-4145-b2de-1905252d3dac": null,
-    "7e9ac7c0-d48c-400a-8c13-20923d308f52": null,
+    "7e9ac7c0-d48c-400a-8c13-20923d308f52": {
+      "city": "צפת",
+      "lat": 32.9648655,
+      "lon": 35.4923093,
+      "method": "cheapersal"
+    },
     "7eb9c182-50e3-4f09-b3fd-2c9bde1c7e31": null,
     "7ebf778a-e0a1-46da-8328-0a99b3700bfd": null,
     "7ec084c8-dc34-45b4-a3f2-ebb53dee829b": {
@@ -4031,14 +4995,34 @@
       "lon": 34.8520909,
       "method": "nominatim"
     },
-    "7ee3b935-7af8-4a22-b6be-f33263fdc249": null,
+    "7ee3b935-7af8-4a22-b6be-f33263fdc249": {
+      "city": null,
+      "lat": 31.9625372,
+      "lon": 34.8079745,
+      "method": "nominatim"
+    },
     "7f10d609-9a82-42fa-a4bf-3f839a3d2ebe": null,
-    "7f32b5e5-3356-4166-b039-8abf785d5b91": null,
+    "7f32b5e5-3356-4166-b039-8abf785d5b91": {
+      "city": "קריית שמונה",
+      "lat": 33.2214397,
+      "lon": 35.5753499,
+      "method": "nominatim"
+    },
     "7f3f9d77-4013-4eb4-bd69-809f39534ce4": null,
     "7f40cb42-fc46-4ac2-8727-518eed2fd7ff": null,
     "7f4631cc-b576-4d4b-bb62-6767d7dacc77": null,
-    "7f98f5bc-06b2-4119-a587-6089e5bdcb2e": null,
-    "7f9d5faa-7e65-4c47-97d2-1109f3a43878": null,
+    "7f98f5bc-06b2-4119-a587-6089e5bdcb2e": {
+      "city": "חצור הגלילית",
+      "lat": 32.9813889,
+      "lon": 35.5561111,
+      "method": "cheapersal"
+    },
+    "7f9d5faa-7e65-4c47-97d2-1109f3a43878": {
+      "city": "כפר תבור",
+      "lat": 32.6901891,
+      "lon": 35.4189595,
+      "method": "cheapersal"
+    },
     "7fade926-d8fc-43d2-b0d1-f0023b294943": {
       "city": "ירושלים",
       "lat": 31.7829511,
@@ -4073,7 +5057,12 @@
       "lon": 34.8018149,
       "method": "nominatim"
     },
-    "80bb8312-04fb-4440-b687-06b08fc5f748": null,
+    "80bb8312-04fb-4440-b687-06b08fc5f748": {
+      "city": "רמת גן",
+      "lat": 32.0894038,
+      "lon": 34.8158776,
+      "method": "nominatim"
+    },
     "80be1922-143a-4e88-ab87-6a5bfbd15673": null,
     "80d60ef3-7354-4342-ad3b-090f24c46d26": {
       "city": "מודיעין עילית",
@@ -4135,10 +5124,30 @@
       "lon": 35.1735675,
       "method": "nominatim"
     },
-    "8288c1f8-4f1d-4030-b688-a1817e0ca56f": null,
-    "82a9aab6-0372-4f26-a654-9ad350dd228c": null,
-    "82afa02a-6f6f-4e73-b5d4-8dedbed10993": null,
-    "82cdb2c7-06fa-4f4d-9d92-1155bae1715c": null,
+    "8288c1f8-4f1d-4030-b688-a1817e0ca56f": {
+      "city": "מודיעין-מכבים-רעות",
+      "lat": 31.89030339999999,
+      "lon": 35.010338,
+      "method": "cheapersal"
+    },
+    "82a9aab6-0372-4f26-a654-9ad350dd228c": {
+      "city": "ירושלים",
+      "lat": 31.7598678,
+      "lon": 35.1667579,
+      "method": "cheapersal"
+    },
+    "82afa02a-6f6f-4e73-b5d4-8dedbed10993": {
+      "city": "קריית אונו",
+      "lat": 32.0348373,
+      "lon": 34.8646887,
+      "method": "nominatim"
+    },
+    "82cdb2c7-06fa-4f4d-9d92-1155bae1715c": {
+      "city": "ירושלים",
+      "lat": 31.7868821,
+      "lon": 35.2095174,
+      "method": "nominatim"
+    },
     "83184b4a-a69b-4bda-bb9f-3f7a2d92d0fd": {
       "city": "גן שמואל",
       "lat": 32.4542476,
@@ -4186,7 +5195,12 @@
       "lon": 34.8029647,
       "method": "nominatim"
     },
-    "84824da6-3a1f-48e1-8b02-92cc2757853e": null,
+    "84824da6-3a1f-48e1-8b02-92cc2757853e": {
+      "city": "רמלה",
+      "lat": 31.9085506,
+      "lon": 34.8938943,
+      "method": "nominatim"
+    },
     "849fab68-bef2-4adf-9e78-3468b8a4c38c": {
       "city": "חיפה",
       "lat": 32.825086,
@@ -4212,14 +5226,24 @@
       "lon": 35.4988544,
       "method": "nominatim"
     },
-    "85148b08-abbd-4a74-afea-85e7d6271e3b": null,
+    "85148b08-abbd-4a74-afea-85e7d6271e3b": {
+      "city": "עכו",
+      "lat": 32.8214927,
+      "lon": 35.151201,
+      "method": "nominatim"
+    },
     "8516cd1e-c68b-4087-a5a9-689a0ec00d16": {
       "city": "חיפה",
       "lat": 32.7830896,
       "lon": 35.0139306,
       "method": "nominatim"
     },
-    "8532dedf-03bc-490b-9df7-41cf20615717": null,
+    "8532dedf-03bc-490b-9df7-41cf20615717": {
+      "city": "תל אביב -יפו",
+      "lat": 32.112382,
+      "lon": 34.787183,
+      "method": "nominatim"
+    },
     "853726eb-ad85-4e9a-84b8-2b6ebd70f869": {
       "city": "קריית אתא",
       "lat": 32.8129532,
@@ -4232,7 +5256,12 @@
       "lon": 34.9850623,
       "method": "nominatim"
     },
-    "855adb48-3cbf-4f9b-a9e3-fc765c303c05": null,
+    "855adb48-3cbf-4f9b-a9e3-fc765c303c05": {
+      "city": "נהלל",
+      "lat": 32.690807,
+      "lon": 35.19609,
+      "method": "cheapersal"
+    },
     "85742290-a75c-4d9b-8d44-3f5f1ebba861": null,
     "859e0a01-293d-4849-b4a5-6c912e985566": {
       "city": "קריית שמונה",
@@ -4247,7 +5276,12 @@
       "lon": 34.7758806,
       "method": "nominatim"
     },
-    "85e0c360-d40d-4a5a-b869-c0dd173a4df1": null,
+    "85e0c360-d40d-4a5a-b869-c0dd173a4df1": {
+      "city": "רמת גן",
+      "lat": 32.0594129,
+      "lon": 34.8281376,
+      "method": "nominatim"
+    },
     "85ec8557-b355-4a4c-8c52-e4d448a49417": null,
     "86168d8a-f25a-4800-9e77-05154dd88452": {
       "city": "רמת גן",
@@ -4281,7 +5315,12 @@
       "method": "nominatim"
     },
     "86d90970-9429-4e04-bfd1-3097d2f673b0": null,
-    "86ea8dfb-571b-4627-8061-59b1efe27785": null,
+    "86ea8dfb-571b-4627-8061-59b1efe27785": {
+      "city": "תל אביב -יפו",
+      "lat": 32.069814,
+      "lon": 34.7935779,
+      "method": "nominatim"
+    },
     "86fc61ef-ba4b-4206-a0a8-719675a01010": {
       "city": "אלעד",
       "lat": 32.0424526,
@@ -4294,16 +5333,31 @@
       "lon": 35.5364105,
       "method": "nominatim"
     },
-    "8702eda4-8345-4b8d-9928-422a3c803f23": null,
+    "8702eda4-8345-4b8d-9928-422a3c803f23": {
+      "city": "באר שבע",
+      "lat": 31.2467033,
+      "lon": 34.8109041,
+      "method": "nominatim"
+    },
     "87345212-be8a-4fbf-bb8a-0e974174267f": {
       "city": "מבשרת ציון",
       "lat": 31.8007823,
       "lon": 35.1485823,
       "method": "nominatim"
     },
-    "8761fe75-cd22-4273-8dc9-447b439da98f": null,
+    "8761fe75-cd22-4273-8dc9-447b439da98f": {
+      "city": "רמת גן",
+      "lat": 32.0850178,
+      "lon": 34.801646,
+      "method": "nominatim"
+    },
     "879e8b45-8f4c-410a-b051-359a9e83d34a": null,
-    "87f64499-8812-4848-8254-080a0fa718e9": null,
+    "87f64499-8812-4848-8254-080a0fa718e9": {
+      "city": "טבריה",
+      "lat": 32.7800009,
+      "lon": 35.4993858,
+      "method": "nominatim"
+    },
     "8823e4fa-9dc4-4924-9948-72f00f461d6b": null,
     "882d4bb6-043e-491b-a081-07524cf0fd9e": null,
     "8844db2d-2d42-4259-bcc2-e7bfa3133d20": {
@@ -4322,7 +5376,12 @@
       "lon": 34.7647565,
       "method": "nominatim"
     },
-    "88f93196-a7bf-44a5-922c-d0ae04cbee64": null,
+    "88f93196-a7bf-44a5-922c-d0ae04cbee64": {
+      "city": "אשדוד",
+      "lat": 31.8089549,
+      "lon": 34.6560697,
+      "method": "nominatim"
+    },
     "890e9daf-0ccf-4a9e-a883-58d9cb67cd6f": null,
     "894010d7-2b80-4da3-92ab-20f99a4a30c3": null,
     "89657c9c-9745-48f7-84e3-4116f41aa360": {
@@ -4332,7 +5391,12 @@
       "method": "nominatim"
     },
     "897e978d-aa3d-4556-97f3-94ff080d965d": null,
-    "89813446-85f1-447e-a49c-1bcd2719098b": null,
+    "89813446-85f1-447e-a49c-1bcd2719098b": {
+      "city": "קריית מוצקין",
+      "lat": 32.8505172,
+      "lon": 35.0856818,
+      "method": "nominatim"
+    },
     "89966ee3-d22a-4305-8858-4381fa3e0af9": {
       "city": "ראשון לציון",
       "lat": 31.9640457,
@@ -4340,7 +5404,12 @@
       "method": "nominatim"
     },
     "899d53ee-ccf6-4c36-8531-29a9a7e7b767": null,
-    "89a131fc-a2ab-4da0-84c5-dbc8453476e4": null,
+    "89a131fc-a2ab-4da0-84c5-dbc8453476e4": {
+      "city": "יבנה",
+      "lat": 31.8861714,
+      "lon": 34.7350336,
+      "method": "nominatim"
+    },
     "89bfb41b-6035-4630-bb56-9c809e153946": {
       "city": null,
       "lat": 31.9737578,
@@ -4359,14 +5428,24 @@
       "lon": 34.779553,
       "method": "nominatim"
     },
-    "89fc0558-e661-481e-9f58-89f4466cea31": null,
+    "89fc0558-e661-481e-9f58-89f4466cea31": {
+      "city": "חיפה",
+      "lat": 32.7840347,
+      "lon": 35.0133976,
+      "method": "cheapersal"
+    },
     "8a020b2d-1ac8-42f7-a2a4-61871e600931": {
       "city": "תל אביב",
       "lat": 32.088726,
       "lon": 34.775576,
       "method": "nominatim"
     },
-    "8a4e0d92-8463-4624-be3b-c74489a0c988": null,
+    "8a4e0d92-8463-4624-be3b-c74489a0c988": {
+      "city": "רעננה",
+      "lat": 32.1843852,
+      "lon": 34.8535578,
+      "method": "nominatim"
+    },
     "8a9d9db2-321c-41c3-acbf-28c85cb40988": {
       "city": "רעננה",
       "lat": 32.1825932,
@@ -4374,16 +5453,31 @@
       "method": "nominatim"
     },
     "8aa32a03-71cc-4f8b-83cb-ced87e3bc3a0": null,
-    "8ab68dfa-4f7c-4338-b1ec-2cd688f07d4d": null,
+    "8ab68dfa-4f7c-4338-b1ec-2cd688f07d4d": {
+      "city": "ירושלים",
+      "lat": 31.7523235,
+      "lon": 35.1991303,
+      "method": "nominatim"
+    },
     "8abbee13-fa9b-4e72-a2fb-75f98fe14d7d": {
       "city": "קריית אונו",
       "lat": 32.0348373,
       "lon": 34.8646887,
       "method": "nominatim"
     },
-    "8ac06a99-46a9-441b-84aa-d0ce466864dd": null,
+    "8ac06a99-46a9-441b-84aa-d0ce466864dd": {
+      "city": "פתח תקווה",
+      "lat": 32.0894012,
+      "lon": 34.8824729,
+      "method": "cheapersal"
+    },
     "8ac85f65-b105-4190-b772-36e3f4d1c49a": null,
-    "8ac9e60a-d36b-4384-bc0c-b2b8d684c60d": null,
+    "8ac9e60a-d36b-4384-bc0c-b2b8d684c60d": {
+      "city": "רמלה",
+      "lat": 31.9319396,
+      "lon": 34.8505622,
+      "method": "nominatim"
+    },
     "8ad4ff1f-0283-4c35-acca-12e5b6208fb2": {
       "city": "אשדוד",
       "lat": 31.799629,
@@ -4446,7 +5540,12 @@
       "lon": 34.816512,
       "method": "nominatim"
     },
-    "8c8a66f4-0ce1-400a-8cbd-9a1a99859542": null,
+    "8c8a66f4-0ce1-400a-8cbd-9a1a99859542": {
+      "city": "ראשון לציון",
+      "lat": 31.9448184,
+      "lon": 34.8004152,
+      "method": "cheapersal"
+    },
     "8ca7f8b4-9409-4ee2-8b76-9206797251f5": null,
     "8cda3f88-6c4b-4742-ac03-329b3369b390": {
       "city": "חיפה",
@@ -4470,7 +5569,12 @@
     },
     "8d408f8a-51db-4be2-bfd2-f8ba078c7027": null,
     "8d62ef28-73e2-414a-8f80-7d074ae0f9f4": null,
-    "8d904769-b3a3-43bd-97a9-7727fd0e0665": null,
+    "8d904769-b3a3-43bd-97a9-7727fd0e0665": {
+      "city": "אילת",
+      "lat": 29.5681332,
+      "lon": 34.9583704,
+      "method": "nominatim"
+    },
     "8d9e9be1-d1b1-4d48-afdd-cf19980509ff": null,
     "8dc15962-f83c-4c86-9f2e-860d00f75600": {
       "city": "חיפה",
@@ -4491,7 +5595,12 @@
       "lon": 35.212739,
       "method": "nominatim"
     },
-    "8e3cea26-e696-4cd2-9429-3bd8fc17dec6": null,
+    "8e3cea26-e696-4cd2-9429-3bd8fc17dec6": {
+      "city": "גבעתיים",
+      "lat": 32.0788859,
+      "lon": 34.8098343,
+      "method": "nominatim"
+    },
     "8e418230-40ff-4ef6-9395-45cf752b66d6": null,
     "8e47e779-78b7-4b19-914d-20d296ba2fa6": null,
     "8e4e8c52-ec69-4d74-ba63-354c1a66047d": null,
@@ -4503,20 +5612,25 @@
       "method": "nominatim"
     },
     "8ebe2e7a-d2ea-41d0-904a-b323fa720c9c": null,
-    "8ed71409-bb5d-4b54-bccf-933a90eed7db": null,
+    "8ed71409-bb5d-4b54-bccf-933a90eed7db": {
+      "city": "עפולה",
+      "lat": 32.5833986,
+      "lon": 35.2439115,
+      "method": "cheapersal"
+    },
     "8ee5cbac-d698-47b1-bfdb-102d387d0361": {
       "city": "בני ברק",
       "lat": 32.08197,
       "lon": 34.8385732,
       "method": "nominatim"
     },
-    "8ee66ca9-3668-4539-9fc0-3b1560f3d92c": null,
-    "8ef6256a-1505-451a-bf54-aa51c0b15b2e": {
-      "city": "אזור",
-      "lat": 31.7627887,
-      "lon": 35.1970925,
-      "method": "nominatim"
+    "8ee66ca9-3668-4539-9fc0-3b1560f3d92c": {
+      "city": "גבעת ברנר",
+      "lat": 31.8620449,
+      "lon": 34.8098845,
+      "method": "cheapersal"
     },
+    "8ef6256a-1505-451a-bf54-aa51c0b15b2e": null,
     "8f116454-af6c-4a71-9461-bcc152e8723a": null,
     "8f16d996-027a-4bed-a1d8-8e81f9ff755d": {
       "city": "נתיבות",
@@ -4539,7 +5653,12 @@
       "method": "nominatim"
     },
     "902ad772-5ba3-438e-9a8c-643360896b7c": null,
-    "9037b5c2-7a67-46c2-b4a4-775779f9561d": null,
+    "9037b5c2-7a67-46c2-b4a4-775779f9561d": {
+      "city": "צור יצחק",
+      "lat": 32.2400283,
+      "lon": 34.9995346,
+      "method": "cheapersal"
+    },
     "90401afa-49e1-4f31-825f-d672faf3ced7": {
       "city": "תל אביב -יפו",
       "lat": 32.1075647,
@@ -4554,9 +5673,24 @@
       "lon": 34.781188,
       "method": "nominatim"
     },
-    "905989ec-efd1-4a0a-96d6-6bb76fb5a652": null,
-    "905ee02e-b0f4-4550-a77d-33cd678f965b": null,
-    "9078aeb2-f0a2-4487-966c-5cb9430ccb5e": null,
+    "905989ec-efd1-4a0a-96d6-6bb76fb5a652": {
+      "city": "חיפה",
+      "lat": 32.8195241,
+      "lon": 34.9944502,
+      "method": "nominatim"
+    },
+    "905ee02e-b0f4-4550-a77d-33cd678f965b": {
+      "city": "אור עקיבא",
+      "lat": 32.5026537,
+      "lon": 34.9220495,
+      "method": "nominatim"
+    },
+    "9078aeb2-f0a2-4487-966c-5cb9430ccb5e": {
+      "city": "נתניה",
+      "lat": 32.2846342,
+      "lon": 34.8605173,
+      "method": "nominatim"
+    },
     "9080bd92-4802-4630-8d7d-cc7f9d762eff": {
       "city": "מגאר",
       "lat": 32.878599,
@@ -4590,8 +5724,18 @@
       "method": "nominatim"
     },
     "91091d94-4ab4-4273-9b86-ac6b32d0c55a": null,
-    "91105e3e-04bc-40f7-9ccd-90d3ae40b7da": null,
-    "911e9c82-e89a-414d-91c5-17ae56141c57": null,
+    "91105e3e-04bc-40f7-9ccd-90d3ae40b7da": {
+      "city": "בית שמש",
+      "lat": 31.7429926,
+      "lon": 34.9932079,
+      "method": "nominatim"
+    },
+    "911e9c82-e89a-414d-91c5-17ae56141c57": {
+      "city": "בית שאן",
+      "lat": 32.511805,
+      "lon": 35.496841,
+      "method": "nominatim"
+    },
     "9124fac2-ec9c-4bf2-a2e5-37ce560705fc": {
       "city": "קריית ים",
       "lat": 32.842386,
@@ -4612,7 +5756,12 @@
       "lon": 34.809103,
       "method": "nominatim"
     },
-    "91635388-b690-4e8d-ba59-e31c96ec56c5": null,
+    "91635388-b690-4e8d-ba59-e31c96ec56c5": {
+      "city": "תל אביב -יפו",
+      "lat": 32.055036,
+      "lon": 34.770964,
+      "method": "nominatim"
+    },
     "91a10b79-4ad0-4ef2-a2ef-f60d1e6d6a08": {
       "city": "ראשון לציון",
       "lat": 31.9627933,
@@ -4625,7 +5774,12 @@
       "lon": 35.4939031,
       "method": "nominatim"
     },
-    "91cd9eb2-742f-4229-8bd8-db574a85c954": null,
+    "91cd9eb2-742f-4229-8bd8-db574a85c954": {
+      "city": "חיפה",
+      "lat": 32.777252,
+      "lon": 35.0004127,
+      "method": "nominatim"
+    },
     "91f38575-3dad-4382-86c1-927ce4540a55": {
       "city": "מודיעין עילית",
       "lat": 31.9300875,
@@ -4641,7 +5795,12 @@
       "lon": 34.892333,
       "method": "nominatim"
     },
-    "924a9d12-52da-4e6a-a027-2237eafa3488": null,
+    "924a9d12-52da-4e6a-a027-2237eafa3488": {
+      "city": "יבנה",
+      "lat": 31.8667392,
+      "lon": 34.7357534,
+      "method": "nominatim"
+    },
     "924bb49c-56f8-4b72-b7fd-3c4de5db8b3e": {
       "city": "בית שמש",
       "lat": 31.714101,
@@ -4655,7 +5814,12 @@
       "lon": 35.1048514,
       "method": "nominatim"
     },
-    "92725aa4-5948-4862-a086-661e2e4db36e": null,
+    "92725aa4-5948-4862-a086-661e2e4db36e": {
+      "city": "באר שבע",
+      "lat": 31.2548989,
+      "lon": 34.817951,
+      "method": "cheapersal"
+    },
     "92af84f0-d530-401f-bb60-23eacb2517b3": {
       "city": "פרדס חנה-כרכור",
       "lat": 32.4759131,
@@ -4668,7 +5832,12 @@
       "lon": 34.8377368,
       "method": "nominatim"
     },
-    "92d30567-dfeb-4b3c-bb9c-472d95400223": null,
+    "92d30567-dfeb-4b3c-bb9c-472d95400223": {
+      "city": "ראשון לציון",
+      "lat": 32.002655,
+      "lon": 34.8198914,
+      "method": "nominatim"
+    },
     "92d3d365-04c6-4a0b-8651-b9e2bffd2301": null,
     "933bf2ba-fb4f-468b-9e33-11d1e72cb41d": {
       "city": "אריאל",
@@ -4706,7 +5875,12 @@
     },
     "941538a4-bdfa-433a-babf-edaad8f90c74": null,
     "942b563f-4408-4bf8-ba66-fb761319db99": null,
-    "946e8633-443f-481b-9cbd-44cad5665542": null,
+    "946e8633-443f-481b-9cbd-44cad5665542": {
+      "city": "יקנעם עילית",
+      "lat": 32.6382425,
+      "lon": 35.0818802,
+      "method": "nominatim"
+    },
     "94766613-a06e-4159-943e-cae5c6ec7376": {
       "city": "רמלה",
       "lat": 31.9288047,
@@ -4744,18 +5918,38 @@
     },
     "952b9c6d-08b1-4f2a-b669-8b5cbb95fb09": null,
     "953e5174-3593-403d-a987-bda9fe89b345": null,
-    "9578ade0-63d4-4be0-b1e7-fcf964883f06": null,
+    "9578ade0-63d4-4be0-b1e7-fcf964883f06": {
+      "city": "ראשון לציון",
+      "lat": 31.9615072,
+      "lon": 34.800662,
+      "method": "cheapersal"
+    },
     "959bc926-92bd-48af-9da8-14c17db7d8d0": {
       "city": "ביתר עילית",
       "lat": 31.7010834,
       "lon": 35.1031964,
       "method": "nominatim"
     },
-    "95c3b013-2774-47ee-888d-cd0c7fb89a61": null,
-    "96142800-8eaf-4cb0-9e8e-299a4133c3e1": null,
+    "95c3b013-2774-47ee-888d-cd0c7fb89a61": {
+      "city": "ראשון לציון",
+      "lat": 31.9770827,
+      "lon": 34.7614997,
+      "method": "nominatim"
+    },
+    "96142800-8eaf-4cb0-9e8e-299a4133c3e1": {
+      "city": "תל אביב -יפו",
+      "lat": 32.1254933,
+      "lon": 34.7984881,
+      "method": "nominatim"
+    },
     "9634d706-fff3-447b-be37-3c44eb5e4d0d": null,
     "963f2603-247c-43fe-b7a5-176acf30a076": null,
-    "9650b7a2-5a63-4ef5-802b-8c58d6c91d89": null,
+    "9650b7a2-5a63-4ef5-802b-8c58d6c91d89": {
+      "city": "לוד",
+      "lat": 31.9436441,
+      "lon": 34.8953534,
+      "method": "nominatim"
+    },
     "96a24bbf-7ef7-46f2-b2ca-874a441a349f": {
       "city": "בית קמה",
       "lat": 31.4427892,
@@ -4775,27 +5969,67 @@
       "lon": 34.769203,
       "method": "nominatim"
     },
-    "979319f5-48f2-44d4-9b2f-0c5440771a96": null,
-    "97a00c37-47d7-4556-b771-2ba42f8c0eaa": null,
+    "979319f5-48f2-44d4-9b2f-0c5440771a96": {
+      "city": "צפת",
+      "lat": 32.95032,
+      "lon": 35.5278946,
+      "method": "nominatim"
+    },
+    "97a00c37-47d7-4556-b771-2ba42f8c0eaa": {
+      "city": "רחובות",
+      "lat": 31.8970095,
+      "lon": 34.8163016,
+      "method": "nominatim"
+    },
     "97a9828b-a696-49e1-93fc-301aeadf6156": {
       "city": "חולון",
       "lat": 32.0057607,
       "lon": 34.8071326,
       "method": "nominatim"
     },
-    "97ab841e-314f-40b1-adf8-993192869b3c": null,
+    "97ab841e-314f-40b1-adf8-993192869b3c": {
+      "city": "תל אביב -יפו",
+      "lat": 32.0686572,
+      "lon": 34.7851462,
+      "method": "nominatim"
+    },
     "97fff968-9b7e-4010-a86d-8244ef9fd89a": {
       "city": "בית אל",
       "lat": 31.9470777,
       "lon": 35.2302332,
       "method": "nominatim"
     },
-    "9820f21a-5fbc-453d-b783-3b9fe8598e03": null,
-    "9825e590-8ff8-4447-aa05-4fa4df9021e3": null,
-    "982b1d16-c537-40d1-a0c4-3a60bb6c73b8": null,
+    "9820f21a-5fbc-453d-b783-3b9fe8598e03": {
+      "city": "רעננה",
+      "lat": 32.1912,
+      "lon": 34.8632461,
+      "method": "nominatim"
+    },
+    "9825e590-8ff8-4447-aa05-4fa4df9021e3": {
+      "city": "הוד השרון",
+      "lat": 32.168735,
+      "lon": 34.9021068,
+      "method": "nominatim"
+    },
+    "982b1d16-c537-40d1-a0c4-3a60bb6c73b8": {
+      "city": "יפעת",
+      "lat": 32.6752089,
+      "lon": 35.2213135,
+      "method": "cheapersal"
+    },
     "982e279a-bf19-40e8-a7b3-a2aa57aa21a5": null,
-    "987f8c45-24ba-41e2-92ae-819ee7df75c9": null,
-    "98934cdf-9d1e-4b5d-9619-dd00687589d6": null,
+    "987f8c45-24ba-41e2-92ae-819ee7df75c9": {
+      "city": "באר שבע",
+      "lat": 31.2521018,
+      "lon": 34.7867691,
+      "method": "cheapersal"
+    },
+    "98934cdf-9d1e-4b5d-9619-dd00687589d6": {
+      "city": "רמת ישי",
+      "lat": 32.7073283,
+      "lon": 35.1740002,
+      "method": "nominatim"
+    },
     "989b7d19-add5-47b5-a1ea-83041a33da2b": null,
     "989cdb9e-e3ea-4ece-a234-549fc39b529e": null,
     "98b7a624-84ee-47bc-8db1-ae861d1a3721": {
@@ -4816,7 +6050,12 @@
       "lon": 35.2227078,
       "method": "nominatim"
     },
-    "98ee5860-efbc-4c82-982f-c3bd907fd8d2": null,
+    "98ee5860-efbc-4c82-982f-c3bd907fd8d2": {
+      "city": "תל-אביב",
+      "lat": 32.0627986,
+      "lon": 34.7706529,
+      "method": "nominatim"
+    },
     "993d9e4a-ab69-41ff-b15f-0ded2e578d51": {
       "city": "אשקלון",
       "lat": 31.690951,
@@ -4865,27 +6104,37 @@
       "lon": 34.8284432,
       "method": "nominatim"
     },
-    "9a2f5b92-01d1-42e8-8295-6a71ed3088a4": null,
+    "9a2f5b92-01d1-42e8-8295-6a71ed3088a4": {
+      "city": "ניר בנים",
+      "lat": 31.671177,
+      "lon": 34.755012,
+      "method": "cheapersal"
+    },
     "9a64c8a7-0a31-4373-ad5c-8a09984d0858": {
       "city": "תל מונד",
       "lat": 32.2545807,
       "lon": 34.9190262,
       "method": "nominatim"
     },
-    "9a8f79e4-abf6-4b5d-a173-6d56ed4cb510": {
-      "city": "ירושלים",
-      "lat": 31.796102,
-      "lon": 34.638139,
-      "method": "nominatim"
-    },
+    "9a8f79e4-abf6-4b5d-a173-6d56ed4cb510": null,
     "9aa02138-fdbe-4307-a814-0ddb735e9612": {
       "city": "קריית אונו",
       "lat": 32.0637716,
       "lon": 34.8616367,
       "method": "nominatim"
     },
-    "9aa368c2-7ee0-47c9-924d-687a72d2caac": null,
-    "9ab06301-c081-4770-819b-28aadd1ef2f1": null,
+    "9aa368c2-7ee0-47c9-924d-687a72d2caac": {
+      "city": "תל אביב -יפו",
+      "lat": 32.062687,
+      "lon": 34.799999,
+      "method": "nominatim"
+    },
+    "9ab06301-c081-4770-819b-28aadd1ef2f1": {
+      "city": "חולון",
+      "lat": 32.0063729,
+      "lon": 34.7999864,
+      "method": "nominatim"
+    },
     "9ae362cb-e38d-4af0-8de7-daea4cb060ef": {
       "city": "נוף הגליל",
       "lat": 32.6933144,
@@ -4893,8 +6142,18 @@
       "method": "nominatim"
     },
     "9af7d016-2817-44e1-9240-7b10279d9891": null,
-    "9b1659a2-1340-4459-9614-2a45d942acb2": null,
-    "9b2018fb-8eff-478f-872f-aa3f6feb12b5": null,
+    "9b1659a2-1340-4459-9614-2a45d942acb2": {
+      "city": "מודיעין-מכבים-רעות",
+      "lat": 31.8898861,
+      "lon": 34.963457,
+      "method": "nominatim"
+    },
+    "9b2018fb-8eff-478f-872f-aa3f6feb12b5": {
+      "city": "פתח תקווה",
+      "lat": 32.0742608,
+      "lon": 34.8699098,
+      "method": "nominatim"
+    },
     "9b260b26-2171-4c40-9249-70f8764397ca": {
       "city": "רמת גן",
       "lat": 32.0560789,
@@ -4917,9 +6176,24 @@
       "lon": 34.990483,
       "method": "nominatim"
     },
-    "9c4f6c10-e867-4894-9411-bb6e7052cb63": null,
-    "9c5f3a82-0a30-480c-bcf3-48a231ab61c9": null,
-    "9c658612-1f71-4ce1-b1dc-93a9be6962de": null,
+    "9c4f6c10-e867-4894-9411-bb6e7052cb63": {
+      "city": "רעננה",
+      "lat": 32.1974692,
+      "lon": 34.8791319,
+      "method": "cheapersal"
+    },
+    "9c5f3a82-0a30-480c-bcf3-48a231ab61c9": {
+      "city": "טבריה",
+      "lat": 32.7916277,
+      "lon": 35.5351501,
+      "method": "nominatim"
+    },
+    "9c658612-1f71-4ce1-b1dc-93a9be6962de": {
+      "city": "רמלה",
+      "lat": 31.9281869,
+      "lon": 34.869921,
+      "method": "nominatim"
+    },
     "9c69e429-4869-4a6c-9d02-5bd88033d4fe": {
       "city": "קיסריה",
       "lat": 32.5114712,
@@ -4946,8 +6220,18 @@
       "method": "nominatim"
     },
     "9ccea88a-f1ed-4673-9536-253541ba74e6": null,
-    "9cd56047-26c4-43ed-b21a-63f1a1b357ef": null,
-    "9cf0854f-6ec1-41df-b9e2-756c48a5e540": null,
+    "9cd56047-26c4-43ed-b21a-63f1a1b357ef": {
+      "city": "ירושלים",
+      "lat": 31.7321434,
+      "lon": 35.1950232,
+      "method": "nominatim"
+    },
+    "9cf0854f-6ec1-41df-b9e2-756c48a5e540": {
+      "city": "כרמיאל",
+      "lat": 32.9245719,
+      "lon": 35.3259042,
+      "method": "nominatim"
+    },
     "9cf54cda-b79f-4229-9509-de02848e7f38": {
       "city": "פתח תקווה",
       "lat": 32.0755359,
@@ -4961,8 +6245,18 @@
       "method": "nominatim"
     },
     "9d0e5419-cd8e-4d3e-a782-999397c8c90c": null,
-    "9d0ea9e2-aace-422f-9d9f-f13015aee66a": null,
-    "9d0f35c6-ff76-456d-b06b-6e71bc19ec76": null,
+    "9d0ea9e2-aace-422f-9d9f-f13015aee66a": {
+      "city": "נס ציונה",
+      "lat": 31.9223609,
+      "lon": 34.7909935,
+      "method": "nominatim"
+    },
+    "9d0f35c6-ff76-456d-b06b-6e71bc19ec76": {
+      "city": "כרמיאל",
+      "lat": 32.9277724,
+      "lon": 35.3248516,
+      "method": "nominatim"
+    },
     "9d120fcd-709e-431d-9cda-ff5144ec9303": {
       "city": "חיפה",
       "lat": 32.8241615,
@@ -5002,7 +6296,12 @@
       "method": "nominatim"
     },
     "9e2d3102-f030-4d79-af91-0314f9f414b6": null,
-    "9e3086dd-cb4a-42c9-905b-f6f851968d1b": null,
+    "9e3086dd-cb4a-42c9-905b-f6f851968d1b": {
+      "city": "באקה אל-גרביה",
+      "lat": 32.412011,
+      "lon": 35.039487,
+      "method": "nominatim"
+    },
     "9e345989-265e-40e9-af25-af2426603b03": null,
     "9e36f6b0-3fee-41cf-81a6-eeb562cd1856": {
       "city": "הוד השרון",
@@ -5010,8 +6309,18 @@
       "lon": 34.9034745,
       "method": "nominatim"
     },
-    "9e4cf166-e4cf-409e-a795-5a399e3f3933": null,
-    "9ece47ea-49ea-4d30-9e37-a65d99e25975": null,
+    "9e4cf166-e4cf-409e-a795-5a399e3f3933": {
+      "city": "חיפה",
+      "lat": 32.7845461,
+      "lon": 34.9871217,
+      "method": "nominatim"
+    },
+    "9ece47ea-49ea-4d30-9e37-a65d99e25975": {
+      "city": "תל אביב -יפו",
+      "lat": 32.075166,
+      "lon": 34.7825009,
+      "method": "nominatim"
+    },
     "9ed7579e-7132-4617-bd8c-3b69f7518705": {
       "city": "עפולה",
       "lat": 32.6143263,
@@ -5038,11 +6347,26 @@
       "method": "nominatim"
     },
     "9f9e47c9-baf7-480a-95ac-52a19fc6ce10": null,
-    "9ff82c76-eb19-459e-84af-e83e1d8bcf72": null,
+    "9ff82c76-eb19-459e-84af-e83e1d8bcf72": {
+      "city": null,
+      "lat": 32.8069281,
+      "lon": 35.0533666,
+      "method": "nominatim"
+    },
     "a000a891-6519-47f4-9e2e-09bd259c111a": null,
     "a02abecc-c35f-4102-852e-cc2d93879182": null,
-    "a04a7b63-0dde-430f-952b-21cf62c30948": null,
-    "a09205bd-de1f-4ca6-8ee1-365987fc1440": null,
+    "a04a7b63-0dde-430f-952b-21cf62c30948": {
+      "city": "חדרה",
+      "lat": 32.5392649,
+      "lon": 34.9349523,
+      "method": "nominatim"
+    },
+    "a09205bd-de1f-4ca6-8ee1-365987fc1440": {
+      "city": "נתניה",
+      "lat": 32.3314791,
+      "lon": 34.8586712,
+      "method": "nominatim"
+    },
     "a0b86186-f1bb-4357-a5a3-635b14549cf0": null,
     "a0e6ba3f-ef23-4698-8c17-21ab37e03df2": {
       "city": "טירת הכרמל",
@@ -5100,7 +6424,12 @@
       "method": "nominatim"
     },
     "a17eef24-8a68-4173-894b-22b19a2cb657": null,
-    "a1a13e91-ecdd-44f4-b8af-995e2812692b": null,
+    "a1a13e91-ecdd-44f4-b8af-995e2812692b": {
+      "city": "טירה",
+      "lat": 32.229716,
+      "lon": 34.944084,
+      "method": "nominatim"
+    },
     "a1a1b68b-615e-451d-8723-b976e82719b6": {
       "city": "יקנעם עילית",
       "lat": 32.6645774,
@@ -5120,7 +6449,12 @@
       "lon": 34.5557554,
       "method": "nominatim"
     },
-    "a1ee0d6c-1a3e-47ac-85fb-3a73980433af": null,
+    "a1ee0d6c-1a3e-47ac-85fb-3a73980433af": {
+      "city": null,
+      "lat": 31.7498621,
+      "lon": 35.1427216,
+      "method": "nominatim"
+    },
     "a1f7e4d5-d16b-4041-860f-1204046c548a": null,
     "a20a5011-2f69-417b-9a11-089c1ef794a8": {
       "city": "טבריה",
@@ -5134,7 +6468,12 @@
       "lon": 35.323603,
       "method": "nominatim"
     },
-    "a2544620-9a2f-400d-af17-7bca791c0a57": null,
+    "a2544620-9a2f-400d-af17-7bca791c0a57": {
+      "city": "קריית מוצקין",
+      "lat": 32.8587156,
+      "lon": 35.0923495,
+      "method": "nominatim"
+    },
     "a2978bac-da80-49f0-ae20-39394e1bb0cc": {
       "city": "חיפה",
       "lat": 32.799033,
@@ -5167,7 +6506,12 @@
       "lon": 34.9001525,
       "method": "nominatim"
     },
-    "a31efa48-5464-4825-b0ac-50805b4910c5": null,
+    "a31efa48-5464-4825-b0ac-50805b4910c5": {
+      "city": "כפר עזה",
+      "lat": 31.483416,
+      "lon": 34.532291,
+      "method": "cheapersal"
+    },
     "a3298575-2acf-4132-99ec-395a19ddeddb": null,
     "a34ed64c-86f7-4609-87bd-63c089a330e7": {
       "city": "כרמיאל",
@@ -5208,30 +6552,45 @@
       "lon": 34.644012,
       "method": "nominatim"
     },
-    "a4530897-bbe5-49c4-b6d8-2d66e0717a69": null,
+    "a4530897-bbe5-49c4-b6d8-2d66e0717a69": {
+      "city": "היוגב",
+      "lat": 32.612753,
+      "lon": 35.207483,
+      "method": "cheapersal"
+    },
     "a483bf83-6621-4c39-976b-7776dbc5d0ab": {
       "city": "אלעד",
       "lat": 32.0469852,
       "lon": 34.9590099,
       "method": "nominatim"
     },
-    "a4984e6f-1a6d-492a-82fb-055a5bb31cac": {
-      "city": "שוהם",
-      "lat": 31.7666145,
-      "lon": 34.6310477,
-      "method": "nominatim"
-    },
+    "a4984e6f-1a6d-492a-82fb-055a5bb31cac": null,
     "a4b315ad-4b5f-4632-8308-e2049a81592f": {
       "city": "ירושלים",
       "lat": 31.7948096,
       "lon": 35.2177916,
       "method": "nominatim"
     },
-    "a4b6fb22-6192-4878-a94e-4942471cc9cc": null,
+    "a4b6fb22-6192-4878-a94e-4942471cc9cc": {
+      "city": "ראשון לציון",
+      "lat": 31.9890679,
+      "lon": 34.7449776,
+      "method": "nominatim"
+    },
     "a4bceb72-bd5d-4cdf-8589-206f89f4df1a": null,
     "a53b4dec-5333-444a-bd64-157c2d262958": null,
-    "a5938aea-357d-4b18-94f8-0133cbdfb8ea": null,
-    "a5a03299-3c92-4599-9516-4e3a894c2dd7": null,
+    "a5938aea-357d-4b18-94f8-0133cbdfb8ea": {
+      "city": "חיפה",
+      "lat": 32.8040697,
+      "lon": 35.0168154,
+      "method": "nominatim"
+    },
+    "a5a03299-3c92-4599-9516-4e3a894c2dd7": {
+      "city": "תל אביב -יפו",
+      "lat": 32.0568286,
+      "lon": 34.8037066,
+      "method": "nominatim"
+    },
     "a5a54674-9676-4c7f-8cc2-3d7bb1434261": null,
     "a5b71903-aa7d-4258-b33e-ae69dae326ad": {
       "city": "חדרה",
@@ -5264,7 +6623,12 @@
       "lon": 34.801426,
       "method": "nominatim"
     },
-    "a6094444-0153-4847-9dec-65ea94f0638f": null,
+    "a6094444-0153-4847-9dec-65ea94f0638f": {
+      "city": "אשקלון",
+      "lat": 31.674687,
+      "lon": 34.5697877,
+      "method": "cheapersal"
+    },
     "a64df643-f3e8-4783-b6fc-48043b58ab0e": null,
     "a6b2d9f7-0b79-4180-a328-594b3ea407a0": null,
     "a6b94fa7-998f-4558-ba42-0d8ca8253890": null,
@@ -5338,14 +6702,24 @@
       "lon": 35.2372197,
       "method": "nominatim"
     },
-    "a8cdf39a-ea5c-4fb1-9c9f-003701d58e0d": null,
+    "a8cdf39a-ea5c-4fb1-9c9f-003701d58e0d": {
+      "city": "ירושלים",
+      "lat": 31.7803129,
+      "lon": 35.2158999,
+      "method": "cheapersal"
+    },
     "a8d71d38-aaa2-44a7-89cd-7d71937ec5f4": {
       "city": "אשקלון",
       "lat": 31.6693884,
       "lon": 34.5822248,
       "method": "nominatim"
     },
-    "a8f0d319-b834-488d-b12e-455ac4511429": null,
+    "a8f0d319-b834-488d-b12e-455ac4511429": {
+      "city": "מזכרת בתיה",
+      "lat": 31.82466,
+      "lon": 34.8484862,
+      "method": "nominatim"
+    },
     "a8f614ba-c473-4e8d-b4d5-8d42c7347b0f": null,
     "a9055013-e1b6-41d4-ba64-fbfd387d287d": {
       "city": "חיפה",
@@ -5370,7 +6744,12 @@
     "a9887a45-ae6d-46ce-bf37-53072fe8edac": null,
     "a99a17b4-d702-4c4e-b748-4e9dbb4c6644": null,
     "a99bdff4-6fd2-40c6-8e32-23789df94189": null,
-    "a9aeb650-2726-4866-a857-3a8785461239": null,
+    "a9aeb650-2726-4866-a857-3a8785461239": {
+      "city": "שדרות",
+      "lat": 31.5252087,
+      "lon": 34.59319260000001,
+      "method": "cheapersal"
+    },
     "a9d615b8-0077-41f8-8c6a-9c86fdcc62f4": null,
     "a9ddb310-a8aa-43ae-b584-a3af16df09dc": null,
     "aa0a75d9-9081-4eb4-87d9-f454b74de34d": {
@@ -5437,7 +6816,12 @@
       "lon": 34.7267025,
       "method": "nominatim"
     },
-    "ab8a9558-fadb-42f1-b606-6a4a5d84c293": null,
+    "ab8a9558-fadb-42f1-b606-6a4a5d84c293": {
+      "city": "מודיעין-מכבים-רעות",
+      "lat": 31.89894,
+      "lon": 35.0079612,
+      "method": "nominatim"
+    },
     "ab97bcbc-944c-4346-bee6-9d10d23110e0": null,
     "ab9906a6-e9a8-420b-a88c-3f009a6959e9": {
       "city": "קריית גת",
@@ -5469,7 +6853,12 @@
       "lon": 34.774362,
       "method": "nominatim"
     },
-    "ac2fbb13-0bf2-4486-8cdc-f3501c345463": null,
+    "ac2fbb13-0bf2-4486-8cdc-f3501c345463": {
+      "city": "באר שבע",
+      "lat": 31.246343,
+      "lon": 34.7968453,
+      "method": "nominatim"
+    },
     "ac6c12fd-f2f3-4f19-a8d9-1b363138af58": null,
     "ac757a15-47b6-48c3-b644-8f85d3aae1ca": null,
     "ac80ca2b-88e0-4bfc-8c69-18b0674f84b0": {
@@ -5555,7 +6944,12 @@
       "method": "nominatim"
     },
     "aef397e7-28c2-45e0-9748-2be8caf2ac6c": null,
-    "af06e94a-817e-4a3f-ba3c-9a14c0924715": null,
+    "af06e94a-817e-4a3f-ba3c-9a14c0924715": {
+      "city": "אשקלון",
+      "lat": 31.6492441,
+      "lon": 34.5679649,
+      "method": "nominatim"
+    },
     "af4f32c9-1194-49d2-9cb4-1c5fbdf17976": {
       "city": null,
       "lat": 32.2829488,
@@ -5568,7 +6962,12 @@
       "lon": 34.7654996,
       "method": "nominatim"
     },
-    "af8a4251-b3d4-4612-8781-5df570642fbf": null,
+    "af8a4251-b3d4-4612-8781-5df570642fbf": {
+      "city": "באר שבע",
+      "lat": 31.2227106,
+      "lon": 34.8094155,
+      "method": "cheapersal"
+    },
     "afbfaa09-9f6b-4748-ad05-5f17dd8aff44": {
       "city": "תל אביב -יפו",
       "lat": 32.112409,
@@ -5587,8 +6986,18 @@
       "lon": 34.778364,
       "method": "nominatim"
     },
-    "b011d0ad-8c9b-4f7b-9eed-1be25a8d412a": null,
-    "b02592e4-129e-403d-b08d-cd2a7be7aed0": null,
+    "b011d0ad-8c9b-4f7b-9eed-1be25a8d412a": {
+      "city": "חדרה",
+      "lat": 32.4477869,
+      "lon": 34.9144283,
+      "method": "nominatim"
+    },
+    "b02592e4-129e-403d-b08d-cd2a7be7aed0": {
+      "city": "חולון",
+      "lat": 32.0100348,
+      "lon": 34.8097092,
+      "method": "nominatim"
+    },
     "b02cb1e5-d5b0-4be1-876a-71be1ea50666": {
       "city": "חיפה",
       "lat": 32.8241615,
@@ -5630,7 +7039,12 @@
       "lon": 34.6915686,
       "method": "nominatim"
     },
-    "b17200c5-95ac-41ee-878f-d31feca9e3c7": null,
+    "b17200c5-95ac-41ee-878f-d31feca9e3c7": {
+      "city": "חיפה",
+      "lat": 32.8278956,
+      "lon": 34.9843699,
+      "method": "nominatim"
+    },
     "b1cb799a-7c72-4b00-9eaf-22d355c5faa8": {
       "city": "תל אביב -יפו",
       "lat": 32.078509,
@@ -5666,8 +7080,18 @@
       "method": "nominatim"
     },
     "b283dceb-edfd-4179-a25c-f31f7cce36cb": null,
-    "b286dccf-788c-4faf-8e66-5532a4b763f1": null,
-    "b2c177ee-e100-4715-8120-8d558e62934c": null,
+    "b286dccf-788c-4faf-8e66-5532a4b763f1": {
+      "city": null,
+      "lat": 32.9662159,
+      "lon": 35.5966714,
+      "method": "nominatim"
+    },
+    "b2c177ee-e100-4715-8120-8d558e62934c": {
+      "city": "אילת",
+      "lat": 29.5762742,
+      "lon": 34.9444142,
+      "method": "nominatim"
+    },
     "b2f7ae55-56cb-4ad5-8a84-0912fd8e7d03": {
       "city": "מזכרת בתיה",
       "lat": 31.8546712,
@@ -5686,15 +7110,30 @@
       "lon": 34.783164,
       "method": "nominatim"
     },
-    "b339c23f-450c-4b6e-9813-599263153c31": null,
+    "b339c23f-450c-4b6e-9813-599263153c31": {
+      "city": "לוד",
+      "lat": 31.9530326,
+      "lon": 34.8897125,
+      "method": "nominatim"
+    },
     "b3634674-c341-4dc3-8cfb-a9dab1d4e36e": {
       "city": "חריש",
       "lat": 32.4643288,
       "lon": 35.0477929,
       "method": "nominatim"
     },
-    "b3663d8d-ed62-47cf-93c3-ceb2c78d2050": null,
-    "b3d90c37-d142-4b73-b4f3-5127628df35a": null,
+    "b3663d8d-ed62-47cf-93c3-ceb2c78d2050": {
+      "city": "באר שבע",
+      "lat": 31.2621396,
+      "lon": 34.776395,
+      "method": "cheapersal"
+    },
+    "b3d90c37-d142-4b73-b4f3-5127628df35a": {
+      "city": "ירושלים",
+      "lat": 31.7509808,
+      "lon": 35.2157738,
+      "method": "nominatim"
+    },
     "b4165b9c-56a4-4330-a424-0966a8e347c1": {
       "city": "באר שבע",
       "lat": 31.2651387,
@@ -5727,7 +7166,12 @@
       "lon": 34.787583,
       "method": "nominatim"
     },
-    "b4cd39ea-5b97-49cb-8c86-2d423109d785": null,
+    "b4cd39ea-5b97-49cb-8c86-2d423109d785": {
+      "city": "חדרה",
+      "lat": 32.4383179,
+      "lon": 34.9285497,
+      "method": "nominatim"
+    },
     "b4f37389-4f2a-40ba-9bc9-292ce77fdb7d": {
       "city": "בני ברק",
       "lat": 32.0990238,
@@ -5746,16 +7190,31 @@
       "lon": 34.9041958,
       "method": "nominatim"
     },
-    "b52d4bb9-d913-4315-a2ec-d4d4607239f4": null,
+    "b52d4bb9-d913-4315-a2ec-d4d4607239f4": {
+      "city": "פתח תקווה",
+      "lat": 32.1971789,
+      "lon": 34.9564133,
+      "method": "nominatim"
+    },
     "b55417d0-cc7c-4e03-b465-428667483413": {
       "city": "באר יעקב",
       "lat": 31.9531944,
       "lon": 34.8419977,
       "method": "nominatim"
     },
-    "b5b8f5ea-5fc8-4c7b-8d84-082ab92cec1f": null,
+    "b5b8f5ea-5fc8-4c7b-8d84-082ab92cec1f": {
+      "city": "נתניה",
+      "lat": 32.2904141,
+      "lon": 34.8513443,
+      "method": "cheapersal"
+    },
     "b5e7039a-514a-470a-9047-fe37b85c3fe9": null,
-    "b6015468-0b21-4d12-9605-6e68471e32fd": null,
+    "b6015468-0b21-4d12-9605-6e68471e32fd": {
+      "city": "ראשון לציון",
+      "lat": 31.9845321,
+      "lon": 34.8112566,
+      "method": "nominatim"
+    },
     "b60a9445-c74e-44fb-aa72-ad8fb17e111c": {
       "city": "פתח תקווה",
       "lat": 32.0831515,
@@ -5802,7 +7261,12 @@
       "lon": 35.0060259,
       "method": "nominatim"
     },
-    "b77579b2-2897-43ff-8a78-ff9ad8fbd4de": null,
+    "b77579b2-2897-43ff-8a78-ff9ad8fbd4de": {
+      "city": "מכמורת",
+      "lat": 32.406504,
+      "lon": 34.871551,
+      "method": "cheapersal"
+    },
     "b780fa6a-fc71-4212-aa4b-dfc48284a91a": {
       "city": "ירושלים",
       "lat": 31.793888,
@@ -5859,9 +7323,19 @@
       "lon": 34.759818,
       "method": "nominatim"
     },
-    "b8b75dda-b3ed-4db6-80b7-90c1e2858dff": null,
+    "b8b75dda-b3ed-4db6-80b7-90c1e2858dff": {
+      "city": null,
+      "lat": 32.6965794,
+      "lon": 35.0597506,
+      "method": "nominatim"
+    },
     "b913b41a-4e6c-4a15-9f62-ac23d93eaa71": null,
-    "b91f2cef-7e91-4165-825f-53a2e6713f4e": null,
+    "b91f2cef-7e91-4165-825f-53a2e6713f4e": {
+      "city": "מודיעין-מכבים-רעות",
+      "lat": 31.929369,
+      "lon": 34.97760780000001,
+      "method": "cheapersal"
+    },
     "b9368745-3a03-4bd0-be09-52552d98a318": null,
     "b96e2c68-6276-467c-989f-61b3c4c57885": {
       "city": "גבעתיים",
@@ -5931,7 +7405,12 @@
       "lon": 34.900518,
       "method": "nominatim"
     },
-    "bb1a1a3f-85a7-42b1-b1e8-930de4c492b4": null,
+    "bb1a1a3f-85a7-42b1-b1e8-930de4c492b4": {
+      "city": "אשקלון",
+      "lat": 31.6642481,
+      "lon": 34.5645008,
+      "method": "nominatim"
+    },
     "bb4c399b-59ff-4ed3-9c02-79307167eec5": {
       "city": "ירושלים",
       "lat": 31.7675174,
@@ -6054,11 +7533,26 @@
       "method": "nominatim"
     },
     "be263e45-fd28-475b-b79c-35700d300801": null,
-    "be273ac3-d5ec-4903-abd0-212ed3b52b8a": null,
+    "be273ac3-d5ec-4903-abd0-212ed3b52b8a": {
+      "city": "חיפה",
+      "lat": 32.7865511,
+      "lon": 34.9984353,
+      "method": "cheapersal"
+    },
     "be5bbb5a-931b-4dd3-a6cb-63f7a451a645": null,
-    "be728432-809f-4eed-aba7-af098d836106": null,
+    "be728432-809f-4eed-aba7-af098d836106": {
+      "city": "נתניה",
+      "lat": 32.321458,
+      "lon": 34.853196,
+      "method": "cheapersal"
+    },
     "be75f49c-8868-499e-abca-bafe69f15e59": null,
-    "be83a317-e594-46d5-a8a9-f9188781f9a8": null,
+    "be83a317-e594-46d5-a8a9-f9188781f9a8": {
+      "city": "צפת",
+      "lat": 32.96955490000001,
+      "lon": 35.49703,
+      "method": "cheapersal"
+    },
     "be8b197d-b724-460c-a50f-501f3cf47dc5": {
       "city": null,
       "lat": 32.0270045,
@@ -6072,7 +7566,12 @@
       "lon": 34.6437135,
       "method": "nominatim"
     },
-    "beff690e-d445-410b-bce4-7bd51897669b": null,
+    "beff690e-d445-410b-bce4-7bd51897669b": {
+      "city": null,
+      "lat": 32.8106761,
+      "lon": 35.0591535,
+      "method": "nominatim"
+    },
     "bf08b328-38b1-4a5d-b39f-5e23b97d8a8a": null,
     "bf1b92db-3a75-4faa-8d41-b967fae840b1": {
       "city": "כפר סבא",
@@ -6088,7 +7587,12 @@
       "lon": 34.8717317,
       "method": "nominatim"
     },
-    "bf984ec5-8582-44e7-8b25-9ac23d15601a": null,
+    "bf984ec5-8582-44e7-8b25-9ac23d15601a": {
+      "city": "חדרה",
+      "lat": 32.4270115,
+      "lon": 34.933137,
+      "method": "nominatim"
+    },
     "bfa34ac0-b5f2-4648-8624-b126eac3fbf6": null,
     "bfa88752-ecce-443f-85f9-eefd90616ff7": null,
     "bfd39c29-9334-42d9-9530-f387ad4925cd": {
@@ -6131,7 +7635,12 @@
       "method": "nominatim"
     },
     "c12ba4f0-c645-4728-a702-c6fd2547e744": null,
-    "c14ef391-c4b2-4b83-86c7-e1829fcab473": null,
+    "c14ef391-c4b2-4b83-86c7-e1829fcab473": {
+      "city": "נתניה",
+      "lat": 32.3122314,
+      "lon": 34.8700769,
+      "method": "cheapersal"
+    },
     "c171b0f4-c178-4fce-be3b-8d52436c146f": {
       "city": "מודיעין-מכבים-רעות",
       "lat": 31.9122314,
@@ -6145,8 +7654,18 @@
       "method": "nominatim"
     },
     "c17f49b7-9eac-4419-9882-9467731a3f58": null,
-    "c1c2fb6a-23ce-4e2d-9de0-b55b3eef485c": null,
-    "c1c4de55-a685-4092-b7dd-18b99a55fda5": null,
+    "c1c2fb6a-23ce-4e2d-9de0-b55b3eef485c": {
+      "city": "ירושלים",
+      "lat": 31.7246624,
+      "lon": 35.2273803,
+      "method": "nominatim"
+    },
+    "c1c4de55-a685-4092-b7dd-18b99a55fda5": {
+      "city": "רחובות",
+      "lat": 31.9617749,
+      "lon": 34.8066932,
+      "method": "nominatim"
+    },
     "c1f753d7-ef71-4ce3-aa9a-898b63559ca9": {
       "city": "אלעד",
       "lat": 32.0515649,
@@ -6166,7 +7685,12 @@
       "lon": 35.2251366,
       "method": "nominatim"
     },
-    "c26da518-37c3-4db5-abee-c05263d724e9": null,
+    "c26da518-37c3-4db5-abee-c05263d724e9": {
+      "city": "כפר ויתקין",
+      "lat": 32.4681361,
+      "lon": 34.8974921,
+      "method": "cheapersal"
+    },
     "c2ba1b0e-8ac2-4777-933b-d92fd3de9808": null,
     "c2d26bb3-fd30-47ef-8b42-b0c8c3f0784b": null,
     "c2e36555-37ae-43dd-a71d-29976498de3e": {
@@ -6214,10 +7738,25 @@
       "method": "nominatim"
     },
     "c3c9d627-0baa-41af-9bff-b1e342113350": null,
-    "c3e20297-9b83-44ba-ae65-2c8c961b611c": null,
-    "c3e35407-a35c-48d5-bc37-e16db5ac13dd": null,
+    "c3e20297-9b83-44ba-ae65-2c8c961b611c": {
+      "city": "בני ברק",
+      "lat": 32.0916668,
+      "lon": 34.8246913,
+      "method": "nominatim"
+    },
+    "c3e35407-a35c-48d5-bc37-e16db5ac13dd": {
+      "city": "בני ברק",
+      "lat": 32.0857244,
+      "lon": 34.8315644,
+      "method": "nominatim"
+    },
     "c3e7aac0-724b-426d-9d84-66dbf4582a39": null,
-    "c3ef40d3-97a2-48ed-946a-580eefe41cb7": null,
+    "c3ef40d3-97a2-48ed-946a-580eefe41cb7": {
+      "city": "קריית ים",
+      "lat": 32.8561893,
+      "lon": 35.0768452,
+      "method": "nominatim"
+    },
     "c41d0bdf-f51b-4ca6-9a49-2bf9ffa93863": null,
     "c4206b3c-bba4-4d5d-b853-a6e65262ebb9": {
       "city": "באר יעקב",
@@ -6310,8 +7849,18 @@
       "method": "nominatim"
     },
     "c6c6a5ca-3e4b-4c56-bfd4-8c94ae7a52cb": null,
-    "c6deeff6-3f68-4858-b10b-a6bcfe4a36e8": null,
-    "c6f7d176-40a7-413e-abf3-06c223adfb72": null,
+    "c6deeff6-3f68-4858-b10b-a6bcfe4a36e8": {
+      "city": "קריית אונו",
+      "lat": 32.0556714,
+      "lon": 34.8633904,
+      "method": "nominatim"
+    },
+    "c6f7d176-40a7-413e-abf3-06c223adfb72": {
+      "city": "נהרייה",
+      "lat": 33.0048635,
+      "lon": 35.1010428,
+      "method": "nominatim"
+    },
     "c6f8e472-0a89-4a2e-a5b3-54050386587b": null,
     "c6fa3cf3-cebc-4eef-a615-e0d629b669f5": null,
     "c723f7b9-c011-48d6-8ca4-27565e7874af": {
@@ -6334,16 +7883,31 @@
       "method": "nominatim"
     },
     "c74693e6-83ad-4310-9afd-8824f9825252": null,
-    "c75a1bbb-4367-41d1-baeb-4e6c2d007311": null,
+    "c75a1bbb-4367-41d1-baeb-4e6c2d007311": {
+      "city": "מודיעין-מכבים-רעות",
+      "lat": 31.9029957,
+      "lon": 34.9895256,
+      "method": "nominatim"
+    },
     "c7662d07-e682-4d42-8aa6-a49420122cd6": null,
-    "c7743f37-e2bd-413d-b751-439f51515711": null,
+    "c7743f37-e2bd-413d-b751-439f51515711": {
+      "city": "קצרין",
+      "lat": 32.9920262,
+      "lon": 35.6877004,
+      "method": "nominatim"
+    },
     "c79338bf-ee18-448a-97d2-8d3793d354d0": {
       "city": null,
       "lat": 31.7554909,
       "lon": 35.2039771,
       "method": "nominatim"
     },
-    "c7db5879-cd9c-4419-bba9-05ff965bf1c0": null,
+    "c7db5879-cd9c-4419-bba9-05ff965bf1c0": {
+      "city": "חולון",
+      "lat": 32.0081402,
+      "lon": 34.7917993,
+      "method": "nominatim"
+    },
     "c7e0892e-08e9-400d-aa5f-2d7fd2186ad5": {
       "city": "אשדוד",
       "lat": 31.7718428,
@@ -6363,16 +7927,36 @@
       "method": "nominatim"
     },
     "c83eb923-8deb-4be1-b1ee-b8bb9eb33d0b": null,
-    "c83ebbb3-bfbe-49b4-b241-31ea3ad42ec0": null,
+    "c83ebbb3-bfbe-49b4-b241-31ea3ad42ec0": {
+      "city": "צפת",
+      "lat": 32.9715099,
+      "lon": 35.504242,
+      "method": "nominatim"
+    },
     "c84ba844-da3d-48b8-91e7-7af464386b59": {
       "city": "חדרה",
       "lat": 32.4336338,
       "lon": 34.924936,
       "method": "nominatim"
     },
-    "c84c5403-2d1d-4dde-9f0a-fa3d6863212f": null,
-    "c852f804-c5ae-4aa3-ba0e-3149a954173b": null,
-    "c877e366-2fe7-4b48-9300-56a4bcc8490f": null,
+    "c84c5403-2d1d-4dde-9f0a-fa3d6863212f": {
+      "city": "קריית אתא",
+      "lat": 32.8084885,
+      "lon": 35.0748009,
+      "method": "nominatim"
+    },
+    "c852f804-c5ae-4aa3-ba0e-3149a954173b": {
+      "city": "שלומי",
+      "lat": 33.0754389,
+      "lon": 35.1450494,
+      "method": "cheapersal"
+    },
+    "c877e366-2fe7-4b48-9300-56a4bcc8490f": {
+      "city": "ירכא",
+      "lat": 32.956241,
+      "lon": 35.181984,
+      "method": "cheapersal"
+    },
     "c88b3800-6a3a-439c-a75e-290b69d565e2": {
       "city": null,
       "lat": 32.063271,
@@ -6385,8 +7969,18 @@
       "lon": 34.5983976,
       "method": "nominatim"
     },
-    "c8e07ebc-b657-4740-b07f-cd26782a2c02": null,
-    "c919b907-76fd-42b3-88f6-a60b52d2c737": null,
+    "c8e07ebc-b657-4740-b07f-cd26782a2c02": {
+      "city": "עספיא",
+      "lat": 32.714077,
+      "lon": 35.069,
+      "method": "nominatim"
+    },
+    "c919b907-76fd-42b3-88f6-a60b52d2c737": {
+      "city": "חריש",
+      "lat": 32.4712783,
+      "lon": 35.0391977,
+      "method": "nominatim"
+    },
     "c92ed21b-124c-4be9-8b9e-3033aa3f5817": null,
     "c93c2c1e-e267-40ad-bb61-693029fa607f": {
       "city": "נתניה",
@@ -6396,14 +7990,24 @@
     },
     "c93cf643-592f-4849-a989-550d8c380b42": null,
     "c94d3c3d-3deb-48a4-aefa-d84deb1f31c5": null,
-    "c95165e4-92c6-49c2-ab1c-72094f0abba9": null,
+    "c95165e4-92c6-49c2-ab1c-72094f0abba9": {
+      "city": "נהרייה",
+      "lat": 33.0018976,
+      "lon": 35.0973758,
+      "method": "nominatim"
+    },
     "c963a6a3-3142-4f2e-8188-d10df8b84f0e": {
       "city": "באר שבע",
       "lat": 31.274286,
       "lon": 34.809614,
       "method": "nominatim"
     },
-    "c9897145-98e7-4def-98be-f873b16e7ac3": null,
+    "c9897145-98e7-4def-98be-f873b16e7ac3": {
+      "city": "מזכרת בתיה",
+      "lat": 31.8499195,
+      "lon": 34.8448771,
+      "method": "nominatim"
+    },
     "c9bfb6ad-bec3-42cf-b395-edbbac70fee4": null,
     "c9d5b60a-7518-43f2-afdd-2ad8b2050014": {
       "city": "תל אביב -יפו",
@@ -6411,7 +8015,12 @@
       "lon": 34.774446,
       "method": "nominatim"
     },
-    "ca5165f0-a0e8-4b3e-a96b-48e13dd0fcaa": null,
+    "ca5165f0-a0e8-4b3e-a96b-48e13dd0fcaa": {
+      "city": "ירושלים",
+      "lat": 31.79011599999999,
+      "lon": 35.3315771,
+      "method": "cheapersal"
+    },
     "ca5e37f2-8eea-4713-9980-ed0470cc668d": {
       "city": "חיפה",
       "lat": 32.8140512,
@@ -6446,7 +8055,12 @@
       "lon": 35.0687891,
       "method": "nominatim"
     },
-    "cbc5afef-e667-4bf2-afb2-914afc005458": null,
+    "cbc5afef-e667-4bf2-afb2-914afc005458": {
+      "city": "ירושלים",
+      "lat": 31.7608309,
+      "lon": 35.1719405,
+      "method": "nominatim"
+    },
     "cbe95a26-de26-46d3-a508-24d67162a9d7": {
       "city": "ירושלים",
       "lat": 31.7507631,
@@ -6529,7 +8143,12 @@
       "lon": 34.9364354,
       "method": "nominatim"
     },
-    "ce06abcb-1bcd-43cf-82bc-386963973755": null,
+    "ce06abcb-1bcd-43cf-82bc-386963973755": {
+      "city": "באר שבע",
+      "lat": 31.2822311,
+      "lon": 34.8019486,
+      "method": "nominatim"
+    },
     "ce17bbd9-a9da-4a21-8963-8f7ca53a8dc9": {
       "city": "נשר",
       "lat": 32.784485,
@@ -6577,7 +8196,12 @@
       "method": "nominatim"
     },
     "cf61f208-8cfd-48bf-80b7-521394f089fa": null,
-    "cf6e8edc-5294-4ab9-af87-a964df473319": null,
+    "cf6e8edc-5294-4ab9-af87-a964df473319": {
+      "city": "ירושלים",
+      "lat": 31.8250804,
+      "lon": 35.2388172,
+      "method": "nominatim"
+    },
     "cfa142bd-f6ee-4cda-a53e-ba0d00d8bc73": {
       "city": "באר שבע",
       "lat": 31.263266,
@@ -6614,7 +8238,12 @@
       "lon": 34.8281376,
       "method": "nominatim"
     },
-    "d0057b31-49eb-4bb1-bde9-f7f653bda434": null,
+    "d0057b31-49eb-4bb1-bde9-f7f653bda434": {
+      "city": "פתח תקווה",
+      "lat": 32.0758973,
+      "lon": 34.885085,
+      "method": "nominatim"
+    },
     "d00b7390-8715-4fd6-8469-1cbd5fcf4ec1": null,
     "d0536881-0f36-4d57-bc1c-bad68705fdbd": null,
     "d057501f-a834-4d94-aa1f-001ca0940b5f": {
@@ -6630,7 +8259,12 @@
       "lon": 34.8123246,
       "method": "nominatim"
     },
-    "d0abccda-7678-466e-bbc9-49a404c815c0": null,
+    "d0abccda-7678-466e-bbc9-49a404c815c0": {
+      "city": "שוהם",
+      "lat": 32.0063134,
+      "lon": 34.9515755,
+      "method": "nominatim"
+    },
     "d0b65d3b-a9a7-4bf5-ba3e-85116f81541c": null,
     "d0c16dd7-c81b-4954-bfc3-da411cebb4c7": {
       "city": "פתח תקווה",
@@ -6671,7 +8305,12 @@
       "method": "nominatim"
     },
     "d16583e4-4c0c-4842-96b4-43039ae61a24": null,
-    "d179e423-7cee-45b9-82c5-714a39fdc9f7": null,
+    "d179e423-7cee-45b9-82c5-714a39fdc9f7": {
+      "city": null,
+      "lat": 31.8361121,
+      "lon": 34.9877783,
+      "method": "nominatim"
+    },
     "d1c27c1b-b841-4bde-8f9c-88d5a75d39dd": null,
     "d1d8417d-26d4-449f-8975-91ec509d42f0": {
       "city": "תל אביב -יפו",
@@ -6679,7 +8318,12 @@
       "lon": 34.782876,
       "method": "nominatim"
     },
-    "d1f43944-98c1-4bf4-abbc-c14b3378cdab": null,
+    "d1f43944-98c1-4bf4-abbc-c14b3378cdab": {
+      "city": "נתניה",
+      "lat": 32.2779843,
+      "lon": 34.8606265,
+      "method": "cheapersal"
+    },
     "d2466a65-1848-454c-ab71-ed6ebaca99db": null,
     "d26c5e58-b5a6-49a4-827b-d6a184134034": {
       "city": "תל אביב -יפו",
@@ -6701,14 +8345,24 @@
       "lon": 34.8655222,
       "method": "nominatim"
     },
-    "d2f4cfb5-0501-4817-8aa8-5805bcd456d0": null,
+    "d2f4cfb5-0501-4817-8aa8-5805bcd456d0": {
+      "city": "אריאל",
+      "lat": 32.1023464,
+      "lon": 35.2072802,
+      "method": "nominatim"
+    },
     "d307b857-95b6-4179-b77e-58c146fa3f58": {
       "city": "אשקלון",
       "lat": 31.6587605,
       "lon": 34.6026285,
       "method": "nominatim"
     },
-    "d31f085d-d873-46b8-bd3b-bba68f6cd74b": null,
+    "d31f085d-d873-46b8-bd3b-bba68f6cd74b": {
+      "city": "תל אביב -יפו",
+      "lat": 32.0499798,
+      "lon": 34.7590871,
+      "method": "nominatim"
+    },
     "d3288bbc-ec81-4e60-9999-c80370bf2c12": {
       "city": "חיפה",
       "lat": 32.8076269,
@@ -6717,7 +8371,12 @@
     },
     "d336fa00-a7ff-4119-938f-f670cffc45bf": null,
     "d34db4fa-3251-4bb1-950a-8328b0c9cdc0": null,
-    "d35072ad-0b80-4ff1-a54f-50e69ce37618": null,
+    "d35072ad-0b80-4ff1-a54f-50e69ce37618": {
+      "city": "בת ים",
+      "lat": 32.0022613,
+      "lon": 34.7467555,
+      "method": "nominatim"
+    },
     "d3588082-02e7-4448-bff8-13698e9a99fe": {
       "city": "ירושלים",
       "lat": 31.776424,
@@ -6744,8 +8403,18 @@
     },
     "d3c83f01-e449-4589-8bee-60c9885e8d30": null,
     "d3cc40a5-3dce-499a-a991-25ec18928ab5": null,
-    "d3d4316e-0039-45bd-a2e7-a563344d632b": null,
-    "d3ee6f3c-7284-4bcb-952e-6b35e532cb2e": null,
+    "d3d4316e-0039-45bd-a2e7-a563344d632b": {
+      "city": "תל אביב -יפו",
+      "lat": 32.056412,
+      "lon": 34.770703,
+      "method": "nominatim"
+    },
+    "d3ee6f3c-7284-4bcb-952e-6b35e532cb2e": {
+      "city": "בני ברק",
+      "lat": 32.0813359,
+      "lon": 34.8403829,
+      "method": "cheapersal"
+    },
     "d42d244a-d791-4243-968d-0385539be03c": null,
     "d43d2ba1-a57b-4ef8-ad4a-64c029a56a59": {
       "city": "טירת כרמל",
@@ -6809,7 +8478,12 @@
       "lon": 34.771365,
       "method": "nominatim"
     },
-    "d56d7d1d-30ca-4b1d-b87f-c27bea008624": null,
+    "d56d7d1d-30ca-4b1d-b87f-c27bea008624": {
+      "city": "ירושלים",
+      "lat": 31.7721238,
+      "lon": 35.2040896,
+      "method": "cheapersal"
+    },
     "d56f65aa-7f06-4ba3-aab8-a58f92ce894d": {
       "city": "בית שמש",
       "lat": 31.7076083,
@@ -6824,14 +8498,24 @@
     },
     "d58bb3c4-8ffa-4b90-90be-ff957282c9e6": null,
     "d5c03cbe-41e8-4ebf-bb61-a652d5956b25": null,
-    "d5cbb9c5-15a9-46d9-aa44-46df97f79539": null,
+    "d5cbb9c5-15a9-46d9-aa44-46df97f79539": {
+      "city": "מזרע",
+      "lat": 32.649879,
+      "lon": 35.286404,
+      "method": "cheapersal"
+    },
     "d615d14a-f6e3-4120-b622-f0c570b2c88e": {
       "city": "קריית ביאליק",
       "lat": 32.8304337,
       "lon": 35.0851866,
       "method": "nominatim"
     },
-    "d62638e4-524a-4991-983c-c1d917dc615d": null,
+    "d62638e4-524a-4991-983c-c1d917dc615d": {
+      "city": "אשדוד",
+      "lat": 31.7819555,
+      "lon": 34.6375965,
+      "method": "nominatim"
+    },
     "d65351c4-b071-4bd3-aed7-5ee0c1e2b7a6": {
       "city": "רחובות",
       "lat": 31.9196212,
@@ -6844,7 +8528,12 @@
       "lon": 34.8606353,
       "method": "nominatim"
     },
-    "d6b73f0a-b211-457e-a32d-6981e06b723d": null,
+    "d6b73f0a-b211-457e-a32d-6981e06b723d": {
+      "city": "אילת",
+      "lat": 29.5762742,
+      "lon": 34.9444142,
+      "method": "nominatim"
+    },
     "d6e14969-d235-4816-8f66-0828f147e365": {
       "city": "חולון",
       "lat": 32.024502,
@@ -6871,7 +8560,12 @@
     },
     "d7ecad2b-ffef-4797-a421-e910eb1ea640": null,
     "d7ffffce-cfcd-43f3-953d-55b091cc034b": null,
-    "d81f438c-983e-4f82-8fe7-a3be53249665": null,
+    "d81f438c-983e-4f82-8fe7-a3be53249665": {
+      "city": "לוד",
+      "lat": 31.9506533,
+      "lon": 34.8845577,
+      "method": "nominatim"
+    },
     "d8252bd1-5a39-45c5-9547-408447d55115": null,
     "d82782f7-899f-45be-8f2d-4e71589c1d02": null,
     "d8498797-f109-4112-a8fc-df9c1cafa68e": {
@@ -6899,7 +8593,12 @@
       "method": "nominatim"
     },
     "d8dc2491-56e9-4201-ac15-c21e5752c9c2": null,
-    "d8dff2e2-82ae-4f08-a244-f1a37fea0ea2": null,
+    "d8dff2e2-82ae-4f08-a244-f1a37fea0ea2": {
+      "city": "נתניה",
+      "lat": 32.3311255,
+      "lon": 34.8592264,
+      "method": "nominatim"
+    },
     "d9098e8f-262a-47a1-9ce9-b8d1e6634ccf": {
       "city": "קרית אתא",
       "lat": 32.8036556,
@@ -6921,7 +8620,12 @@
     "d9b9aa64-1650-424b-852c-6d68ba55e117": null,
     "d9e8a16a-8556-4f02-8797-2120b0f929e3": null,
     "da14c3fe-3eb2-47c1-bd78-73b89f85bdf1": null,
-    "da4f9812-7c94-4645-ac4e-02da9e1030db": null,
+    "da4f9812-7c94-4645-ac4e-02da9e1030db": {
+      "city": "רמלה",
+      "lat": 31.9383577,
+      "lon": 34.8740219,
+      "method": "nominatim"
+    },
     "da502931-82bd-42d9-b36c-e4d86c2e6935": null,
     "da782980-de51-46f9-8015-2b0cbcdc7687": null,
     "da7a66c7-1760-4207-a6f5-48347738d114": null,
@@ -6968,7 +8672,12 @@
       "lon": 35.289326,
       "method": "nominatim"
     },
-    "dbb1b42d-eff9-4c60-b76e-2e2ab5056e2e": null,
+    "dbb1b42d-eff9-4c60-b76e-2e2ab5056e2e": {
+      "city": "רחובות",
+      "lat": 31.8803651,
+      "lon": 34.8085422,
+      "method": "nominatim"
+    },
     "dc021b98-ac76-4727-b36d-0c31bdf70a6b": {
       "city": "חולון",
       "lat": 32.0229493,
@@ -6982,7 +8691,12 @@
       "lon": 34.8071829,
       "method": "nominatim"
     },
-    "dc8bab2e-c922-48a3-aba3-8c88f352dec3": null,
+    "dc8bab2e-c922-48a3-aba3-8c88f352dec3": {
+      "city": "חיפה",
+      "lat": 32.82123869999999,
+      "lon": 35.0704097,
+      "method": "cheapersal"
+    },
     "dcb111da-999d-4cdb-b696-635b7553a857": {
       "city": "חדרה",
       "lat": 32.4269536,
@@ -6990,7 +8704,12 @@
       "method": "nominatim"
     },
     "dcc8c4ce-d9dd-4b43-aac3-7fa1b14f1e15": null,
-    "dcecb611-ebdf-4e16-8533-90d8a9774c44": null,
+    "dcecb611-ebdf-4e16-8533-90d8a9774c44": {
+      "city": "כנות",
+      "lat": 31.8039831,
+      "lon": 34.7612051,
+      "method": "nominatim"
+    },
     "dd2001b4-4037-4228-bbb4-6a76caf32483": {
       "city": "רמת גן",
       "lat": 32.0742201,
@@ -7003,16 +8722,36 @@
       "lon": 35.2381416,
       "method": "nominatim"
     },
-    "dd67ea49-1871-4932-9889-22e142e035fe": null,
-    "dd683c2c-a3da-4637-b9b9-195a1be017c4": null,
+    "dd67ea49-1871-4932-9889-22e142e035fe": {
+      "city": "נתניה",
+      "lat": 32.2789052,
+      "lon": 34.8469328,
+      "method": "nominatim"
+    },
+    "dd683c2c-a3da-4637-b9b9-195a1be017c4": {
+      "city": "אחיטוב",
+      "lat": 32.387701,
+      "lon": 34.990826,
+      "method": "cheapersal"
+    },
     "dd80ca8a-0e69-41d2-9593-484307426a6f": {
       "city": "רעננה",
       "lat": 32.1825932,
       "lon": 34.8655222,
       "method": "nominatim"
     },
-    "dd894bc3-a29d-44a6-b5a5-f5473f21ed6b": null,
-    "ddad1afe-76ce-4315-92af-e43b27ce3ab4": null,
+    "dd894bc3-a29d-44a6-b5a5-f5473f21ed6b": {
+      "city": "באר שבע",
+      "lat": 31.2579975,
+      "lon": 34.7958844,
+      "method": "nominatim"
+    },
+    "ddad1afe-76ce-4315-92af-e43b27ce3ab4": {
+      "city": "תל אביב -יפו",
+      "lat": 32.0611271,
+      "lon": 34.7913062,
+      "method": "nominatim"
+    },
     "ddd92f2d-b4cc-480a-a5ee-779fab6eee48": {
       "city": "יהוד-מונוסון",
       "lat": 32.0261237,
@@ -7104,14 +8843,24 @@
       "lon": 34.9121206,
       "method": "nominatim"
     },
-    "e0a2f1df-cc44-4c83-b051-b6a6475c9268": null,
+    "e0a2f1df-cc44-4c83-b051-b6a6475c9268": {
+      "city": "רחובות",
+      "lat": 31.8933221,
+      "lon": 34.8215408,
+      "method": "cheapersal"
+    },
     "e0b76a93-eaa2-4720-a249-4c26179f5a8b": {
       "city": "עפולה",
       "lat": 32.6099722,
       "lon": 35.2947279,
       "method": "nominatim"
     },
-    "e0ba32c5-f1a5-425a-b5f8-59d684753428": null,
+    "e0ba32c5-f1a5-425a-b5f8-59d684753428": {
+      "city": "רעננה",
+      "lat": 32.1934813,
+      "lon": 34.8690154,
+      "method": "nominatim"
+    },
     "e120e607-bcbe-4489-ac34-de24a427b290": null,
     "e12e18ae-1526-44ee-9745-c71519b6fdfa": null,
     "e137cf85-3e8d-4bf3-b11b-26327f636644": null,
@@ -7135,7 +8884,12 @@
     },
     "e1ab7618-2b93-4419-9adc-86b4f48a57a4": null,
     "e1c31aff-3ac9-4bbf-b413-fdc053c59a8a": null,
-    "e1d3aace-f397-4787-938a-f4c243e0d91c": null,
+    "e1d3aace-f397-4787-938a-f4c243e0d91c": {
+      "city": null,
+      "lat": 32.7845461,
+      "lon": 34.9871217,
+      "method": "nominatim"
+    },
     "e1e2d4ee-f819-409a-9a8d-3b1e53d3c367": {
       "city": "טבריה",
       "lat": 32.7919036,
@@ -7170,7 +8924,12 @@
       "lon": 34.9001533,
       "method": "nominatim"
     },
-    "e295d3e8-5380-4d5f-82bc-a9090df65dac": null,
+    "e295d3e8-5380-4d5f-82bc-a9090df65dac": {
+      "city": "כרמיאל",
+      "lat": 32.9221332,
+      "lon": 35.2859589,
+      "method": "nominatim"
+    },
     "e29fccca-c9a9-4a4f-8e82-0b58d1c8d7b3": {
       "city": "אילת",
       "lat": 29.5497812,
@@ -7184,7 +8943,12 @@
       "method": "nominatim"
     },
     "e2cd6a5a-6fa3-4497-90dd-de2094769311": null,
-    "e2ce12a1-975d-4bfb-9dbe-789c5c157433": null,
+    "e2ce12a1-975d-4bfb-9dbe-789c5c157433": {
+      "city": "נהרייה",
+      "lat": 33.037739,
+      "lon": 35.105588,
+      "method": "nominatim"
+    },
     "e2f7df85-19b3-4820-bc0a-9d3701fdb485": {
       "city": "ירושלים",
       "lat": 31.7477563,
@@ -7215,7 +8979,12 @@
       "lon": 34.7680416,
       "method": "nominatim"
     },
-    "e365b18f-e319-45d3-818b-64bce1d3fe47": null,
+    "e365b18f-e319-45d3-818b-64bce1d3fe47": {
+      "city": "קריית מוצקין",
+      "lat": 32.8242406,
+      "lon": 35.080237,
+      "method": "nominatim"
+    },
     "e374a3a4-d974-4359-b089-06098aa09df9": {
       "city": "בת ים",
       "lat": 32.0184114,
@@ -7236,7 +9005,12 @@
       "lon": 34.8233211,
       "method": "nominatim"
     },
-    "e3f5e347-eaae-477c-b86e-ed7298cda97d": null,
+    "e3f5e347-eaae-477c-b86e-ed7298cda97d": {
+      "city": "ראש פינה",
+      "lat": 32.9697272,
+      "lon": 35.5497353,
+      "method": "cheapersal"
+    },
     "e4080dcc-b8d5-4f33-abfc-fbd1dc83bdb3": null,
     "e414e0c6-42dd-4fc0-aeec-7837468b15ba": {
       "city": "קרית גת",
@@ -7251,7 +9025,12 @@
       "method": "nominatim"
     },
     "e422e81c-b4f8-45d4-a2b9-e051f3467059": null,
-    "e42bd370-1bfa-4a4d-9bf8-ab6e66f05b61": null,
+    "e42bd370-1bfa-4a4d-9bf8-ab6e66f05b61": {
+      "city": "תל אביב -יפו",
+      "lat": 32.121743,
+      "lon": 34.834761,
+      "method": "nominatim"
+    },
     "e43d9b10-9fd9-4414-bd4c-0eb875795b07": {
       "city": "ראשון לציון",
       "lat": 31.9680083,
@@ -7270,7 +9049,12 @@
       "lon": 34.6616285,
       "method": "nominatim"
     },
-    "e498e200-84fb-4958-8532-784d317b1c05": null,
+    "e498e200-84fb-4958-8532-784d317b1c05": {
+      "city": "חיפה",
+      "lat": 32.7899151,
+      "lon": 34.962339,
+      "method": "nominatim"
+    },
     "e4be6e34-29bd-46f8-9004-366bef8260d4": {
       "city": "מצפה רמון",
       "lat": 30.6132971,
@@ -7289,9 +9073,24 @@
       "lon": 34.9196074,
       "method": "nominatim"
     },
-    "e4d78493-82dd-46e6-a0f1-92059771b21c": null,
-    "e504b565-0f6e-49f6-8c7a-d6cbfab9d92a": null,
-    "e51bd765-6df8-462b-87ae-8b77e68fbfd6": null,
+    "e4d78493-82dd-46e6-a0f1-92059771b21c": {
+      "city": "ירושלים",
+      "lat": 31.7548539,
+      "lon": 35.1776498,
+      "method": "cheapersal"
+    },
+    "e504b565-0f6e-49f6-8c7a-d6cbfab9d92a": {
+      "city": "ראש העין",
+      "lat": 32.0943323,
+      "lon": 34.9734331,
+      "method": "nominatim"
+    },
+    "e51bd765-6df8-462b-87ae-8b77e68fbfd6": {
+      "city": "נצרת",
+      "lat": 32.7144075,
+      "lon": 35.3356022,
+      "method": "nominatim"
+    },
     "e5313c6e-997e-4a93-babf-d1a3546ae573": {
       "city": "כרמיאל",
       "lat": 32.92786,
@@ -7304,24 +9103,54 @@
       "lon": 34.7979606,
       "method": "nominatim"
     },
-    "e55b7685-b490-488f-824d-e71c18ff566c": null,
-    "e591616b-d65e-46c1-b88e-3a822944c35a": null,
-    "e5944973-dcc9-413c-8960-6ffe2a492a63": null,
+    "e55b7685-b490-488f-824d-e71c18ff566c": {
+      "city": "קריית ביאליק",
+      "lat": 32.825021,
+      "lon": 35.079888,
+      "method": "nominatim"
+    },
+    "e591616b-d65e-46c1-b88e-3a822944c35a": {
+      "city": "יהוד-מונוסון",
+      "lat": 32.0259542,
+      "lon": 34.9006477,
+      "method": "nominatim"
+    },
+    "e5944973-dcc9-413c-8960-6ffe2a492a63": {
+      "city": "כפר סבא",
+      "lat": 32.172876,
+      "lon": 34.9185361,
+      "method": "nominatim"
+    },
     "e5b8b009-985b-46ad-836f-763a7cce77ea": {
       "city": "אשדוד",
       "lat": 31.8064865,
       "lon": 34.6437135,
       "method": "nominatim"
     },
-    "e5c64980-d590-4440-a487-31cd6822610c": null,
+    "e5c64980-d590-4440-a487-31cd6822610c": {
+      "city": "חולון",
+      "lat": 32.0347013,
+      "lon": 34.771365,
+      "method": "nominatim"
+    },
     "e622bf75-9412-4f83-960c-9a7d5c3b25fd": {
       "city": "רמת גן",
       "lat": 32.0850178,
       "lon": 34.801646,
       "method": "nominatim"
     },
-    "e6255d0b-7a4d-49f8-b7ff-7ce87e88ea25": null,
-    "e6414362-a7cc-4942-87c1-e93d59dd1b29": null,
+    "e6255d0b-7a4d-49f8-b7ff-7ce87e88ea25": {
+      "city": "חריש",
+      "lat": 32.4575311,
+      "lon": 35.0442593,
+      "method": "cheapersal"
+    },
+    "e6414362-a7cc-4942-87c1-e93d59dd1b29": {
+      "city": "אפק",
+      "lat": 32.785703,
+      "lon": 35.202829,
+      "method": "cheapersal"
+    },
     "e64ccee2-1b0b-4c9e-be4a-c08f84d5e7da": {
       "city": "תל אביב -יפו",
       "lat": 32.080088,
@@ -7349,7 +9178,12 @@
       "method": "nominatim"
     },
     "e6feec83-2b6c-4a96-b4da-af644d8c3474": null,
-    "e729c219-f56b-4f55-99e3-a1b2100723a4": null,
+    "e729c219-f56b-4f55-99e3-a1b2100723a4": {
+      "city": "שדי חמד",
+      "lat": 32.159406,
+      "lon": 34.944512,
+      "method": "cheapersal"
+    },
     "e7410993-da16-4a29-985c-9ba7bed0a85e": {
       "city": null,
       "lat": 32.1107693,
@@ -7381,7 +9215,12 @@
       "lon": 35.1930102,
       "method": "nominatim"
     },
-    "e7855a35-b41a-4580-ae74-9cdfdfdb1614": null,
+    "e7855a35-b41a-4580-ae74-9cdfdfdb1614": {
+      "city": "פרדס חנה-כרכור",
+      "lat": 32.478336,
+      "lon": 34.998689,
+      "method": "nominatim"
+    },
     "e78c2a6a-e666-4d37-a0dd-72c23179b658": {
       "city": "חיפה",
       "lat": 32.7733382,
@@ -7419,7 +9258,12 @@
       "method": "nominatim"
     },
     "e8325cec-6e65-4f55-a4ee-d8e40b259df4": null,
-    "e833165f-c877-4fe6-8bd4-669aecf5e4d8": null,
+    "e833165f-c877-4fe6-8bd4-669aecf5e4d8": {
+      "city": "בית קשת",
+      "lat": 32.7028394,
+      "lon": 35.4066647,
+      "method": "cheapersal"
+    },
     "e8490780-4139-4295-89c5-77c8ee215680": {
       "city": "תל אביב -יפו",
       "lat": 32.128001,
@@ -7435,7 +9279,12 @@
       "lon": 34.9468915,
       "method": "nominatim"
     },
-    "e89a9608-ee92-4bde-8eff-7fe166e9a0f7": null,
+    "e89a9608-ee92-4bde-8eff-7fe166e9a0f7": {
+      "city": "עפולה",
+      "lat": 32.6172589,
+      "lon": 35.2901579,
+      "method": "cheapersal"
+    },
     "e89ff152-3795-4b5b-bb8e-01099c9fa67c": null,
     "e8d3c639-9269-4e88-87f6-41dc68269590": {
       "city": "רמת גן",
@@ -7456,19 +9305,19 @@
       "lon": 34.8085886,
       "method": "nominatim"
     },
-    "e996a7c3-8176-4647-97c7-94012a8fed2c": null,
+    "e996a7c3-8176-4647-97c7-94012a8fed2c": {
+      "city": "להבים",
+      "lat": 31.3737235,
+      "lon": 34.8094517,
+      "method": "nominatim"
+    },
     "e9b3e140-b9c9-4e75-9ffd-6e5bcaf7a949": {
       "city": "תל אביב -יפו",
       "lat": 32.070793,
       "lon": 34.781973,
       "method": "nominatim"
     },
-    "e9dfa7d8-f6d8-47be-9bf6-00f2a9fb3478": {
-      "city": "חיפה",
-      "lat": 32.4299051,
-      "lon": 34.9233998,
-      "method": "nominatim"
-    },
+    "e9dfa7d8-f6d8-47be-9bf6-00f2a9fb3478": null,
     "e9e99868-d8bf-42e3-96c5-8d6dd8fffb96": {
       "city": "נתניה",
       "lat": 32.3199544,
@@ -7508,7 +9357,12 @@
       "method": "nominatim"
     },
     "eaa4046a-766e-40dd-bf6a-36bebe0fc4a5": null,
-    "eaa4d441-d6ae-48f5-9917-8afb907ac070": null,
+    "eaa4d441-d6ae-48f5-9917-8afb907ac070": {
+      "city": "חדרה",
+      "lat": 32.4376664,
+      "lon": 34.9219281,
+      "method": "nominatim"
+    },
     "ead0d6e5-e517-4c0f-a640-d69b01e41ba6": {
       "city": "ירושלים",
       "lat": 31.7922551,
@@ -7521,7 +9375,12 @@
       "lon": 34.813005,
       "method": "nominatim"
     },
-    "eae046bc-525e-45d9-844a-8ec40d7e5d7b": null,
+    "eae046bc-525e-45d9-844a-8ec40d7e5d7b": {
+      "city": "תל אביב -יפו",
+      "lat": 32.091475,
+      "lon": 34.782497,
+      "method": "nominatim"
+    },
     "eae70b58-a880-4abe-ac70-efed4e9821ae": {
       "city": "נתיבות",
       "lat": 31.4256548,
@@ -7543,8 +9402,18 @@
       "method": "nominatim"
     },
     "eb2acdd7-8185-4bfc-a766-04270f199760": null,
-    "eb625d41-fb30-4551-b162-04f4a0dd1d17": null,
-    "eb7479e2-01e4-4671-8b61-99a7d61907c7": null,
+    "eb625d41-fb30-4551-b162-04f4a0dd1d17": {
+      "city": "חיפה",
+      "lat": 32.8155111,
+      "lon": 34.9634636,
+      "method": "nominatim"
+    },
+    "eb7479e2-01e4-4671-8b61-99a7d61907c7": {
+      "city": "אשדוד",
+      "lat": 31.771159,
+      "lon": 34.6385526,
+      "method": "nominatim"
+    },
     "eb971407-1873-4104-8740-d61f1a7a9eb6": {
       "city": "כפר סבא",
       "lat": 32.174654,
@@ -7571,7 +9440,12 @@
       "method": "nominatim"
     },
     "eca45d2e-7f82-4325-b2b3-9c49ea3eb874": null,
-    "ece2e304-97f6-4b1b-86e1-3bc4663cebaa": null,
+    "ece2e304-97f6-4b1b-86e1-3bc4663cebaa": {
+      "city": "ירושלים",
+      "lat": 31.73698,
+      "lon": 35.1761583,
+      "method": "nominatim"
+    },
     "ece764ce-a5e6-42c3-868f-ca55cc1a2b9c": {
       "city": "גבעתיים",
       "lat": 32.0622106,
@@ -7667,23 +9541,48 @@
       "lon": 34.8142548,
       "method": "nominatim"
     },
-    "eff38108-e2f7-49a8-8746-407fc7f7f8eb": null,
-    "eff51bdb-3677-423a-81ce-081e3580d8a7": null,
+    "eff38108-e2f7-49a8-8746-407fc7f7f8eb": {
+      "city": "חיפה",
+      "lat": 32.7941448,
+      "lon": 34.9961037,
+      "method": "nominatim"
+    },
+    "eff51bdb-3677-423a-81ce-081e3580d8a7": {
+      "city": "נס ציונה",
+      "lat": 31.9278655,
+      "lon": 34.7983278,
+      "method": "nominatim"
+    },
     "eff52bc3-ff06-4c67-8f85-9d7d6d3c7c89": {
       "city": "רחובות",
       "lat": 31.8947843,
       "lon": 34.7936158,
       "method": "nominatim"
     },
-    "effd821b-1052-40e8-b022-195a8d4ee486": null,
+    "effd821b-1052-40e8-b022-195a8d4ee486": {
+      "city": "חמדיה",
+      "lat": 32.506403,
+      "lon": 35.51902,
+      "method": "cheapersal"
+    },
     "f009b59f-5430-47bd-8b58-5ff3b8a43795": {
       "city": "חריש",
       "lat": 32.4709015,
       "lon": 35.0395785,
       "method": "nominatim"
     },
-    "f0371e8c-99b8-4715-a3e7-b402bd4429b6": null,
-    "f04c97c8-9afc-4a76-94b8-5d15567fa9da": null,
+    "f0371e8c-99b8-4715-a3e7-b402bd4429b6": {
+      "city": "חיפה",
+      "lat": 32.7797806,
+      "lon": 34.9851863,
+      "method": "cheapersal"
+    },
+    "f04c97c8-9afc-4a76-94b8-5d15567fa9da": {
+      "city": "באר שבע",
+      "lat": 31.2464515,
+      "lon": 34.7716677,
+      "method": "nominatim"
+    },
     "f082b191-5764-450a-acf7-225006fc1aaf": {
       "city": "ערד",
       "lat": 31.2473733,
@@ -7757,12 +9656,37 @@
       "lon": 34.6267558,
       "method": "nominatim"
     },
-    "f226a212-9784-4359-9601-b2ea9b7e40be": null,
+    "f226a212-9784-4359-9601-b2ea9b7e40be": {
+      "city": "חולון",
+      "lat": 32.0081402,
+      "lon": 34.7917993,
+      "method": "nominatim"
+    },
     "f273642e-80c8-4da2-87fe-e1cf4f6f9387": null,
-    "f27f751d-ce81-47b4-a14e-924b9e047f90": null,
-    "f27f75d0-f5d5-4509-a7b5-4456ca22b626": null,
-    "f2981852-cce5-476b-8534-cf931d4dea6e": null,
-    "f29b73ec-439d-451f-a92e-57176abb3c51": null,
+    "f27f751d-ce81-47b4-a14e-924b9e047f90": {
+      "city": "טירת כרמל",
+      "lat": 32.7558218,
+      "lon": 34.9730593,
+      "method": "nominatim"
+    },
+    "f27f75d0-f5d5-4509-a7b5-4456ca22b626": {
+      "city": "חיפה",
+      "lat": 32.7850608,
+      "lon": 35.0049464,
+      "method": "nominatim"
+    },
+    "f2981852-cce5-476b-8534-cf931d4dea6e": {
+      "city": "יבנה",
+      "lat": 31.8863085,
+      "lon": 34.7341705,
+      "method": "nominatim"
+    },
+    "f29b73ec-439d-451f-a92e-57176abb3c51": {
+      "city": "חדרה",
+      "lat": 32.4376664,
+      "lon": 34.9219281,
+      "method": "nominatim"
+    },
     "f2b74d42-5f0e-40ea-aec4-13a09bab1709": null,
     "f2ccbb7d-cf91-4329-aeda-03c2ab0eedc8": {
       "city": "אשדוד",
@@ -7770,14 +9694,24 @@
       "lon": 34.6437736,
       "method": "nominatim"
     },
-    "f2fbfe56-1f71-421d-9249-538ae0277db8": null,
+    "f2fbfe56-1f71-421d-9249-538ae0277db8": {
+      "city": "ירושלים",
+      "lat": 31.7620314,
+      "lon": 35.1719613,
+      "method": "cheapersal"
+    },
     "f34add54-d593-46c3-b09f-24331c73029f": {
       "city": "נתניה",
       "lat": 32.3094019,
       "lon": 34.8754813,
       "method": "nominatim"
     },
-    "f34ff4af-88c5-4e92-83a8-fff576e0a277": null,
+    "f34ff4af-88c5-4e92-83a8-fff576e0a277": {
+      "city": "פתח תקווה",
+      "lat": 32.0798866,
+      "lon": 34.9023987,
+      "method": "cheapersal"
+    },
     "f38359c0-5286-441e-ad9a-75beb11e1390": {
       "city": "תל אביב -יפו",
       "lat": 32.0553503,
@@ -7861,9 +9795,19 @@
       "lon": 34.8848424,
       "method": "nominatim"
     },
-    "f5a778c8-a0b7-489f-8db3-6a7ad0879d62": null,
+    "f5a778c8-a0b7-489f-8db3-6a7ad0879d62": {
+      "city": "הוד השרון",
+      "lat": 32.129842,
+      "lon": 34.8952427,
+      "method": "nominatim"
+    },
     "f5c35828-9da4-4005-8e43-b84d33d6ebcf": null,
-    "f5df7243-f4a1-4537-ad43-2f989a8a5cf1": null,
+    "f5df7243-f4a1-4537-ad43-2f989a8a5cf1": {
+      "city": "מענית",
+      "lat": 32.465003,
+      "lon": 34.9923195,
+      "method": "cheapersal"
+    },
     "f608ea66-eda7-45ec-abc1-83ae04b924db": {
       "city": "תל אביב -יפו",
       "lat": 32.083148,
@@ -7883,10 +9827,25 @@
       "method": "nominatim"
     },
     "f65baf27-d8cd-4164-bbef-545a35155f59": null,
-    "f674e172-05ab-465a-9fb4-79e4ef5b20c6": null,
-    "f67f9085-32de-49bb-8b44-ff9374c58861": null,
+    "f674e172-05ab-465a-9fb4-79e4ef5b20c6": {
+      "city": "חיפה",
+      "lat": 32.7737415,
+      "lon": 35.028554,
+      "method": "cheapersal"
+    },
+    "f67f9085-32de-49bb-8b44-ff9374c58861": {
+      "city": "נהרייה",
+      "lat": 33.0048635,
+      "lon": 35.1010428,
+      "method": "nominatim"
+    },
     "f67fc31e-cab6-46e6-bdde-d557091bbf2b": null,
-    "f6976024-8118-41e1-acd6-1bf112fab75c": null,
+    "f6976024-8118-41e1-acd6-1bf112fab75c": {
+      "city": null,
+      "lat": 31.4169741,
+      "lon": 34.5939941,
+      "method": "nominatim"
+    },
     "f6ec8979-5221-4631-961d-7a39ae726200": {
       "city": "שוהם",
       "lat": 32.0056105,
@@ -7953,7 +9912,12 @@
       "lon": 35.0057522,
       "method": "nominatim"
     },
-    "f8337bf5-936d-4c36-ab41-fdd42591645f": null,
+    "f8337bf5-936d-4c36-ab41-fdd42591645f": {
+      "city": "כפר סבא",
+      "lat": 32.1835566,
+      "lon": 34.9172029,
+      "method": "cheapersal"
+    },
     "f847ef4c-c159-4cd6-bb98-654d745bb2f6": {
       "city": null,
       "lat": 32.050809,
@@ -7979,8 +9943,18 @@
       "lon": 34.8016487,
       "method": "nominatim"
     },
-    "f8b40469-280d-44a9-8247-770247ced7ac": null,
-    "f8da7134-13e7-409e-9ee9-3fc753660ae8": null,
+    "f8b40469-280d-44a9-8247-770247ced7ac": {
+      "city": null,
+      "lat": 31.8110057,
+      "lon": 34.6628269,
+      "method": "nominatim"
+    },
+    "f8da7134-13e7-409e-9ee9-3fc753660ae8": {
+      "city": "תל מונד",
+      "lat": 32.257392,
+      "lon": 34.920973,
+      "method": "nominatim"
+    },
     "f92c1568-6db8-4728-8fcb-85401db2ea33": null,
     "f931cd4e-e997-47a6-b32f-54cdd4a17184": {
       "city": "קרית אונו",
@@ -8020,7 +9994,12 @@
       "lon": 35.0192,
       "method": "nominatim"
     },
-    "faaf1992-2926-4dd1-9805-33b1ce9adae7": null,
+    "faaf1992-2926-4dd1-9805-33b1ce9adae7": {
+      "city": "ביר אל-מכסור",
+      "lat": 32.777291,
+      "lon": 35.22057100000001,
+      "method": "cheapersal"
+    },
     "faf27e06-0a30-400e-8dbc-a0da27f1fd0a": null,
     "fb0eed48-a798-4351-a14a-d4cab7cf1369": null,
     "fb0f0800-fa12-41e0-b6d7-59d7544b6891": {
@@ -8056,8 +10035,18 @@
       "lon": 34.8620915,
       "method": "nominatim"
     },
-    "fb800530-0a11-4174-b89f-decda2055a5b": null,
-    "fb81dd83-a0a5-43b8-a523-12863b519733": null,
+    "fb800530-0a11-4174-b89f-decda2055a5b": {
+      "city": "ירושלים",
+      "lat": 31.7797855,
+      "lon": 35.1937031,
+      "method": "nominatim"
+    },
+    "fb81dd83-a0a5-43b8-a523-12863b519733": {
+      "city": "יבנה",
+      "lat": 31.8434578,
+      "lon": 34.710257,
+      "method": "nominatim"
+    },
     "fb8b3f79-52a6-4d9c-b8cb-de2e6975dce3": {
       "city": "בית שמש",
       "lat": 31.7066184,
@@ -8065,7 +10054,12 @@
       "method": "nominatim"
     },
     "fbae55aa-6d08-43da-9a73-040caa17fa62": null,
-    "fbbf8538-ad50-43dd-8302-d721499db664": null,
+    "fbbf8538-ad50-43dd-8302-d721499db664": {
+      "city": "גבעת שמואל",
+      "lat": 32.0722524,
+      "lon": 34.8533566,
+      "method": "nominatim"
+    },
     "fbcf5e9f-db59-4ab7-a01f-05518690dbf7": {
       "city": "אשדוד",
       "lat": 31.8124439,
@@ -8078,7 +10072,12 @@
       "lon": 34.8162399,
       "method": "nominatim"
     },
-    "fbe9b56e-2961-4ffc-ba95-11ec69e7c639": null,
+    "fbe9b56e-2961-4ffc-ba95-11ec69e7c639": {
+      "city": "נתניה",
+      "lat": 32.3044115,
+      "lon": 34.8695675,
+      "method": "nominatim"
+    },
     "fc0b1d34-4325-4403-872f-b2132cba136e": null,
     "fc31ab18-e56c-4716-9300-df574ecf9a3c": {
       "city": "רעננה",
@@ -8092,7 +10091,12 @@
       "lon": 35.270315,
       "method": "nominatim"
     },
-    "fc380f11-8e90-4494-a325-3eff34e2739c": null,
+    "fc380f11-8e90-4494-a325-3eff34e2739c": {
+      "city": "רעננה",
+      "lat": 32.1825932,
+      "lon": 34.8655222,
+      "method": "nominatim"
+    },
     "fc3abd31-833b-4096-b0a1-8912dea4ac8f": {
       "city": "נתניה",
       "lat": 32.282476,
@@ -8123,7 +10127,12 @@
       "lon": 35.2214671,
       "method": "nominatim"
     },
-    "fd0ee915-86ce-424e-a97b-556bef4e06fa": null,
+    "fd0ee915-86ce-424e-a97b-556bef4e06fa": {
+      "city": "הוד השרון",
+      "lat": 32.1604766,
+      "lon": 34.8951431,
+      "method": "nominatim"
+    },
     "fd1671ad-5197-4bd2-afb5-9698cab50d88": {
       "city": "תל אביב - יפו",
       "lat": 32.075837,
@@ -8172,7 +10181,12 @@
       "lon": 35.2216657,
       "method": "nominatim"
     },
-    "fef20c46-b118-46c8-b134-c0360671f62c": null,
+    "fef20c46-b118-46c8-b134-c0360671f62c": {
+      "city": "תל אביב -יפו",
+      "lat": 32.0644734,
+      "lon": 34.7699118,
+      "method": "nominatim"
+    },
     "fef445dc-93db-499f-9591-0ba38bd0afff": {
       "city": "רחובות",
       "lat": 31.8849932,
