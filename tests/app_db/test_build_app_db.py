@@ -42,16 +42,16 @@ def fixture_db(tmp_path):
     conn = sqlite3.connect(path)
     conn.executescript(merge_db.SCHEMA)
 
-    conn.executemany("INSERT INTO chains VALUES (?,?)", [
-        ("RAMI_LEVY", "Rami Levy"),
-        ("SHUFERSAL", "Shufersal"),
+    conn.executemany("INSERT INTO chains VALUES (?,?,?)", [
+        ("RAMI_LEVY", "Rami Levy", None),
+        ("SHUFERSAL", "Shufersal", None),
     ])
     conn.executemany(
-        "INSERT INTO stores VALUES (?,?,?,?,?,?,?)",
+        "INSERT INTO stores VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
         [
-            ("RAMI_LEVY", "1", None, "Rami Levy Center", "3000", "Jaffa Rd", 500),
-            ("RAMI_LEVY", "2", None, "Rami Levy North", "5000", "Ibn Gvirol", 480),
-            ("SHUFERSAL", "1", None, "Shufersal Deal", "5000", "Dizengoff", 600),
+            ("RAMI_LEVY", "1", None, "Rami Levy Center", "3000", None, "Jaffa Rd", 500, None, None, None, None),
+            ("RAMI_LEVY", "2", None, "Rami Levy North", "5000", None, "Ibn Gvirol", 480, None, None, None, None),
+            ("SHUFERSAL", "1", None, "Shufersal Deal", "5000", None, "Dizengoff", 600, None, None, None, None),
         ],
     )
     conn.executemany(

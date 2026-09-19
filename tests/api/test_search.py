@@ -56,19 +56,19 @@ def _build_prices_db(path):
     conn.executescript(merge_db.SCHEMA)
 
     conn.executemany(
-        "INSERT INTO chains VALUES (?,?)",
+        "INSERT INTO chains VALUES (?,?,?)",
         [
-            ("RAMI_LEVY", "Rami Levy"),
-            ("SHUFERSAL", "Shufersal"),
-            ("CHAIN_C", "Chain C"),
-            ("CHAIN_D", "Chain D"),
-            ("CHAIN_E", "Chain E"),
-            ("CHAIN_F", "Chain F"),
+            ("RAMI_LEVY", "Rami Levy", None),
+            ("SHUFERSAL", "Shufersal", None),
+            ("CHAIN_C", "Chain C", None),
+            ("CHAIN_D", "Chain D", None),
+            ("CHAIN_E", "Chain E", None),
+            ("CHAIN_F", "Chain F", None),
         ],
     )
     conn.executemany(
-        "INSERT INTO stores VALUES (?,?,?,?,?,?,?)",
-        [("RAMI_LEVY", "10", None, "Rami Levy A", "3000", "St 1", 100)],
+        "INSERT INTO stores VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+        [("RAMI_LEVY", "10", None, "Rami Levy A", "3000", None, "St 1", 100, None, None, None, None)],
     )
     conn.executemany(
         "INSERT INTO products VALUES (?,?,?,?,?,?,?)",

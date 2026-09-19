@@ -61,23 +61,23 @@ def build_prices_db(path):
     conn = sqlite3.connect(path)
     conn.executescript(merge_db.SCHEMA)
 
-    conn.executemany("INSERT INTO chains VALUES (?,?)", [
-        ("RAMI_LEVY", "Rami Levy"),
-        ("SHUFERSAL", "Shufersal"),
+    conn.executemany("INSERT INTO chains VALUES (?,?,?)", [
+        ("RAMI_LEVY", "Rami Levy", None),
+        ("SHUFERSAL", "Shufersal", None),
     ])
 
     # RAMI_LEVY: branches 10,20,30 sorted -> bits 0,1,2; "40" is a real store
     # that never appears in any promo_offers/promo_stores row at all - the
     # second half of the "everywhere" trap (see module docstring).
     conn.executemany(
-        "INSERT INTO stores VALUES (?,?,?,?,?,?,?)",
+        "INSERT INTO stores VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
         [
-            ("RAMI_LEVY", "10", None, "Rami Levy A", "3000", "St 1", 100),
-            ("RAMI_LEVY", "20", None, "Rami Levy B", "3000", "St 2", 100),
-            ("RAMI_LEVY", "30", None, "Rami Levy C", "3000", "St 3", 100),
-            ("RAMI_LEVY", "40", None, "Rami Levy D", "3000", "St 4", 100),
-            ("SHUFERSAL", "1", None, "Shufersal Deal", "5000", "St 5", 100),
-            ("SHUFERSAL", "2", None, "Shufersal Other", "5000", "St 6", 100),
+            ("RAMI_LEVY", "10", None, "Rami Levy A", "3000", None, "St 1", 100, None, None, None, None),
+            ("RAMI_LEVY", "20", None, "Rami Levy B", "3000", None, "St 2", 100, None, None, None, None),
+            ("RAMI_LEVY", "30", None, "Rami Levy C", "3000", None, "St 3", 100, None, None, None, None),
+            ("RAMI_LEVY", "40", None, "Rami Levy D", "3000", None, "St 4", 100, None, None, None, None),
+            ("SHUFERSAL", "1", None, "Shufersal Deal", "5000", None, "St 5", 100, None, None, None, None),
+            ("SHUFERSAL", "2", None, "Shufersal Other", "5000", None, "St 6", 100, None, None, None, None),
         ],
     )
 

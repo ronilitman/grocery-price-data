@@ -48,15 +48,15 @@ def fixture_db(tmp_path):
     conn = sqlite3.connect(path)
     conn.executescript(merge_db.SCHEMA)
 
-    conn.executemany("INSERT INTO chains VALUES (?,?)", [
-        ("RAMI_LEVY", "Rami Levy"),
-        ("SHUFERSAL", "Shufersal"),
+    conn.executemany("INSERT INTO chains VALUES (?,?,?)", [
+        ("RAMI_LEVY", "Rami Levy", None),
+        ("SHUFERSAL", "Shufersal", None),
     ])
     conn.executemany(
-        "INSERT INTO stores VALUES (?,?,?,?,?,?,?)",
+        "INSERT INTO stores VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
         [
-            ("RAMI_LEVY", "10", None, "Rami Levy A", "3000", "St 1", 100),
-            ("SHUFERSAL", "1", None, "Shufersal A", "5000", "St 2", 100),
+            ("RAMI_LEVY", "10", None, "Rami Levy A", "3000", None, "St 1", 100, None, None, None, None),
+            ("SHUFERSAL", "1", None, "Shufersal A", "5000", None, "St 2", 100, None, None, None, None),
         ],
     )
     conn.executemany(
@@ -120,8 +120,8 @@ def fixture_db(tmp_path):
     )
     # A second RAMI_LEVY branch, for the tie-break fixture above.
     conn.execute(
-        "INSERT INTO stores VALUES (?,?,?,?,?,?,?)",
-        ("RAMI_LEVY", "11", None, "Rami Levy B", "3000", "St 3", 100),
+        "INSERT INTO stores VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+        ("RAMI_LEVY", "11", None, "Rami Levy B", "3000", None, "St 3", 100, None, None, None, None),
     )
     conn.executemany("INSERT INTO meta VALUES (?,?)", [
         ("built_at", f"{TODAY}T02:00:00+00:00"),

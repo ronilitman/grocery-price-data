@@ -49,7 +49,7 @@ def db():
     """
     conn = sqlite3.connect(":memory:")
     conn.executescript(build_chain_db.SCHEMA)
-    conn.execute("INSERT INTO chains VALUES (?,?)", (CHAIN, "פרש מרקט"))
+    conn.execute("INSERT INTO chains VALUES (?,?,?)", (CHAIN, "פרש מרקט", None))
     conn.execute("INSERT INTO chain_prices VALUES (?,?,?,?)", (CHAIN, PEAS, 19.90, 22))
     conn.execute("INSERT INTO price_exceptions VALUES (?,?,?,?)", (CHAIN, "11", PEAS, 21.90))
     conn.commit()

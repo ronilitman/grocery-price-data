@@ -183,7 +183,7 @@ class TestOrdinaryVictoryOfferIsUntouched:
 def _db_with_price(barcode, price):
     conn = sqlite3.connect(":memory:")
     conn.executescript(build_chain_db.SCHEMA)
-    conn.execute("INSERT INTO chains VALUES (?,?)", (CHAIN, "ויקטורי"))
+    conn.execute("INSERT INTO chains VALUES (?,?,?)", (CHAIN, "ויקטורי", None))
     if price is not None:
         conn.execute("INSERT INTO chain_prices VALUES (?,?,?,?)",
                      (CHAIN, barcode, price, 40))
