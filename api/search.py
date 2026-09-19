@@ -15,33 +15,57 @@ bare "3" or a `"` in it comes back without them - see
 ``scripts.app_search.index_text``), so display always comes from
 ``products.name``, joined by barcode, never from the FTS row itself.
 
-Ranking (KAN-24)
------------------
-Plain bm25-then-chains ranking (KAN-12's original scheme, still the tie-break
-below) sank widely-stocked products once KAN-29 gave them fuller names -
-bm25 penalises a longer document, so a barcode still named plainly ``במבה``
-outranked the 32-chain ``חטיף במבה מאנצ' צ'דר`` it used to tie with. The
-owner measured a plain chain-count-first scheme too and rejected it: it put
-``ריבת חלב`` (milk jam) and ``חלב מרוכז`` (condensed milk) above every
-drinking milk, because a jam or a tin outnumbers fresh milk's chain count.
-The decided order is:
+Ranking (KAN-24, re-decided 2026-09-19)
+----------------------------------------
+Plain bm25-then-chains ranking (KAN-12's original scheme) sank widely-stocked
+products once KAN-29 gave them fuller names - bm25 penalises a longer
+document, so a barcode still named plainly ``במבה`` outranked the 32-chain
+``חטיף במבה מאנצ' צ'דר`` it used to tie with. The first KAN-24 fix put match
+tier (below) ahead of chains, which traded that bug for a worse one: five
+one-chain barcodes literally named ``שקדי מרק`` (chicken-soup almonds - a
+snack, not the soup mix) outranked the 33-chain ``שקדי מרק רכיבים טבעי`` and
+26-chain ``שקדי מרק 400 גר`` that almost every chain actually stocks, because
+"the query IS the name" (tier 0) beat "the name starts with the query"
+(tier 1) even when tier 0 meant a single store's odd listing. The owner
+re-decided: chain count should outrank the tier-0-vs-tier-1 distinction, not
+lose to it. The decided order is:
 
-1. **Match tier** - 0 if the query IS the name, 1 if the name STARTS with
-   the query, 2 otherwise (``_match_tier``). Compared normalised-to-
-   normalised: the FTS ``name`` column is already ``app_search.tokens(q)``
-   run at index time, so the query is tokenised the same way and the two
-   token lists are compared directly - a user typing ``במבה`` matches a
-   stored ``במבה`` regardless of punctuation, and "the query IS the name"
-   means the *whole* name, not just its first word.
-2. **chains**, most first - the tie-break the owner asked for, and the one
-   that puts drinking milk over milk jam once both are tier 2.
+1. **Real match, or not** - collapse the old three-way tier into two groups:
+   *matched* (the query IS the name, or the name STARTS with it - the old
+   tiers 0 and 1) beats *not really matched* (the query only appears
+   somewhere else in the name, via ``bm25()``'s own OR semantics - the old
+   tier 2), full stop. ``_match_tier`` still returns 0/1/2 (the pool logic
+   below still needs the finer distinction); ``_rank_group`` collapses it to
+   0 or 1 for sorting.
+2. **chains, most first** - *within* the matched group, this is now the
+   primary key, which is the actual fix: ``שקדי מרק רכיבים טבעי`` (33
+   chains, tier 1) now outranks the five tier-0 one-chain listings, because
+   both are in the matched group and 33 beats 1. A not-really-matched
+   product never gets to compete on chains at all, no matter how big the
+   number - it is still behind every matched product, which is what keeps
+   ``ריבת חלב`` (milk jam, up to 29 chains) and ``חלב מרוכז`` (condensed
+   milk, up to 25) below ``חלב תנובה טרי`` (32 chains, tier 1): neither
+   starts with ``חלב``, so both are tier 2 regardless of chain count.
+   A plain chain-count-first scheme (chains ahead of *all* tier, including
+   tier 2) was measured and rejected for the same reason plus a second,
+   worse case found while measuring it: for ``שמן זית`` (olive oil), every
+   real tier-1 olive oil tops out around 30 chains while unrelated products
+   merely containing the word ``שמן`` (oil) - שמן קנולה (canola oil),
+   shampoo - reach 32, so chains-before-tier put shampoo above olive oil.
+   Bucketing chain counts (the fallback the ticket suggested) has the same
+   problem one level down: any fixed bucket boundary that is wide enough to
+   tie ``שקדי מרק``'s 33 against 26 is also wide enough to let ``שמן``'s
+   32-chain shampoo tie against, and then beat on bm25, a 20-chain olive
+   oil. Gating on tier 2 instead of on a chain-count number sidesteps that
+   entirely - it needs no tuned constant, and every case above is decided
+   without one.
 3. **bm25()**, ascending (better match first) - the original ranking,
-   unchanged, as the final tie-break.
+   unchanged, as the final tie-break, exactly as it already was within a
+   tier.
 
-Candidates: KAN-12's ``limit * 4`` bm25-ordered window is no longer enough
-on its own. It was safe when bm25 was the primary key, because truncating
-early only ever dropped candidates that were already going to rank low.
-Now tier and chains outrank bm25, and a tier-0/1 candidate can sit
+Candidates: unchanged from the first KAN-24 fix, and still correct under the
+new sort key. KAN-12's ``limit * 4`` bm25-ordered window undercounts once
+anything but bm25 is the primary key - a tier-0/1 candidate can sit
 arbitrarily deep in bm25 order (measured on the real catalogue: the
 32-chain ``חלב תנובה טרי`` needed the *entire* 2,324-row ``חלב`` candidate
 set before it surfaced - no fixed multiple of ``limit`` caught it within
@@ -56,6 +80,18 @@ made fetching the whole match set for hydration too slow to try instead:
 ~370ms for ~14k candidates one row at a time on this repo's machine,
 against ~10ms batched). A query whose only matches are all tier-2 (no
 exact/leading match anywhere) costs exactly what KAN-12 did.
+
+This pool split still holds now that chains outrank tier 0-vs-1, and does
+not need widening for it: group 0 (tier 0/1, sorted by chains) is exactly
+the "every tier-0/1 candidate, however deep" pool already fetched in full,
+so its chain-count ordering is exact, not an artifact of the window. Group
+1 (tier 2) only ever fills remaining slots below every group-0 result, the
+same window-bounded, bm25-first ordering KAN-12 always gave it - so a
+tier-2 candidate outside the window can never be the row that should have
+won, because a matched (group-0) candidate always wins first when one
+exists. Checked directly against the real catalogue for all six ranking
+queries below: hydrating the *entire* match set (no window at all) instead
+of this pool produces byte-identical top-10s.
 """
 
 from __future__ import annotations
@@ -100,6 +136,14 @@ def _match_tier(indexed_name: str, q_tokens: list) -> int:
     if name_tokens[: len(q_tokens)] == q_tokens:
         return 1
     return 2
+
+
+def _rank_group(tier: int) -> int:
+    """0 for a real match (tier 0 or 1 - the query IS or STARTS the name),
+    1 for tier 2 (the query only matched elsewhere via bm25's OR). Chains
+    decide within group 0; group 1 never outranks group 0, however many
+    chains it has - see the module docstring's KAN-24 section for why."""
+    return 0 if tier < 2 else 1
 
 
 def _hydrate(conn: sqlite3.Connection, barcodes: list):
@@ -205,7 +249,7 @@ def run_search(
             }
         )
 
-    results.sort(key=lambda r: (r["_tier"], -r["chains"], r["_rank"]))
+    results.sort(key=lambda r: (_rank_group(r["_tier"]), -r["chains"], r["_rank"]))
     for row in results:
         del row["_tier"]
         del row["_rank"]

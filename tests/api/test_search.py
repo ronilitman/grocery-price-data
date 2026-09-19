@@ -47,6 +47,8 @@ C_LOW = "9300000000001"      # STARTS WITH "גזר", 1 chain - tier 1
 C_HIGH = "9300000000002"     # STARTS WITH "גזר", 6 chains - tier 1
 D_SHORT = "9400000000001"    # "בצל" mid-name, short doc, 2 chains - tier 2
 D_LONG = "9400000000002"     # "בצל" mid-name, long doc, same 2 chains - tier 2
+E_EXACT = "9500000000001"    # "מלפפון" IS the query, 1 chain - tier 0
+E_LEAD = "9500000000002"     # STARTS WITH "מלפפון", 6 chains - tier 1
 
 BUILT_AT = "2026-09-13T02:00:00+00:00"
 
@@ -87,6 +89,8 @@ def _build_prices_db(path):
             (D_SHORT, "ירקות בצל", "Acme", "1", 1.0, "unit", 0),
             (D_LONG, "ירקות בצל קלוי ומתובל בתערובת תבלינים מיוחדת",
              "Acme", "1", 1.0, "unit", 0),
+            (E_EXACT, "מלפפון", "Acme", "1", 1.0, "unit", 0),
+            (E_LEAD, "מלפפון חמוץ ארוז במיץ", "Acme", "1", 1.0, "unit", 0),
         ],
     )
     conn.executemany(
@@ -110,6 +114,9 @@ def _build_prices_db(path):
             ("SHUFERSAL", D_SHORT, 3.20, 5),
             ("RAMI_LEVY", D_LONG, 8.00, 5),
             ("SHUFERSAL", D_LONG, 8.20, 5),
+            ("RAMI_LEVY", E_EXACT, 3.50, 5),
+            *[(c, E_LEAD, 4.00, 5) for c in
+              ("RAMI_LEVY", "SHUFERSAL", "CHAIN_C", "CHAIN_D", "CHAIN_E", "CHAIN_F")],
         ],
     )
     conn.executemany(
@@ -250,6 +257,20 @@ def test_leading_word_match_outranks_mid_name_match(client):
     assert resp.status_code == 200
     names = _names(resp.json())
     assert names.index("תפוח עץ ירוק") < names.index("מיץ תפוח טבעי מרוכז")
+
+
+def test_chains_outrank_the_tier_0_vs_tier_1_distinction(client):
+    """KAN-24 (re-decided 2026-09-19): tier 1 (the name STARTS with the
+    query, 6 chains) now outranks tier 0 (the query IS the name, 1 chain) -
+    this is the שקדי מרק bug the ticket was re-opened for: five one-chain
+    barcodes literally named "שקדי מרק" used to bury the 33-chain
+    "שקדי מרק רכיבים טבעי" that almost every chain stocks, because tier 0
+    beat tier 1 regardless of chains. Tier still gates tier 2 absolutely -
+    see the tests above and below, both still passing unchanged."""
+    resp = client.get("/search", params={"q": "מלפפון"})
+    assert resp.status_code == 200
+    names = _names(resp.json())
+    assert names.index("מלפפון חמוץ ארוז במיץ") < names.index("מלפפון"), names
 
 
 def test_more_chains_wins_within_the_same_tier(client):
